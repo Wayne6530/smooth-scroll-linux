@@ -10,5 +10,5 @@ endif()
 find_package(fmt REQUIRED)
 
 file(GLOB SOURCES "*.cpp")
-add_executable(smooth_scroll ${SOURCES})
-target_link_libraries(smooth_scroll fmt::fmt evdev)
+add_executable(smooth-scroll ${SOURCES})
+target_link_libraries(smooth-scroll fmt::fmt evdev)
