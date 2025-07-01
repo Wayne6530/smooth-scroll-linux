@@ -4,7 +4,6 @@
 #include <string_view>
 #include <string>
 
-#include <libudev.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <signal.h>

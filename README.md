@@ -28,6 +28,88 @@ Perfect for users craving precision and elegance in their desktop navigation.
 
 ## Quick Start
 
+### Prerequisites
+
+Ensure your system has the following dependencies installed:
+
+- **Compiler**: GCC/Clang with C++17 support
+- **Build Tools**: CMake (≥ 3.14)
+
+### Installation Steps
+
+1. **Install Dependencies** (Ubuntu/Debian):
+
+   ```bash
+   sudo apt install build-essential cmake libspdlog-dev libevdev-dev
+   ```
+
+2. **Clone & Build**:
+
+   ```bash
+   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+   cd smooth-scroll-linux
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   ```
+
+### Finding Your Mouse Device
+
+1. **Install `libinput-tools`**:
+
+   ```bash
+   sudo apt install libinput-tools
+   ```
+
+2. **Identify your mouse device**:
+   - Run the debug command:
+
+     ```bash
+     sudo libinput debug-events
+     ```
+
+   - Move your mouse or scroll the wheel. The output will display your device ID (e.g., `event9`):
+
+     ```text
+     event9   POINTER_MOTION          322  +1.363s   0.00/  1.10 ( +0.00/ +1.00)
+     ```
+
+     The prefix (e.g., `event9`) is your device identifier.
+
+### Configuration
+
+1. **Copy the Config File**:  
+   Run this command to copy the default configuration to your build directory:
+
+   ```bash
+   cp smooth-scroll.toml build/
+   ```
+
+2. **Modify the Device Name**:  
+   Open `smooth-scroll.toml` in a text editor and update the `device` field with your mouse's event ID (e.g., `event9`).  
+
+   Example:  
+
+   ```toml
+   device = "/dev/input/event9"  # Replace with your device ID
+   ```
+
+### Running the Tool
+
+- **Basic Usage** (requires root permissions):
+
+  ```bash
+  cd build
+  sudo ./smooth-scroll
+  ```
+
+  By default, it looks for `./smooth-scroll.toml`.
+
+- **Custom Config Path**:
+
+  ```bash
+  sudo ./smooth-scroll -c /path/to/config.toml
+  ```
+
 ## FAQ
 
 ### Why does scrolling have dead zones or sudden acceleration?
