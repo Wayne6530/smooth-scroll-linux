@@ -1,0 +1,23 @@
+device = "/dev/input/event9"
+
+tick_interval_microseconds = 16667
+
+min_speed = 200.0
+
+initial_speed = 600.0
+
+speed_factor = 80.0
+
+max_speed_increase_per_wheel_event = 1000.0
+
+max_speed_decrease_per_wheel_event = 0.0
+
+damping = 3.1
+
+use_braking = true
+
+braking_dejitter_microseconds = 100000
+
+braking_cut_off_speed = 1000.0
+
+speed_decrease_per_braking = inf

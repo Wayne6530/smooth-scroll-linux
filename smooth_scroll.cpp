@@ -1,6 +1,8 @@
 #include <atomic>
 #include <optional>
 #include <chrono>
+#include <string_view>
+#include <string>
 
 #include <libudev.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
@@ -8,18 +10,35 @@
 #include <signal.h>
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 #include <spdlog/spdlog.h>
+#include <toml++/toml.hpp>
 
 #include "wheel_smoother.h"
 
+using namespace std::string_view_literals;
 using namespace smooth_scroll;
 
-std::atomic_bool shutdown{ false };
+constexpr std::string_view kVersion = "0.1.0"sv;
+
+constexpr std::string_view kHelpStr =
+    R"(Smooth Scroll for Linux (https://github.com/Wayne6530/smooth-scroll-linux)
+
+Usage: smooth-scroll [options]
+
+Options:
+  -c, --config <file>  Specify config file path (default "./smooth-scroll.toml")
+  -h, --help           Show help message
+  -v, --version        Show version information
+)"sv;
+
+constexpr std::string_view kDefaultConfigPath = "./smooth-scroll.toml"sv;
+
+std::atomic_bool kShutdown{ false };
 
 void signalHandler(int signal_num)
 {
   if (signal_num == SIGINT)
   {
-    shutdown.store(true, std::memory_order_relaxed);
+    kShutdown.store(true, std::memory_order_relaxed);
   }
 }
 
@@ -28,22 +47,113 @@ int main(int argc, char* argv[])
   spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%E.%f] [%^%L%$] %v");
 
+  std::string config_path(kDefaultConfigPath);
+  bool show_help = false;
+  bool show_version = false;
+
+  for (int i = 1; i < argc; ++i)
+  {
+    std::string_view arg = argv[i];
+    if (arg == "-h" || arg == "--help")
+    {
+      show_help = true;
+      break;
+    }
+    else if (arg == "-v" || arg == "--version")
+    {
+      show_version = true;
+      break;
+    }
+    else if ((arg == "-c" || arg == "--config"))
+    {
+      if (i + 1 < argc)
+      {
+        config_path = argv[++i];
+      }
+      else
+      {
+        show_help = true;
+        break;
+      }
+    }
+    else
+    {
+      show_help = true;
+      break;
+    }
+  }
+
+  if (show_help)
+  {
+    fmt::print("{}", kHelpStr);
+    return 0;
+  }
+
+  if (show_version)
+  {
+    fmt::print("{}\n", kVersion);
+    return 0;
+  }
+
+  if (access(config_path.c_str(), R_OK) != 0)
+  {
+    SPDLOG_ERROR("Config file '{}' is not readable: {}", config_path, strerror(errno));
+    return -1;
+  }
+
+  toml::table table;
+  try
+  {
+    table = toml::parse_file(config_path);
+  }
+  catch (const toml::parse_error& err)
+  {
+    SPDLOG_ERROR("Parsing failed: {}", err.description());
+    return -1;
+  }
+
+  std::optional<std::string> device = table["device"].value<std::string>();
+  if (!device.has_value())
+  {
+    SPDLOG_ERROR("No 'device' field in config file");
+    return -1;
+  }
+
+  auto read_option = [&table](const char* name, auto& value) {
+    if (auto opt = table[name].value<std::remove_reference_t<decltype(value)>>())
+    {
+      value = *opt;
+      SPDLOG_INFO("Config loaded: {} = {}", name, value);
+    }
+    else
+    {
+      SPDLOG_WARN("Config '{}' not found or invalid, using default: {}", name, value);
+    }
+  };
+
+  WheelSmoother::Options options;
+  read_option("tick_interval_microseconds", options.tick_interval_microseconds);
+  read_option("min_speed", options.min_speed);
+  read_option("initial_speed", options.initial_speed);
+  read_option("speed_factor", options.speed_factor);
+  read_option("max_speed_increase_per_wheel_event", options.max_speed_increase_per_wheel_event);
+  read_option("max_speed_decrease_per_wheel_event", options.max_speed_decrease_per_wheel_event);
+  read_option("damping", options.damping);
+  read_option("use_braking", options.use_braking);
+  read_option("braking_dejitter_microseconds", options.braking_dejitter_microseconds);
+  read_option("braking_cut_off_speed", options.braking_cut_off_speed);
+  read_option("speed_decrease_per_braking", options.speed_decrease_per_braking);
+
   if (signal(SIGINT, signalHandler) == SIG_ERR)
   {
     SPDLOG_ERROR("can't catch SIGINT");
     return -1;
   }
 
-  if (argc < 2)
-  {
-    SPDLOG_INFO("usage: {} /dev/input/event*", argv[0]);
-    return -1;
-  }
-
-  int fd = open(argv[1], O_RDONLY | O_NONBLOCK);
+  int fd = open((*device).c_str(), O_RDONLY | O_NONBLOCK);
   if (fd < 0)
   {
-    SPDLOG_ERROR("can't open {}", argv[1]);
+    SPDLOG_ERROR("can't open {}", *device);
     return -1;
   }
 
@@ -148,11 +258,11 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  WheelSmoother wheel_smoother{ WheelSmoother::Options{} };
+  WheelSmoother wheel_smoother{ options };
 
   bool drop_syn_report = false;
   struct input_event ev;
-  while (!shutdown.load(std::memory_order_relaxed))
+  while (!kShutdown.load(std::memory_order_relaxed))
   {
     fd_set read_fds;
     FD_ZERO(&read_fds);
