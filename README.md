@@ -13,6 +13,8 @@
 
 **Smooth Scroll for Linux** is a lightweight tool that transforms your mouse wheel scrolling into a fluid, natural experience.  
 
+[screencast_smooth_scroll.webm](https://github.com/user-attachments/assets/d0ec740d-df2c-4257-bd15-e7a1d66b0092)
+
 **Key Features**:
 
 - **Universal Compatibility**: Uses Linux `uinput` to emulate a virtual mouse, ensuring broad support across distributions.  
