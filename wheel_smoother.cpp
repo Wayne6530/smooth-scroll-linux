@@ -9,7 +9,7 @@ namespace smooth_scroll
 WheelSmoother::WheelSmoother(const Options& options)
   : options_{ options }
   , tick_interval_{ static_cast<double>(options.tick_interval_microseconds) / 1.e6 }
-  , min_delta_{ options.min_speed * tick_interval_ < 1 ? 1 : options.min_speed * tick_interval_ }
+  , min_delta_{ options.min_speed * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
   , alpha_{ std::exp(-options.damping * tick_interval_) }
   , max_delta_increase_{ options.max_speed_increase_per_wheel_event * tick_interval_ }
@@ -196,10 +196,10 @@ std::optional<struct timeval> WheelSmoother::timeout()
   timeout.tv_sec = 0;
   timeout.tv_usec = (next_tick_time_ - now).count();
 
-  while (timeout.tv_usec > 1e6)
+  while (timeout.tv_usec >= 1'000'000)
   {
     timeout.tv_sec += 1;
-    timeout.tv_usec -= 1e6;
+    timeout.tv_usec -= 1'000'000;
   }
 
   return timeout;
