@@ -174,6 +174,64 @@ The tool leverages Linux's input subsystem to achieve smooth scrolling through t
    - Uses `uinput` to create a **virtual mouse device**.  
    - Merges smoothed `REL_WHEEL_HI_RES` events with other unmodified mouse events (e.g., clicks, movement) and emits them through the virtual device.  
 
+### Smoothing Algorithm  
+
+The physics-based smoothing algorithm transforms discrete wheel events into fluid motion using the following principles:
+
+#### Speed Calculation  
+
+The speed is measured in `REL_WHEEL_HI_RES` values per second.  
+
+1. **Initial Trigger**:  
+   - When scrolling starts (after a stop), the first wheel event sets the initial speed (`initial_speed`).  
+
+2. **Subsequent Events**:  
+   - For each new wheel event in the **same direction**, the speed is updated based on:  
+     - The time interval (`event_interval`) since the last event.  
+     - The `speed_factor`, which scales the speed adjustment.  
+     - Clamping to ensure the speed change stays within bounds (`max_speed_increase_per_wheel_event` and `max_speed_decrease_per_wheel_event`).  
+
+   The actual speed is calculated as:  
+
+   ```text
+   actual_speed = max(initial_speed, clamp(speed_factor / event_interval, current_speed - max_speed_decrease_per_wheel_event, current_speed + max_speed_increase_per_wheel_event))
+   ```
+
+3. **Decay Over Time**:  
+   - The speed decays exponentially based on the `damping` factor:  
+
+     ```text
+     current_speed = actual_speed * exp(-damping * time_since_last_event)
+     ```  
+
+   - If `current_speed` drops below `min_speed`, it resets to zero (stopping the motion).  
+
+#### Braking Logic  
+
+Two methods can stop the scrolling:  
+
+1. **Click-to-Stop**:  
+   - A mouse click forces `current_speed = 0`.  
+
+2. **Reverse-Scroll Braking**:  
+   - A wheel event in the **opposite direction** reduces the speed by `speed_decrease_per_braking`.  
+   - If `current_speed` falls below `braking_cut_off_speed`, it resets to zero.  
+   - To prevent accidental reverse-scroll jitter, opposite direction events within `braking_dejitter_microseconds` after braking are ignored.  
+
+#### Key Parameters  
+
+| Parameter | Description |  
+|-----------|-------------|  
+| `initial_speed` | Base speed when scrolling starts. |  
+| `speed_factor` | Scales speed adjustments per wheel event. |  
+| `damping` | Controls how quickly speed decays over time. |  
+| `min_speed` | Minimum speed before motion stops. |  
+| `max_speed_increase_per_wheel_event` | Limits how much speed can increase per event. |  
+| `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
+| `speed_decrease_per_braking` | Speed reduction per opposite-direction event. |  
+| `braking_cut_off_speed` | Threshold to stop scrolling during braking. |  
+| `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
+
 ## Customization
 
 ## Roadmap
