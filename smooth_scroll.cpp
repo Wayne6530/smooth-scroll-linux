@@ -133,6 +133,7 @@ int main(int argc, char* argv[])
   WheelSmoother::Options options;
   read_option("tick_interval_microseconds", options.tick_interval_microseconds);
   read_option("min_speed", options.min_speed);
+  read_option("min_deceleration", options.min_deceleration);
   read_option("initial_speed", options.initial_speed);
   read_option("speed_factor", options.speed_factor);
   read_option("max_speed_increase_per_wheel_event", options.max_speed_increase_per_wheel_event);

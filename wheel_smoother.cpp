@@ -10,6 +10,7 @@ WheelSmoother::WheelSmoother(const Options& options)
   : options_{ options }
   , tick_interval_{ static_cast<double>(options.tick_interval_microseconds) / 1.e6 }
   , min_delta_{ options.min_speed * tick_interval_ }
+  , min_delta_decrease_per_tick_{ options.min_deceleration * tick_interval_ * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
   , alpha_{ std::exp(-options.damping * tick_interval_) }
   , max_delta_increase_{ options.max_speed_increase_per_wheel_event * tick_interval_ }
@@ -141,7 +142,14 @@ std::optional<struct input_event> WheelSmoother::tick()
     return {};
   }
 
+  double max_delta = delta_ - min_delta_decrease_per_tick_;
+
   delta_ *= alpha_;
+
+  if (delta_ > max_delta)
+  {
+    delta_ = max_delta;
+  }
 
   if (delta_ < min_delta_)
   {
@@ -151,7 +159,8 @@ std::optional<struct input_event> WheelSmoother::tick()
     return {};
   }
 
-  SPDLOG_TRACE("tick speed {:.2f}", delta_ / tick_interval_);
+  SPDLOG_TRACE("tick speed {:.2f} deceleration {:.2f}", delta_ / tick_interval_,
+               (max_delta + min_delta_decrease_per_tick_ - delta_) / (tick_interval_ * tick_interval_));
 
   std::chrono::microseconds current_tick_time = next_tick_time_;
   next_tick_time_ += std::chrono::microseconds{ options_.tick_interval_microseconds };

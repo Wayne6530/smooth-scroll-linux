@@ -2,7 +2,9 @@ device = "/dev/input/event9"
 
 tick_interval_microseconds = 16667
 
-min_speed = 200.0
+min_speed = 0
+
+min_deceleration = 1000
 
 initial_speed = 600.0
 

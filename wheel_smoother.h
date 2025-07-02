@@ -15,7 +15,8 @@ public:
   {
     int tick_interval_microseconds = 16667;
 
-    double min_speed = 200;
+    double min_speed = 0;
+    double min_deceleration = 1000;
     double initial_speed = 600;
     double speed_factor = 80;
     double max_speed_increase_per_wheel_event = 1000;
@@ -51,6 +52,7 @@ private:
 
   double tick_interval_;
   double min_delta_;
+  double min_delta_decrease_per_tick_;
   double initial_delta_;
   double alpha_;
   double max_delta_increase_;

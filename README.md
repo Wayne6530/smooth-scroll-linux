@@ -204,6 +204,7 @@ The speed is measured in `REL_WHEEL_HI_RES` values per second.
      current_speed = actual_speed * exp(-damping * time_since_last_event)
      ```  
 
+   - If the deceleration caused by `damping` is weaker than `min_deceleration`, the deceleration is clamped to `min_deceleration`. This ensures **linear deceleration** at low speeds for a more predictable stop.  
    - If `current_speed` drops below `min_speed`, it resets to zero (stopping the motion).  
 
 #### Braking Logic  
@@ -226,6 +227,7 @@ Two methods can stop the scrolling:
 | `speed_factor` | Scales speed adjustments per wheel event. |  
 | `damping` | Controls how quickly speed decays over time. |  
 | `min_speed` | Minimum speed before motion stops. |  
+| `min_deceleration` | Minimum deceleration force (ensures linear slowdown at low speeds). |
 | `max_speed_increase_per_wheel_event` | Limits how much speed can increase per event. |  
 | `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
 | `speed_decrease_per_braking` | Speed reduction per opposite-direction event. |  
