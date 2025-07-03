@@ -27,6 +27,12 @@ public:
     int braking_dejitter_microseconds = 100000;
     double braking_cut_off_speed = 1000;
     double speed_decrease_per_braking = std::numeric_limits<double>::infinity();
+
+    bool use_mouse_movement_braking = true;
+    int mouse_movement_dejitter_distance = 200;
+    int max_mouse_movement_event_interval_microseconds = 50000;
+    double mouse_movement_braking_cut_off_speed = 200;
+    double speed_decrease_per_mouse_movement = std::numeric_limits<double>::infinity();
   };
 
   explicit WheelSmoother(const Options& options);
@@ -47,6 +53,10 @@ public:
 
   std::optional<std::chrono::microseconds> next_tick_time();
 
+  void handleRelXEvent(const struct timeval& time, int value);
+
+  void handleRelYEvent(const struct timeval& time, int value);
+
 private:
   Options options_;
 
@@ -59,13 +69,19 @@ private:
   double max_delta_decrease_;
   double delta_decrease_per_braking_;
   double braking_cut_off_delta_;
+  double delta_decrease_per_mouse_movement_;
+  double mouse_movement_braking_cut_off_delta_;
 
   std::chrono::microseconds last_event_time_{ 0 };
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };
+  std::chrono::microseconds last_mouse_movement_time_{ 0 };
   bool positive_ = false;
   double delta_ = 0;
   double deviation_ = 0;
+  bool mouse_movement_dejitter_ = true;
+  int mouse_movement_x_ = 0;
+  int mouse_movement_y_ = 0;
 };
 
 }  // namespace smooth_scroll

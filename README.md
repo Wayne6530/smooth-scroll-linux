@@ -21,7 +21,7 @@
 - **Physics-Based Motion**: Mimics real-world inertia and damping, mirroring the smooth scrolling of Android/iOS.  
 - **Customizable Feel**: Tweak parameters to match your preferred scrolling style.  
 - **Jitter-Free Input**: Smoothens raw wheel events to eliminate sudden jumps or stutters.  
-- **Smart Stopping**: Supports multiple stopping methods (click-to-stop, slow-wheel tracking, reverse-scroll braking).  
+- **Smart Stopping**: Supports multiple stopping methods (click-to-stop, slow-wheel tracking, reverse-scroll braking, mouse-movement braking).  
 - **Lightweight**: Runs efficiently in a single thread without hogging resources.  
 
 Perfect for users craving precision and elegance in their desktop navigation.  
@@ -219,10 +219,16 @@ Two methods can stop the scrolling:
    - If `current_speed` falls below `braking_cut_off_speed`, it resets to zero.  
    - To prevent accidental reverse-scroll jitter, opposite direction events within `braking_dejitter_microseconds` after braking are ignored.  
 
+3. **Mouse Movement Braking**  
+   - When the cumulative distance of continuous mouse movement exceeds `mouse_movement_dejitter_distance`, each subsequent movement unit reduces the speed by `speed_decrease_per_mouse_movement`.  
+   - If `current_speed` falls below `mouse_movement_braking_cut_off_speed`, the speed resets to zero.  
+   - If the time interval between mouse movements exceeds `max_mouse_movement_event_interval_microseconds`, it's treated as a new movement sequence, and `mouse_movement_dejitter_distance` resets.  
+
 #### Key Parameters  
 
 | Parameter | Description |  
 |-----------|-------------|  
+| `tick_interval_microseconds` | Interval between synthetic event generations (default: 16667µs ≈ 60Hz). |  
 | `initial_speed` | Base speed when scrolling starts. |  
 | `speed_factor` | Scales speed adjustments per wheel event. |  
 | `damping` | Controls how quickly speed decays over time. |  
@@ -230,9 +236,15 @@ Two methods can stop the scrolling:
 | `min_deceleration` | Minimum deceleration force (ensures linear slowdown at low speeds). |
 | `max_speed_increase_per_wheel_event` | Limits how much speed can increase per event. |  
 | `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
-| `speed_decrease_per_braking` | Speed reduction per opposite-direction event. |  
-| `braking_cut_off_speed` | Threshold to stop scrolling during braking. |  
+| `use_braking` | Whether reverse-scroll braking is enabled. |  
 | `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
+| `braking_cut_off_speed` | Speed threshold to stop scrolling during braking. |  
+| `speed_decrease_per_braking` | Speed reduction per opposite-direction wheel event. |  
+| `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
+| `mouse_movement_dejitter_distance` | Minimum cumulative movement distance before braking activates. |  
+| `max_mouse_movement_event_interval_microseconds` | Maximum time between movements to be considered continuous. |  
+| `mouse_movement_braking_cut_off_speed` | Speed threshold to stop scrolling during mouse movement braking. |  
+| `speed_decrease_per_mouse_movement` | Speed reduction per movement unit after dejitter distance. |  
 
 ## Customization
 

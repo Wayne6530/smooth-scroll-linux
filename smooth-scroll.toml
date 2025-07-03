@@ -23,3 +23,13 @@ braking_dejitter_microseconds = 100000
 braking_cut_off_speed = 1000.0
 
 speed_decrease_per_braking = inf
+
+use_mouse_movement_braking = true
+
+mouse_movement_dejitter_distance = 200
+
+max_mouse_movement_event_interval_microseconds = 50000
+
+mouse_movement_braking_cut_off_speed = 200
+
+speed_decrease_per_mouse_movement = inf

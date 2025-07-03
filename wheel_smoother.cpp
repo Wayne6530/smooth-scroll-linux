@@ -17,6 +17,8 @@ WheelSmoother::WheelSmoother(const Options& options)
   , max_delta_decrease_{ options.max_speed_decrease_per_wheel_event * tick_interval_ }
   , delta_decrease_per_braking_{ options.speed_decrease_per_braking * tick_interval_ }
   , braking_cut_off_delta_{ options_.braking_cut_off_speed * tick_interval_ }
+  , delta_decrease_per_mouse_movement_{ options.speed_decrease_per_mouse_movement * tick_interval_ }
+  , mouse_movement_braking_cut_off_delta_{ options.mouse_movement_braking_cut_off_speed * tick_interval_ }
 {
   SPDLOG_DEBUG("tick interval {}s alpha {}", tick_interval_, alpha_);
 }
@@ -32,6 +34,10 @@ void WheelSmoother::stop()
 
 std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive)
 {
+  mouse_movement_dejitter_ = true;
+  mouse_movement_x_ = 0;
+  mouse_movement_y_ = 0;
+
   std::chrono::microseconds event_time =
       std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
@@ -222,6 +228,124 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
   }
 
   return next_tick_time_;
+}
+
+void WheelSmoother::handleRelXEvent(const struct timeval& time, int value)
+{
+  if (delta_ == 0 || !options_.use_mouse_movement_braking)
+  {
+    return;
+  }
+
+  std::chrono::microseconds event_time =
+      std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
+
+  if (event_time >
+      last_mouse_movement_time_ + std::chrono::microseconds{ options_.max_mouse_movement_event_interval_microseconds })
+  {
+    last_mouse_movement_time_ = event_time;
+
+    SPDLOG_TRACE("mouse movement stop, enable dejitter");
+
+    mouse_movement_dejitter_ = true;
+    mouse_movement_x_ = value;
+    mouse_movement_y_ = 0;
+    return;
+  }
+
+  last_mouse_movement_time_ = event_time;
+
+  if (mouse_movement_dejitter_)
+  {
+    mouse_movement_x_ += value;
+    SPDLOG_TRACE("mouse movement x {}", mouse_movement_x_);
+
+    if (mouse_movement_x_ > options_.mouse_movement_dejitter_distance)
+    {
+      mouse_movement_dejitter_ = false;
+      value = mouse_movement_x_ - options_.mouse_movement_dejitter_distance;
+    }
+    else if (mouse_movement_x_ < -options_.mouse_movement_dejitter_distance)
+    {
+      mouse_movement_dejitter_ = false;
+      value = mouse_movement_x_ + options_.mouse_movement_dejitter_distance;
+    }
+    else
+    {
+      return;
+    }
+  }
+
+  delta_ -= delta_decrease_per_mouse_movement_ * std::abs(value);
+
+  if (delta_ < mouse_movement_braking_cut_off_delta_)
+  {
+    SPDLOG_DEBUG("mouse movement braking stop");
+    delta_ = 0;
+  }
+  else
+  {
+    SPDLOG_TRACE("mouse movement braking");
+  }
+}
+
+void WheelSmoother::handleRelYEvent(const struct timeval& time, int value)
+{
+  if (delta_ == 0 || !options_.use_mouse_movement_braking)
+  {
+    return;
+  }
+
+  std::chrono::microseconds event_time =
+      std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
+
+  if (event_time >
+      last_mouse_movement_time_ + std::chrono::microseconds{ options_.max_mouse_movement_event_interval_microseconds })
+  {
+    last_mouse_movement_time_ = event_time;
+
+    SPDLOG_TRACE("mouse movement stop, enable dejitter");
+
+    mouse_movement_dejitter_ = true;
+    mouse_movement_x_ = 0;
+    mouse_movement_y_ = value;
+    return;
+  }
+
+  last_mouse_movement_time_ = event_time;
+
+  if (mouse_movement_dejitter_)
+  {
+    mouse_movement_y_ += value;
+    SPDLOG_TRACE("mouse movement y {}", mouse_movement_y_);
+
+    if (mouse_movement_y_ > options_.mouse_movement_dejitter_distance)
+    {
+      mouse_movement_dejitter_ = false;
+      value = mouse_movement_y_ - options_.mouse_movement_dejitter_distance;
+    }
+    else if (mouse_movement_y_ < -options_.mouse_movement_dejitter_distance)
+    {
+      mouse_movement_dejitter_ = false;
+      value = mouse_movement_y_ + options_.mouse_movement_dejitter_distance;
+    }
+    else
+    {
+      return;
+    }
+  }
+
+  delta_ -= delta_decrease_per_mouse_movement_ * std::abs(value);
+
+  if (delta_ < mouse_movement_braking_cut_off_delta_)
+  {
+    SPDLOG_DEBUG("mouse movement braking stop");
+    delta_ = 0;
+  }
+  else
+  {
+    SPDLOG_TRACE("mouse movement braking");
+  }
 }
 
 }  // namespace smooth_scroll

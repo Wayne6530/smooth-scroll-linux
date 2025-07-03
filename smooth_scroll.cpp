@@ -143,6 +143,11 @@ int main(int argc, char* argv[])
   read_option("braking_dejitter_microseconds", options.braking_dejitter_microseconds);
   read_option("braking_cut_off_speed", options.braking_cut_off_speed);
   read_option("speed_decrease_per_braking", options.speed_decrease_per_braking);
+  read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
+  read_option("mouse_movement_dejitter_distance", options.mouse_movement_dejitter_distance);
+  read_option("max_mouse_movement_event_interval_microseconds", options.max_mouse_movement_event_interval_microseconds);
+  read_option("mouse_movement_braking_cut_off_speed", options.mouse_movement_braking_cut_off_speed);
+  read_option("speed_decrease_per_mouse_movement", options.speed_decrease_per_mouse_movement);
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)
   {
@@ -306,28 +311,41 @@ int main(int argc, char* argv[])
 
     while (libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev) == LIBEVDEV_READ_STATUS_SUCCESS)
     {
-      if (ev.type == EV_REL && ev.code == REL_WHEEL)
+      if (ev.type == EV_REL)
       {
-        auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
-        if (ev_wheel.has_value())
+        if (ev.code == REL_WHEEL)
         {
-          ev = *ev_wheel;
+          auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
+          if (ev_wheel.has_value())
+          {
+            ev = *ev_wheel;
 
-          SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                       libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-          write(uinput_fd, &ev, sizeof(ev));
+            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
+                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
+                         ev.value);
+            write(uinput_fd, &ev, sizeof(ev));
+          }
+          else
+          {
+            drop_syn_report = true;
+          }
+
+          continue;
         }
-        else
+
+        if (ev.code == REL_WHEEL_HI_RES)
         {
-          drop_syn_report = true;
+          continue;
         }
 
-        continue;
-      }
-
-      if (ev.type == EV_REL && ev.code == REL_WHEEL_HI_RES)
-      {
-        continue;
+        if (ev.code == REL_X)
+        {
+          wheel_smoother.handleRelXEvent(ev.time, ev.value);
+        }
+        else if (ev.code == REL_Y)
+        {
+          wheel_smoother.handleRelYEvent(ev.time, ev.value);
+        }
       }
 
       if (drop_syn_report)
