@@ -65,6 +65,8 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     int round_delta = std::round(delta_);
     deviation_ = delta_ - round_delta;
 
+    total_delta_ = round_delta;
+
     struct input_event ev;
     ev.time = time;
     ev.type = EV_REL;
@@ -109,6 +111,8 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     int round_delta = std::round(delta_);
     deviation_ = delta_ - round_delta;
 
+    total_delta_ = round_delta;
+
     struct input_event ev;
     ev.time = time;
     ev.type = EV_REL;
@@ -122,23 +126,13 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   double delta = std::clamp(speed * tick_interval_, delta_ - max_delta_decrease_, delta_ + max_delta_increase_);
 
   last_event_time_ = event_time;
-  next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
   positive_ = positive;
   delta_ = delta < initial_delta_ ? initial_delta_ : delta;
 
   SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", delta_ / tick_interval_, speed);
 
-  int round_delta = std::round(delta_);
-  deviation_ = delta_ - round_delta;
-
-  struct input_event ev;
-  ev.time = time;
-  ev.type = EV_REL;
-  ev.code = REL_WHEEL_HI_RES;
-  ev.value = positive_ ? round_delta : -round_delta;
-
-  return ev;
+  return {};
 }
 
 std::optional<struct input_event> WheelSmoother::tick()
@@ -159,7 +153,7 @@ std::optional<struct input_event> WheelSmoother::tick()
 
   if (delta_ < min_delta_)
   {
-    SPDLOG_DEBUG("damping stop");
+    SPDLOG_DEBUG("damping stop, total {}", total_delta_);
 
     delta_ = 0;
     return {};
@@ -178,6 +172,8 @@ std::optional<struct input_event> WheelSmoother::tick()
   {
     return {};
   }
+
+  total_delta_ += round_delta;
 
   struct input_event ev;
   ev.time.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(current_tick_time).count();

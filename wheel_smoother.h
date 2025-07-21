@@ -79,6 +79,7 @@ private:
   bool positive_ = false;
   double delta_ = 0;
   double deviation_ = 0;
+  int total_delta_ = 0;
   bool mouse_movement_dejitter_ = true;
   int mouse_movement_x_ = 0;
   int mouse_movement_y_ = 0;
