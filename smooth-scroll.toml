@@ -1,4 +1,4 @@
-device = "/dev/input/event9"
+# device = "/dev/input/event9"
 
 tick_interval_microseconds = 2000
 

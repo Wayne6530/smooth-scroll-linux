@@ -52,7 +52,16 @@ Ensure your system has the following dependencies installed:
    cmake --build build
    ```
 
-### Finding Your Mouse Device
+### Running the Tool
+
+  ```bash
+  cd build
+  sudo ./smooth-scroll
+  ```
+
+### Finding Your Mouse Device (Optional)
+
+If automatic detection fails:
 
 1. **Install `libinput-tools`**:
 
@@ -75,16 +84,7 @@ Ensure your system has the following dependencies installed:
 
      The prefix (e.g., `event9`) is your device identifier.
 
-### Configuration
-
-1. **Copy the Config File**:  
-   Run this command to copy the default configuration to your build directory:
-
-   ```bash
-   cp smooth-scroll.toml build/
-   ```
-
-2. **Modify the Device Name**:  
+3. **Modify the Device Name**:  
    Open `smooth-scroll.toml` in a text editor and update the `device` field with your mouse's event ID (e.g., `event9`).  
 
    Example:  
@@ -93,22 +93,11 @@ Ensure your system has the following dependencies installed:
    device = "/dev/input/event9"  # Replace with your device ID
    ```
 
-### Running the Tool
+4. **Use Custom Config Path**:
 
-- **Basic Usage** (requires root permissions):
-
-  ```bash
-  cd build
-  sudo ./smooth-scroll
-  ```
-
-  By default, it looks for `./smooth-scroll.toml`.
-
-- **Custom Config Path**:
-
-  ```bash
-  sudo ./smooth-scroll -c /path/to/config.toml
-  ```
+   ```bash
+   sudo ./smooth-scroll -c /path/to/smooth-scroll.toml
+   ```
 
 ## FAQ
 
@@ -228,7 +217,7 @@ Two methods can stop the scrolling:
 
 | Parameter | Description |  
 |-----------|-------------|  
-| `tick_interval_microseconds` | Interval between synthetic event generations (default: 16667µs ≈ 60Hz). |  
+| `tick_interval_microseconds` | Interval between synthetic event generations. |  
 | `initial_speed` | Base speed when scrolling starts. |  
 | `speed_factor` | Scales speed adjustments per wheel event. |  
 | `damping` | Controls how quickly speed decays over time. |  

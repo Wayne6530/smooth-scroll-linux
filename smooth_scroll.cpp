@@ -4,6 +4,7 @@
 #include <string_view>
 #include <string>
 
+#include <dirent.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <signal.h>
@@ -39,6 +40,132 @@ void signalHandler(int signal_num)
   {
     kShutdown.store(true, std::memory_order_relaxed);
   }
+}
+
+std::string findDevice()
+{
+  std::vector<std::pair<std::string, int>> mouse_devices;
+
+  DIR* dir = opendir("/dev/input");
+  if (!dir)
+  {
+    SPDLOG_ERROR("Failed to open /dev/input directory");
+    return "";
+  }
+
+  dirent* entry;
+  while ((entry = readdir(dir)) != nullptr)
+  {
+    std::string_view name = entry->d_name;
+    if (name.rfind("event", 0) == 0)
+    {
+      std::string path = "/dev/input/" + std::string(name);
+
+      int fd = open(path.c_str(), O_RDONLY | O_NONBLOCK);
+      if (fd < 0)
+      {
+        SPDLOG_WARN("Failed to open device {}: {}", path, strerror(errno));
+        continue;
+      }
+
+      libevdev* dev = nullptr;
+      int rc = libevdev_new_from_fd(fd, &dev);
+      if (rc < 0)
+      {
+        SPDLOG_WARN("Failed to initialize libevdev for {}: {}", path, strerror(-rc));
+        close(fd);
+        continue;
+      }
+
+      bool is_mouse = libevdev_has_event_type(dev, EV_REL) && libevdev_has_event_code(dev, EV_REL, REL_X) &&
+                      libevdev_has_event_code(dev, EV_REL, REL_Y) && libevdev_has_event_code(dev, EV_REL, REL_WHEEL);
+
+      libevdev_free(dev);
+
+      if (is_mouse)
+      {
+        SPDLOG_DEBUG("Found mouse device: {}", path);
+        mouse_devices.emplace_back(path, fd);
+      }
+      else
+      {
+        SPDLOG_DEBUG("Device {} is not a mouse", path);
+        close(fd);
+      }
+    }
+  }
+  closedir(dir);
+
+  if (mouse_devices.size() == 1)
+  {
+    auto& [path, fd] = mouse_devices[0];
+    close(fd);
+    return path;
+  }
+  else if (mouse_devices.empty())
+  {
+    SPDLOG_ERROR("No mouse devices found");
+    return "";
+  }
+
+  SPDLOG_INFO("Multiple mice found, detecting active one...");
+
+  fd_set read_fds;
+  while (!kShutdown.load(std::memory_order_relaxed))
+  {
+    FD_ZERO(&read_fds);
+    int max_fd = -1;
+
+    for (auto& [path, fd] : mouse_devices)
+    {
+      FD_SET(fd, &read_fds);
+      if (fd > max_fd)
+        max_fd = fd;
+    }
+
+    int ret = select(max_fd + 1, &read_fds, nullptr, nullptr, nullptr);
+    if (ret < 0)
+    {
+      if (errno == EINTR)
+        continue;
+      SPDLOG_ERROR("select error: {}", strerror(errno));
+      break;
+    }
+
+    for (auto& [path, fd] : mouse_devices)
+    {
+      if (FD_ISSET(fd, &read_fds))
+      {
+        libevdev* dev = nullptr;
+        libevdev_new_from_fd(fd, &dev);
+
+        struct input_event ev;
+        while (libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev) == LIBEVDEV_READ_STATUS_SUCCESS)
+        {
+          if (ev.type == EV_REL)
+          {
+            SPDLOG_INFO("Active mouse detected: {}", path);
+            libevdev_free(dev);
+
+            for (auto& [path, fd] : mouse_devices)
+            {
+              close(fd);
+            }
+
+            return path;
+          }
+        }
+        libevdev_free(dev);
+      }
+    }
+  }
+
+  for (auto& [path, fd] : mouse_devices)
+  {
+    close(fd);
+  }
+
+  return "";
 }
 
 int main(int argc, char* argv[])
@@ -96,8 +223,7 @@ int main(int argc, char* argv[])
 
   if (access(config_path.c_str(), R_OK) != 0)
   {
-    SPDLOG_ERROR("Config file '{}' is not readable: {}", config_path, strerror(errno));
-    return -1;
+    SPDLOG_INFO("Config file '{}' is not readable: {}", config_path, strerror(errno));
   }
 
   toml::table table;
@@ -107,15 +233,19 @@ int main(int argc, char* argv[])
   }
   catch (const toml::parse_error& err)
   {
-    SPDLOG_ERROR("Parsing failed: {}", err.description());
-    return -1;
+    SPDLOG_WARN("Parsing failed: {}", err.description());
   }
 
   std::optional<std::string> device = table["device"].value<std::string>();
   if (!device.has_value())
   {
-    SPDLOG_ERROR("No 'device' field in config file");
-    return -1;
+    SPDLOG_INFO("No 'device' field in config file");
+
+    device = findDevice();
+    if ((*device).empty())
+    {
+      return -1;
+    }
   }
 
   auto read_option = [&table](const char* name, auto& value) {

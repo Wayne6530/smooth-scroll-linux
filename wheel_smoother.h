@@ -13,13 +13,13 @@ class WheelSmoother
 public:
   struct Options
   {
-    int tick_interval_microseconds = 16667;
+    int tick_interval_microseconds = 2000;
 
     double min_speed = 0;
-    double min_deceleration = 1000;
+    double min_deceleration = 1420;
     double initial_speed = 600;
     double speed_factor = 80;
-    double max_speed_increase_per_wheel_event = 1000;
+    double max_speed_increase_per_wheel_event = 600;
     double max_speed_decrease_per_wheel_event = 0;
     double damping = 3.1;
 
