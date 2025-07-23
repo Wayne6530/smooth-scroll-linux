@@ -1,5 +1,13 @@
 # device = "/dev/input/event9"
 
+# DISABLED    0
+# BTN_LEFT		272
+# BTN_RIGHT		273
+# BTN_MIDDLE	274
+# BTN_SIDE		275
+# BTN_EXTRA		276
+free_spin_button = 273
+
 tick_interval_microseconds = 2000
 
 min_speed = 0

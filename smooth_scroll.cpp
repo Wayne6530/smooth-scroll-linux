@@ -248,6 +248,17 @@ int main(int argc, char* argv[])
     }
   }
 
+  std::optional<int> free_spin_button = table["free_spin_button"].value<int>();
+  if (free_spin_button.has_value())
+  {
+    SPDLOG_INFO("Use free spin button {}", free_spin_button.value());
+  }
+  else
+  {
+    free_spin_button = BTN_RIGHT;
+    SPDLOG_WARN("Use default free spin button {}", free_spin_button.value());
+  }
+
   auto read_option = [&table](const char* name, auto& value) {
     if (auto opt = table[name].value<std::remove_reference_t<decltype(value)>>())
     {
@@ -478,6 +489,25 @@ int main(int argc, char* argv[])
         }
       }
 
+      if (ev.type == EV_MSC)
+      {
+        continue;
+      }
+
+      if (ev.type == EV_KEY)
+      {
+        if (ev.code == *free_spin_button)
+        {
+          if (wheel_smoother.setFreeSpin(ev.value == 1))
+          {
+            drop_syn_report = true;
+            continue;
+          }
+        }
+
+        wheel_smoother.stop();
+      }
+
       if (drop_syn_report)
       {
         if (ev.type == EV_SYN && ev.code == SYN_REPORT)
@@ -487,11 +517,6 @@ int main(int argc, char* argv[])
           drop_syn_report = false;
           continue;
         }
-      }
-
-      if (ev.type == EV_KEY)
-      {
-        wheel_smoother.stop();
       }
 
       SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,

@@ -45,6 +45,8 @@ public:
 
   void stop();
 
+  bool setFreeSpin(bool enabled);
+
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive);
 
   std::optional<struct input_event> tick();
@@ -83,6 +85,7 @@ private:
   bool mouse_movement_dejitter_ = true;
   int mouse_movement_x_ = 0;
   int mouse_movement_y_ = 0;
+  bool free_spin_ = false;
 };
 
 }  // namespace smooth_scroll

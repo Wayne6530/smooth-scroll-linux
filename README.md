@@ -22,6 +22,7 @@
 - **Customizable Feel**: Tweak parameters to match your preferred scrolling style.  
 - **Jitter-Free Input**: Smoothens raw wheel events to eliminate sudden jumps or stutters.  
 - **Smart Stopping**: Supports multiple stopping methods (click-to-stop, slow-wheel tracking, reverse-scroll braking, mouse-movement braking).  
+- **Free Spin Mode**: Press the free spin button (default: mouse right-click) to temporarily disable scroll damping for smoother long-document navigation.  
 - **Lightweight**: Runs efficiently in a single thread without hogging resources.  
 
 Perfect for users craving precision and elegance in their desktop navigation.  
