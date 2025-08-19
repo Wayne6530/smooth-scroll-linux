@@ -451,7 +451,8 @@ int main(int argc, char* argv[])
       }
     }
 
-    while (libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev) == LIBEVDEV_READ_STATUS_SUCCESS)
+    int result;
+    while ((result = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
     {
       if (ev.type == EV_REL)
       {
@@ -523,6 +524,16 @@ int main(int argc, char* argv[])
       SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                    libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
       write(uinput_fd, &ev, sizeof(ev));
+    }
+
+    if (result == -ENODEV)
+    {
+      SPDLOG_ERROR("Device lost");
+      ioctl(uinput_fd, UI_DEV_DESTROY);
+      close(uinput_fd);
+      libevdev_free(evdev);
+      close(fd);
+      return -1;
     }
 
     if (ev.type == EV_SYN && ev.code == SYN_REPORT)
