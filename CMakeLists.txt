@@ -19,5 +19,6 @@ find_package(fmt REQUIRED)
 
 file(GLOB SOURCES "*.cpp")
 add_executable(smooth-scroll ${SOURCES})
+target_compile_definitions(smooth-scroll PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 target_include_directories(smooth-scroll PRIVATE ${tomlplusplus_SOURCE_DIR}/include)
 target_link_libraries(smooth-scroll fmt::fmt evdev)

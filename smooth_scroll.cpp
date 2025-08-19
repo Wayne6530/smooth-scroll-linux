@@ -8,7 +8,6 @@
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <signal.h>
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 #include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
@@ -28,6 +27,7 @@ Options:
   -c, --config <file>  Specify config file path (default "./smooth-scroll.toml")
   -h, --help           Show help message
   -v, --version        Show version information
+  -d, --debug          Enable debug mode (verbose logging for parameter tuning)
 )"sv;
 
 constexpr std::string_view kDefaultConfigPath = "./smooth-scroll.toml"sv;
@@ -170,7 +170,6 @@ std::string findDevice()
 
 int main(int argc, char* argv[])
 {
-  spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%E.%f] [%^%L%$] %v");
 
   std::string config_path(kDefaultConfigPath);
@@ -189,6 +188,10 @@ int main(int argc, char* argv[])
     {
       show_version = true;
       break;
+    }
+    else if (arg == "-d" || arg == "--debug")
+    {
+      spdlog::set_level(spdlog::level::debug);
     }
     else if ((arg == "-c" || arg == "--config"))
     {
