@@ -228,6 +228,7 @@ Two methods can stop the scrolling:
 | `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
 | `use_braking` | Whether reverse-scroll braking is enabled. |  
 | `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
+| `max_braking_times` | Maximum reverse-scroll braking event times. |
 | `braking_cut_off_speed` | Speed threshold to stop scrolling during braking. |  
 | `speed_decrease_per_braking` | Speed reduction per opposite-direction wheel event. |  
 | `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  

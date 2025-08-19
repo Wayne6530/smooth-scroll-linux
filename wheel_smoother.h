@@ -25,6 +25,7 @@ public:
 
     bool use_braking = true;
     int braking_dejitter_microseconds = 100000;
+    int max_braking_times = 3;
     double braking_cut_off_speed = 1000;
     double speed_decrease_per_braking = std::numeric_limits<double>::infinity();
 
@@ -82,6 +83,7 @@ private:
   double delta_ = 0;
   double deviation_ = 0;
   int total_delta_ = 0;
+  int braking_times_ = 0;
   bool mouse_movement_dejitter_ = true;
   int mouse_movement_x_ = 0;
   int mouse_movement_y_ = 0;

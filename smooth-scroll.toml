@@ -28,6 +28,8 @@ use_braking = true
 
 braking_dejitter_microseconds = 100000
 
+max_braking_times = 3
+
 braking_cut_off_speed = 1000.0
 
 speed_decrease_per_braking = inf

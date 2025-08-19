@@ -282,6 +282,7 @@ int main(int argc, char* argv[])
   read_option("damping", options.damping);
   read_option("use_braking", options.use_braking);
   read_option("braking_dejitter_microseconds", options.braking_dejitter_microseconds);
+  read_option("max_braking_times", options.max_braking_times);
   read_option("braking_cut_off_speed", options.braking_cut_off_speed);
   read_option("speed_decrease_per_braking", options.speed_decrease_per_braking);
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);

@@ -52,67 +52,77 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   std::chrono::microseconds event_time =
       std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
-  if (delta_ == 0)
+  if (options_.use_braking)
   {
-    if (options_.use_braking)
+    if (positive == positive_)
     {
-      if (positive == positive_ &&
-          event_time < last_brake_stop_time_ + std::chrono::microseconds{ options_.braking_dejitter_microseconds })
+      braking_times_ = 0;
+    }
+    else
+    {
+      if (delta_ != 0)
       {
-        SPDLOG_DEBUG("braking dejitter");
+        delta_ -= delta_decrease_per_braking_;
+
+        if (delta_ < braking_cut_off_delta_)
+        {
+          SPDLOG_DEBUG("braking stop");
+          last_brake_stop_time_ = event_time;
+          delta_ = 0;
+          braking_times_ = 1;
+        }
+        else
+        {
+          SPDLOG_DEBUG("braking");
+        }
+
         return {};
       }
-    }
 
-    last_event_time_ = event_time;
-    next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
-    last_brake_stop_time_ = std::chrono::microseconds{ 0 };
-
-    positive_ = positive;
-    delta_ = initial_delta_;
-
-    SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
-
-    int round_delta = std::round(delta_);
-    deviation_ = delta_ - round_delta;
-
-    total_delta_ = round_delta;
-
-    struct input_event ev;
-    ev.time = time;
-    ev.type = EV_REL;
-    ev.code = REL_WHEEL_HI_RES;
-    ev.value = positive_ ? round_delta : -round_delta;
-
-    return ev;
-  }
-
-  if ((positive && !positive_) || (!positive && positive_))
-  {
-    if (options_.use_braking)
-    {
-      delta_ -= delta_decrease_per_braking_;
-
-      if (delta_ < braking_cut_off_delta_)
+      // delta_ == 0
+      if (braking_times_)
       {
-        SPDLOG_DEBUG("braking stop");
+        if (event_time < last_brake_stop_time_ + std::chrono::microseconds{ options_.braking_dejitter_microseconds } &&
+            braking_times_ < options_.max_braking_times)
+        {
+          SPDLOG_DEBUG("braking dejitter");
+          ++braking_times_;
+          return {};
+        }
 
-        last_brake_stop_time_ = event_time;
+        last_event_time_ = event_time;
+        next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
         positive_ = positive;
-        delta_ = 0;
-      }
-      else
-      {
-        SPDLOG_DEBUG("braking");
-      }
 
-      return {};
+        double speed = braking_times_ * options_.speed_factor /
+                       std::chrono::duration<double>(event_time - last_brake_stop_time_).count();
+        delta_ =
+            std::clamp(speed * tick_interval_, initial_delta_, initial_delta_ + braking_times_ * max_delta_increase_);
+        braking_times_ = 0;
+
+        SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
+
+        int round_delta = std::round(delta_);
+        deviation_ = delta_ - round_delta;
+
+        total_delta_ = round_delta;
+
+        struct input_event ev;
+        ev.time = time;
+        ev.type = EV_REL;
+        ev.code = REL_WHEEL_HI_RES;
+        ev.value = positive_ ? round_delta : -round_delta;
+
+        return ev;
+      }
     }
+  }
 
+  if (delta_ == 0 || positive != positive_)
+  {
     last_event_time_ = event_time;
     next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
-    last_brake_stop_time_ = std::chrono::microseconds{ 0 };
 
     positive_ = positive;
     delta_ = initial_delta_;
