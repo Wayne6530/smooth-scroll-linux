@@ -99,20 +99,16 @@ std::string findDevice()
   }
   closedir(dir);
 
-  if (mouse_devices.size() == 1)
-  {
-    auto& [path, fd] = mouse_devices[0];
-    close(fd);
-    return path;
-  }
-  else if (mouse_devices.empty())
+  if (mouse_devices.empty())
   {
     SPDLOG_ERROR("No mouse devices found");
     return "";
   }
 
-  SPDLOG_INFO("Multiple mice found, detecting active one...");
+  SPDLOG_INFO("Detecting active device...");
 
+  std::chrono::microseconds deadline = std::chrono::duration_cast<std::chrono::microseconds>(
+      (std::chrono::system_clock::now() + std::chrono::seconds{ 10 }).time_since_epoch());
   fd_set read_fds;
   while (!kShutdown.load(std::memory_order_relaxed))
   {
@@ -121,12 +117,34 @@ std::string findDevice()
 
     for (auto& [path, fd] : mouse_devices)
     {
+      if (fd < 0)
+        continue;
+
       FD_SET(fd, &read_fds);
       if (fd > max_fd)
         max_fd = fd;
     }
 
-    int ret = select(max_fd + 1, &read_fds, nullptr, nullptr, nullptr);
+    if (max_fd < 0)
+    {
+      SPDLOG_INFO("All devices lost");
+      break;
+    }
+
+    std::chrono::microseconds now =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = (deadline - now).count();
+
+    while (timeout.tv_usec >= 1'000'000)
+    {
+      timeout.tv_sec += 1;
+      timeout.tv_usec -= 1'000'000;
+    }
+
+    int ret = select(max_fd + 1, &read_fds, nullptr, nullptr, &timeout);
     if (ret < 0)
     {
       if (errno == EINTR)
@@ -134,24 +152,43 @@ std::string findDevice()
       SPDLOG_ERROR("select error: {}", strerror(errno));
       break;
     }
+    else if (ret == 0)
+    {
+      SPDLOG_INFO("No active device detected");
+      break;
+    }
 
     for (auto& [path, fd] : mouse_devices)
     {
+      if (fd < 0)
+        continue;
+
       if (FD_ISSET(fd, &read_fds))
       {
         libevdev* dev = nullptr;
-        libevdev_new_from_fd(fd, &dev);
+        int rc = libevdev_new_from_fd(fd, &dev);
+        if (rc < 0)
+        {
+          SPDLOG_INFO("Device {} lost", path);
+          close(fd);
+          fd = -1;
+          continue;
+        }
 
+        int result;
         struct input_event ev;
-        while (libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev) == LIBEVDEV_READ_STATUS_SUCCESS)
+        while ((result = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
         {
           if (ev.type == EV_REL)
           {
-            SPDLOG_INFO("Active mouse detected: {}", path);
+            SPDLOG_INFO("Active device detected: {}", path);
             libevdev_free(dev);
 
             for (auto& [path, fd] : mouse_devices)
             {
+              if (fd < 0)
+                continue;
+
               close(fd);
             }
 
@@ -159,12 +196,22 @@ std::string findDevice()
           }
         }
         libevdev_free(dev);
+
+        if (result == -ENODEV)
+        {
+          SPDLOG_INFO("Device {} lost", path);
+          close(fd);
+          fd = -1;
+        }
       }
     }
   }
 
   for (auto& [path, fd] : mouse_devices)
   {
+    if (fd < 0)
+      continue;
+
     close(fd);
   }
 
