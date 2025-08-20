@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = "configure" ]; then
+  systemctl daemon-reload
+  systemctl enable smooth-scroll.service
+  systemctl start smooth-scroll.service
+fi
+exit 0

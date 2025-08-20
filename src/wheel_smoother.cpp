@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2025 Wayne6530
+
 #include "wheel_smoother.h"
 
 #include <spdlog/spdlog.h>

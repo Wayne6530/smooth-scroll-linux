@@ -1,0 +1,12 @@
+[Unit]
+Description=Smooth Scroll Daemon
+After=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/smooth-scroll -c /etc/smooth-scroll/smooth-scroll.toml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=graphical.target

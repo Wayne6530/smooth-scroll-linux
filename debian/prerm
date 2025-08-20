@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+if [ "$1" = "remove" ]; then
+  systemctl stop smooth-scroll.service || true
+  systemctl disable smooth-scroll.service || true
+  systemctl daemon-reload
+fi
+exit 0
