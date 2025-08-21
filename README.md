@@ -1,242 +1,171 @@
 # Smooth Scroll for Linux
 
+English | [中文](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/README.zh.md)
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
 2. [Quick Start](#quick-start)
-3. [FAQ](#faq)
-4. [Technical Insight](#technical-insight)
-5. [Customization](#customization)
-6. [Roadmap](#roadmap)
+3. [Customization](#customization)
+4. [Build from Source](#build-from-source)
+5. [FAQ](#faq)
 
-## Introduction  
+## Introduction
 
-**Smooth Scroll for Linux** is a lightweight tool that transforms your mouse wheel scrolling into a fluid, natural experience.  
+**Smooth Scroll for Linux** is a tool for Linux systems that brings smooth, touchpad-like or high-end mouse (such as Logitech MX Master 3S) scrolling to any regular mouse.
 
 [screencast_smooth_scroll.webm](https://github.com/user-attachments/assets/d0ec740d-df2c-4257-bd15-e7a1d66b0092)
 
-**Key Features**:
+### Features
 
-- **Universal Compatibility**: Uses Linux `uinput` to emulate a virtual mouse, ensuring broad support across distributions.  
-- **Physics-Based Motion**: Mimics real-world inertia and damping, mirroring the smooth scrolling of Android/iOS.  
-- **Customizable Feel**: Tweak parameters to match your preferred scrolling style.  
-- **Jitter-Free Input**: Smoothens raw wheel events to eliminate sudden jumps or stutters.  
-- **Smart Stopping**: Supports multiple stopping methods (click-to-stop, slow-wheel tracking, reverse-scroll braking, mouse-movement braking).  
-- **Free Spin Mode**: Press the free spin button (default: mouse right-click) to temporarily disable scroll damping for smoother long-document navigation.  
-- **Lightweight**: Runs efficiently in a single thread without hogging resources.  
-
-Perfect for users craving precision and elegance in their desktop navigation.  
+- Smooth scrolling based on wheel speed, eliminating jumpy movement
+- Android/iOS-like scroll damping
+- Highly customizable smoothness parameters
+- Unique **Free Spin** mode for effortless long-document navigation
+- Multiple ways to stop scrolling
+- Lightweight and efficient
 
 ## Quick Start
 
-### Prerequisites
+### Installation
 
-Ensure your system has the following dependencies installed:
+Download the latest package from the [Release](https://github.com/Wayne6530/smooth-scroll-linux/releases) page. In your download directory, run:
 
-- **Compiler**: GCC/Clang with C++17 support
-- **Build Tools**: CMake (≥ 3.14)
+```bash
+sudo apt install ./smooth-scroll_0.1.0_amd64.deb
+```
 
-### Installation Steps
+After installation, **smooth-scroll.service** will start automatically and enable itself at boot.
 
-1. **Install Dependencies** (Ubuntu/Debian):
+### Usage
+
+1. Use your mouse wheel as usual in any application.
+   - Scrolling will now be smooth and follow the speed of your wheel.
+   - When you stop the wheel, scrolling will decelerate gradually, simulating inertia.
+   - If this doesn't work as described, check the [FAQ](#faq).
+2. Try different ways to stop scrolling:
+   1. **Reverse wheel** (recommended): Briefly scroll in the opposite direction while scrolling is active to stop immediately. Too many or too long reverse scrolls may cause reverse scrolling. Adjust the stop parameters in the config for your preferred feel.
+   2. **Click any mouse button** (except the **Free Spin** button).
+   3. **Move the mouse pointer**: Moving the mouse a certain distance while scrolling will stop the scroll, useful when switching to another window.
+3. Try **Free Spin** mode:
+   - Open a long document, start scrolling, then hold the **Free Spin** button (default: right mouse button) while scrolling is active.
+   - Scrolling will continue smoothly; you can increase speed with the wheel or use any stop method.
+   - Release the **Free Spin** button to gradually stop.
+   - You can re-engage **Free Spin** during deceleration to adjust speed as needed.
+
+### Service Management
+
+Manage the service with `systemctl` or view logs with `journalctl`:
+
+```bash
+# Check service status
+systemctl status smooth-scroll.service
+
+# Restart service
+sudo systemctl restart smooth-scroll.service
+
+# Stop service
+sudo systemctl stop smooth-scroll.service
+
+# Start service
+sudo systemctl start smooth-scroll.service
+
+# View latest logs
+journalctl -xe -u smooth-scroll.service
+
+# View logs in real time
+journalctl -xe -f -u smooth-scroll.service
+```
+
+## Customization
+
+Edit `/etc/smooth-scroll/smooth-scroll.toml` to change parameters, then restart the service to apply changes.
+
+### Scroll Parameters
+
+- `damping`: Scroll damping. Higher values decelerate faster. If 0, only `min_deceleration` applies.
+- `min_deceleration`: Minimum deceleration. Higher values decelerate faster at low speeds.
+- `initial_speed`: Initial speed when starting to scroll. Higher values increase distance per wheel tick.
+- `speed_factor`: Speed multiplier. Higher values increase speed, limited by `max_speed_increase_per_wheel_event`.
+- `max_speed_increase_per_wheel_event`: Max speed increase per wheel event.
+
+Examples:
+
+1. **Increase scroll distance per tick**: Increase `initial_speed`, decrease `min_deceleration`.
+2. **Shorten scroll time without changing distance**: Increase both `initial_speed` and `min_deceleration`.
+3. **Make scrolling smoother**: Decrease `damping`.
+4. **Increase max scroll speed**: Increase `max_speed_increase_per_wheel_event` and `speed_factor`, decrease `damping`.
+
+### Stop Parameters
+
+- `use_braking`: Enable reverse wheel stop.
+- `braking_dejitter_microseconds`: Max time for reverse wheel stop.
+- `max_braking_times`: Max reverse wheel stop count.
+- `use_mouse_movement_braking`: Enable stop by mouse movement.
+
+### Debug Mode
+
+Enable debug mode to observe parameter effects:
+
+1. Stop the service.
+2. Run:  
+
+   ```bash
+   sudo smooth-scroll -d -c /etc/smooth-scroll/smooth-scroll.toml
+   ```
+
+### Advanced Customization
+
+For advanced users, see [Technical Insight](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/technical_insight.md) for more parameters and internal details.
+
+## Build from Source
+
+1. Install dependencies:
 
    ```bash
    sudo apt install build-essential cmake libspdlog-dev libevdev-dev
    ```
 
-2. **Clone & Build**:
+2. Clone and build:
 
    ```bash
    git clone https://github.com/Wayne6530/smooth-scroll-linux.git
    cd smooth-scroll-linux
    cmake -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
+   cd build
+   make package
    ```
 
-### Running the Tool
-
-  ```bash
-  cd build
-  sudo ./smooth-scroll
-  ```
-
-### Finding Your Mouse Device (Optional)
-
-If automatic detection fails:
-
-1. **Install `libinput-tools`**:
-
-   ```bash
-   sudo apt install libinput-tools
-   ```
-
-2. **Identify your mouse device**:
-   - Run the debug command:
-
-     ```bash
-     sudo libinput debug-events
-     ```
-
-   - Move your mouse or scroll the wheel. The output will display your device ID (e.g., `event9`):
-
-     ```text
-     event9   POINTER_MOTION          322  +1.363s   0.00/  1.10 ( +0.00/ +1.00)
-     ```
-
-     The prefix (e.g., `event9`) is your device identifier.
-
-3. **Modify the Device Name**:  
-   Open `smooth-scroll.toml` in a text editor and update the `device` field with your mouse's event ID (e.g., `event9`).  
-
-   Example:  
-
-   ```toml
-   device = "/dev/input/event9"  # Replace with your device ID
-   ```
-
-4. **Use Custom Config Path**:
-
-   ```bash
-   sudo ./smooth-scroll -c /path/to/smooth-scroll.toml
-   ```
+```text
+Note:
+Do not use make install, as this will install to /usr/local/bin/smooth-scroll, which does not match the service's expected location (/usr/bin/smooth-scroll).
+```
 
 ## FAQ
 
-### Why does scrolling have dead zones or sudden acceleration?
+### Why is there a dead zone at the start of scrolling?
 
-This issue typically occurs when your system uses `libinput`. In `libinput`, this is a known problem ([Disable hi-res wheel event initial accumulation for uinput (#1129)](https://gitlab.freedesktop.org/libinput/libinput/-/issues/1129)).  
+This is a known issue in `libinput` ([Disable hi-res wheel event initial accumulation for uinput (#1129)](https://gitlab.freedesktop.org/libinput/libinput/-/issues/1129)). It has been fixed upstream but may not be released for your system yet. You can manually compile and install the latest version:
 
-The original intent was to prevent accidental scrolling when clicking the middle button on high-resolution wheel mice. However, this behavior is unnecessary for virtual high-resolution wheels.  
-
-The issue has been fixed and merged into the `libinput` main branch, but it hasn't been officially released yet. To achieve the smoothest scrolling experience, you'll need to compile and install the latest `libinput` from source.  
-
-Follow these steps:  
-
-1. **Install Dependencies**:
+1. Install dependencies:
 
    ```bash
    sudo apt install meson ninja-build libmtdev-dev libevdev-dev libudev-dev libwacom-dev
    ```
 
-2. **Clone the Repository**:
+2. Clone and build:
 
    ```bash
    git clone https://gitlab.freedesktop.org/libinput/libinput.git
    cd libinput
-   ```
-
-3. **Configure and Build**:
-
-   ```bash
    meson setup builddir --prefix=/usr -Ddocumentation=false -Dtests=false -Ddebug-gui=false
    ninja -C builddir
    ```
 
-4. **Install**:
+3. Install:
 
    ```bash
    sudo ninja -C builddir install
    ```
 
-5. **Restart Services**:  
-   After installation, restart your desktop session or input-related services to apply the changes.  
-
-## Technical Insight
-
-### Event Processing Pipeline  
-
-The tool leverages Linux's input subsystem to achieve smooth scrolling through the following pipeline:  
-
-1. **Device Acquisition**:  
-   - Opens and exclusively locks a physical mouse device file (e.g., `/dev/input/event*`) to intercept raw input events.  
-
-2. **Event Filtering**:  
-   - **Discarded Events**:  
-     - Raw high-resolution wheel events (`REL_WHEEL_HI_RES`) are **dropped immediately** to prevent interference.  
-   - **Intercepted Events**:  
-     - Standard wheel events (`REL_WHEEL`) are captured and forwarded to the **smoothing module**.  
-
-3. **Smoothing Module**:  
-   - Applies physics-based algorithms (inertia, damping) to transform discrete `REL_WHEEL` events into continuous motion.  
-   - Generates synthetic high-resolution events (`REL_WHEEL_HI_RES`) for fluid scrolling.  
-
-4. **Virtual Device Output**:  
-   - Uses `uinput` to create a **virtual mouse device**.  
-   - Merges smoothed `REL_WHEEL_HI_RES` events with other unmodified mouse events (e.g., clicks, movement) and emits them through the virtual device.  
-
-### Smoothing Algorithm  
-
-The physics-based smoothing algorithm transforms discrete wheel events into fluid motion using the following principles:
-
-#### Speed Calculation  
-
-The speed is measured in `REL_WHEEL_HI_RES` values per second.  
-
-1. **Initial Trigger**:  
-   - When scrolling starts (after a stop), the first wheel event sets the initial speed (`initial_speed`).  
-
-2. **Subsequent Events**:  
-   - For each new wheel event in the **same direction**, the speed is updated based on:  
-     - The time interval (`event_interval`) since the last event.  
-     - The `speed_factor`, which scales the speed adjustment.  
-     - Clamping to ensure the speed change stays within bounds (`max_speed_increase_per_wheel_event` and `max_speed_decrease_per_wheel_event`).  
-
-   The actual speed is calculated as:  
-
-   ```text
-   actual_speed = max(initial_speed, clamp(speed_factor / event_interval, current_speed - max_speed_decrease_per_wheel_event, current_speed + max_speed_increase_per_wheel_event))
-   ```
-
-3. **Decay Over Time**:  
-   - The speed decays exponentially based on the `damping` factor:  
-
-     ```text
-     current_speed = actual_speed * exp(-damping * time_since_last_event)
-     ```  
-
-   - If the deceleration caused by `damping` is weaker than `min_deceleration`, the deceleration is clamped to `min_deceleration`. This ensures **linear deceleration** at low speeds for a more predictable stop.  
-   - If `current_speed` drops below `min_speed`, it resets to zero (stopping the motion).  
-
-#### Braking Logic  
-
-Two methods can stop the scrolling:  
-
-1. **Click-to-Stop**:  
-   - A mouse click forces `current_speed = 0`.  
-
-2. **Reverse-Scroll Braking**:  
-   - A wheel event in the **opposite direction** reduces the speed by `speed_decrease_per_braking`.  
-   - If `current_speed` falls below `braking_cut_off_speed`, it resets to zero.  
-   - To prevent accidental reverse-scroll jitter, opposite direction events within `braking_dejitter_microseconds` after braking are ignored.  
-
-3. **Mouse Movement Braking**  
-   - When the cumulative distance of continuous mouse movement exceeds `mouse_movement_dejitter_distance`, each subsequent movement unit reduces the speed by `speed_decrease_per_mouse_movement`.  
-   - If `current_speed` falls below `mouse_movement_braking_cut_off_speed`, the speed resets to zero.  
-   - If the time interval between mouse movements exceeds `max_mouse_movement_event_interval_microseconds`, it's treated as a new movement sequence, and `mouse_movement_dejitter_distance` resets.  
-
-#### Key Parameters  
-
-| Parameter | Description |  
-|-----------|-------------|  
-| `tick_interval_microseconds` | Interval between synthetic event generations. |  
-| `initial_speed` | Base speed when scrolling starts. |  
-| `speed_factor` | Scales speed adjustments per wheel event. |  
-| `damping` | Controls how quickly speed decays over time. |  
-| `min_speed` | Minimum speed before motion stops. |  
-| `min_deceleration` | Minimum deceleration force (ensures linear slowdown at low speeds). |
-| `max_speed_increase_per_wheel_event` | Limits how much speed can increase per event. |  
-| `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
-| `use_braking` | Whether reverse-scroll braking is enabled. |  
-| `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
-| `max_braking_times` | Maximum reverse-scroll braking event times. |
-| `braking_cut_off_speed` | Speed threshold to stop scrolling during braking. |  
-| `speed_decrease_per_braking` | Speed reduction per opposite-direction wheel event. |  
-| `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
-| `mouse_movement_dejitter_distance` | Minimum cumulative movement distance before braking activates. |  
-| `max_mouse_movement_event_interval_microseconds` | Maximum time between movements to be considered continuous. |  
-| `mouse_movement_braking_cut_off_speed` | Speed threshold to stop scrolling during mouse movement braking. |  
-| `speed_decrease_per_mouse_movement` | Speed reduction per movement unit after dejitter distance. |  
-
-## Customization
-
-## Roadmap
+4. Restart your desktop session or input-related services to apply the changes.
