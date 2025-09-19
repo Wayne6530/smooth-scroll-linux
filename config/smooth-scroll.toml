@@ -14,9 +14,9 @@ min_deceleration = 1420
 
 initial_speed = 600.0
 
-speed_factor = 80.0
+speed_factor = 40.0
 
-max_speed_increase_per_wheel_event = 600.0
+max_speed_increase_per_wheel_event = 1200.0
 
 use_braking = true
 
@@ -31,6 +31,8 @@ use_mouse_movement_braking = true
 tick_interval_microseconds = 2000
 
 min_speed = 0
+
+speed_smooth_window_microseconds = 200000
 
 max_speed_decrease_per_wheel_event = 0.0
 

@@ -69,6 +69,8 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
         if (delta_ < braking_cut_off_delta_)
         {
           SPDLOG_DEBUG("braking stop");
+          event_intervals_.clear();
+          last_event_time_ = event_time;
           last_brake_stop_time_ = event_time;
           delta_ = 0;
           braking_times_ = 1;
@@ -88,17 +90,19 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
             braking_times_ < options_.max_braking_times)
         {
           SPDLOG_DEBUG("braking dejitter");
+          event_intervals_.push_back(event_time - last_event_time_);
+          last_event_time_ = event_time;
           ++braking_times_;
           return {};
         }
+
+        double speed = smoothSpeed(event_time - last_event_time_);
 
         last_event_time_ = event_time;
         next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
         positive_ = positive;
 
-        double speed = braking_times_ * options_.speed_factor /
-                       std::chrono::duration<double>(event_time - last_brake_stop_time_).count();
         delta_ =
             std::clamp(speed * tick_interval_, initial_delta_, initial_delta_ + braking_times_ * max_delta_increase_);
         braking_times_ = 0;
@@ -123,6 +127,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
 
   if (delta_ == 0 || positive != positive_)
   {
+    event_intervals_.clear();
     last_event_time_ = event_time;
     next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
@@ -145,7 +150,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     return ev;
   }
 
-  double speed = options_.speed_factor / std::chrono::duration<double>(event_time - last_event_time_).count();
+  double speed = smoothSpeed(event_time - last_event_time_);
   double delta = std::clamp(speed * tick_interval_, delta_ - max_delta_decrease_, delta_ + max_delta_increase_);
 
   last_event_time_ = event_time;
@@ -368,6 +373,38 @@ void WheelSmoother::handleRelYEvent(const struct timeval& time, int value)
   {
     SPDLOG_TRACE("mouse movement braking");
   }
+}
+
+double WheelSmoother::smoothSpeed(const std::chrono::microseconds event_interval)
+{
+  const std::chrono::microseconds speed_smooth_window{ options_.speed_smooth_window_microseconds };
+
+  double num_event_intervals = 1;
+  std::chrono::microseconds duration = event_interval;
+
+  if (event_interval > speed_smooth_window)
+  {
+    event_intervals_.clear();
+  }
+  else
+  {
+    for (auto iter = event_intervals_.rbegin(); iter != event_intervals_.rend(); ++iter)
+    {
+      if (*iter + duration > speed_smooth_window)
+      {
+        num_event_intervals += std::chrono::duration<double>(speed_smooth_window - duration).count() /
+                               std::chrono::duration<double>(*iter).count();
+        duration = speed_smooth_window;
+        break;
+      }
+
+      duration += *iter;
+      num_event_intervals += 1;
+    }
+    event_intervals_.push_back(event_interval);
+  }
+
+  return options_.speed_factor * num_event_intervals / std::chrono::duration<double>(duration).count();
 }
 
 }  // namespace smooth_scroll

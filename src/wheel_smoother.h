@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <optional>
+#include <vector>
 
 #include <linux/input.h>
 
@@ -21,8 +22,9 @@ public:
     double min_speed = 0;
     double min_deceleration = 1420;
     double initial_speed = 600;
-    double speed_factor = 80;
-    double max_speed_increase_per_wheel_event = 600;
+    double speed_factor = 40;
+    int speed_smooth_window_microseconds = 200000;
+    double max_speed_increase_per_wheel_event = 1200;
     double max_speed_decrease_per_wheel_event = 0;
     double damping = 3.1;
 
@@ -64,6 +66,8 @@ public:
   void handleRelYEvent(const struct timeval& time, int value);
 
 private:
+  double smoothSpeed(const std::chrono::microseconds event_interval);
+
   Options options_;
 
   double tick_interval_;
@@ -78,6 +82,7 @@ private:
   double delta_decrease_per_mouse_movement_;
   double mouse_movement_braking_cut_off_delta_;
 
+  std::vector<std::chrono::microseconds> event_intervals_;
   std::chrono::microseconds last_event_time_{ 0 };
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };

@@ -330,6 +330,7 @@ int main(int argc, char* argv[])
   read_option("min_deceleration", options.min_deceleration);
   read_option("initial_speed", options.initial_speed);
   read_option("speed_factor", options.speed_factor);
+  read_option("speed_smooth_window_microseconds", options.speed_smooth_window_microseconds);
   read_option("max_speed_increase_per_wheel_event", options.max_speed_increase_per_wheel_event);
   read_option("max_speed_decrease_per_wheel_event", options.max_speed_decrease_per_wheel_event);
   read_option("damping", options.damping);
