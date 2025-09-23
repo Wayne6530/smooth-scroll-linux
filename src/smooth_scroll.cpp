@@ -328,6 +328,7 @@ int main(int argc, char* argv[])
   read_option("tick_interval_microseconds", options.tick_interval_microseconds);
   read_option("min_speed", options.min_speed);
   read_option("min_deceleration", options.min_deceleration);
+  read_option("max_deceleration", options.max_deceleration);
   read_option("initial_speed", options.initial_speed);
   read_option("speed_factor", options.speed_factor);
   read_option("speed_smooth_window_microseconds", options.speed_smooth_window_microseconds);

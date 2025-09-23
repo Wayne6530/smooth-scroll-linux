@@ -13,6 +13,7 @@ WheelSmoother::WheelSmoother(const Options& options)
   , tick_interval_{ static_cast<double>(options.tick_interval_microseconds) / 1.e6 }
   , min_delta_{ options.min_speed * tick_interval_ }
   , min_delta_decrease_per_tick_{ options.min_deceleration * tick_interval_ * tick_interval_ }
+  , max_delta_decrease_per_tick_{ options.max_deceleration * tick_interval_ * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
   , alpha_{ std::exp(-options.damping * tick_interval_) }
   , max_delta_increase_{ options.max_speed_increase_per_wheel_event * tick_interval_ }
@@ -173,12 +174,18 @@ std::optional<struct input_event> WheelSmoother::tick()
   if (!free_spin_)
   {
     double max_delta = delta_ - min_delta_decrease_per_tick_;
+    double min_delta = delta_ - max_delta_decrease_per_tick_;
 
     delta_ *= alpha_;
 
     if (delta_ > max_delta)
     {
       delta_ = max_delta;
+    }
+
+    if (delta_ < min_delta)
+    {
+      delta_ = min_delta;
     }
 
     if (delta_ < min_delta_)

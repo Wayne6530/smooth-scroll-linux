@@ -21,6 +21,7 @@ public:
 
     double min_speed = 0;
     double min_deceleration = 1420;
+    double max_deceleration = 6000;
     double initial_speed = 600;
     double speed_factor = 40;
     int speed_smooth_window_microseconds = 200000;
@@ -73,6 +74,7 @@ private:
   double tick_interval_;
   double min_delta_;
   double min_delta_decrease_per_tick_;
+  double max_delta_decrease_per_tick_;
   double initial_delta_;
   double alpha_;
   double max_delta_increase_;

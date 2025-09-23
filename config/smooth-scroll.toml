@@ -12,6 +12,8 @@ damping = 3.1
 
 min_deceleration = 1420
 
+max_deceleration = 6000
+
 initial_speed = 600.0
 
 speed_factor = 40.0
