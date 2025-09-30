@@ -32,7 +32,7 @@
 从 [Release](https://github.com/Wayne6530/smooth-scroll-linux/releases) 界面下载最新的安装包，在下载路径下，使用以下指令进行安装。
 
 ```bash
-sudo apt install ./smooth-scroll_0.1.0_amd64.deb
+sudo apt install ./smooth-scroll_0.2.0_amd64.deb
 ```
 
 安装完成后，**smooth-scroll.service** 会立刻自动启动并且开机自启。
@@ -94,6 +94,8 @@ journalctl -xe -f -u smooth-scroll.service
   - 为 0 时，减速度只取决于 `min_deceleration`
 - `min_deceleration`：最小减速度
   - 值越大，低速滚动时，减速越快
+- `max_deceleration`：最大减速度
+  - 值越小，高速滚动时，减速越慢，滚动距离越远
 - `initial_speed`：初始速度
   - 从停止开始滚动的初始速度
   - 值越大，单次滚轮引起的滚动距离越大
@@ -116,6 +118,7 @@ journalctl -xe -f -u smooth-scroll.service
    - 增大 `max_speed_increase_per_wheel_event`
    - 增大 `speed_factor`
    - 减小 `damping`
+   - 减小 `max_deceleration`
 
 ### 调整停止参数
 

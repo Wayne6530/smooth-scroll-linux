@@ -32,7 +32,7 @@ English | [中文](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/RE
 Download the latest package from the [Release](https://github.com/Wayne6530/smooth-scroll-linux/releases) page. In your download directory, run:
 
 ```bash
-sudo apt install ./smooth-scroll_0.1.0_amd64.deb
+sudo apt install ./smooth-scroll_0.2.0_amd64.deb
 ```
 
 After installation, **smooth-scroll.service** will start automatically and enable itself at boot.
@@ -85,6 +85,7 @@ Edit `/etc/smooth-scroll/smooth-scroll.toml` to change parameters, then restart 
 
 - `damping`: Scroll damping. Higher values decelerate faster. If 0, only `min_deceleration` applies.
 - `min_deceleration`: Minimum deceleration. Higher values decelerate faster at low speeds.
+- `max_deceleration`: Maximum deceleration. Smaller values reduce deceleration strength at high speeds, making high-speed scrolls last longer and travel farther.
 - `initial_speed`: Initial speed when starting to scroll. Higher values increase distance per wheel tick.
 - `speed_factor`: Speed multiplier. Higher values increase speed, limited by `max_speed_increase_per_wheel_event`.
 - `max_speed_increase_per_wheel_event`: Max speed increase per wheel event.
@@ -94,7 +95,7 @@ Examples:
 1. **Increase scroll distance per tick**: Increase `initial_speed`, decrease `min_deceleration`.
 2. **Shorten scroll time without changing distance**: Increase both `initial_speed` and `min_deceleration`.
 3. **Make scrolling smoother**: Decrease `damping`.
-4. **Increase max scroll speed**: Increase `max_speed_increase_per_wheel_event` and `speed_factor`, decrease `damping`.
+4. **Increase max scroll speed**: Increase `max_speed_increase_per_wheel_event` and `speed_factor`, decrease `damping` and `max_deceleration`.
 
 ### Stop Parameters
 
