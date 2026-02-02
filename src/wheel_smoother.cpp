@@ -16,8 +16,8 @@ WheelSmoother::WheelSmoother(const Options& options)
   , max_delta_decrease_per_tick_{ options.max_deceleration * tick_interval_ * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
   , alpha_{ std::exp(-options.damping * tick_interval_) }
-  , max_delta_increase_{ options.max_speed_increase_per_wheel_event * tick_interval_ }
-  , max_delta_decrease_{ options.max_speed_decrease_per_wheel_event * tick_interval_ }
+  , max_delta_change_lowerbound_{ options.max_speed_change_lowerbound * tick_interval_ }
+  , min_delta_change_upperbound_{ options.min_speed_change_upperbound * tick_interval_ }
   , delta_decrease_per_braking_{ options.speed_decrease_per_braking * tick_interval_ }
   , braking_cut_off_delta_{ options_.braking_cut_off_speed * tick_interval_ }
   , delta_decrease_per_mouse_movement_{ options.speed_decrease_per_mouse_movement * tick_interval_ }
@@ -104,8 +104,8 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
 
         positive_ = positive;
 
-        delta_ =
-            std::clamp(speed * tick_interval_, initial_delta_, initial_delta_ + braking_times_ * max_delta_increase_);
+        delta_ = std::clamp(speed * tick_interval_, initial_delta_,
+                            initial_delta_ + braking_times_ * min_delta_change_upperbound_);
         braking_times_ = 0;
 
         SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
@@ -151,8 +151,11 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     return ev;
   }
 
-  double speed = smoothSpeed(event_time - last_event_time_);
-  double delta = std::clamp(speed * tick_interval_, delta_ - max_delta_decrease_, delta_ + max_delta_increase_);
+  const double speed = smoothSpeed(event_time - last_event_time_);
+  const double min_delta_change = std::min(delta_ * options_.min_speed_change_ratio, max_delta_change_lowerbound_);
+  const double max_delta_change = std::max(delta_ * options_.max_speed_change_ratio, min_delta_change_upperbound_);
+
+  double delta = std::clamp(speed * tick_interval_, delta_ + min_delta_change, delta_ + max_delta_change);
 
   last_event_time_ = event_time;
 

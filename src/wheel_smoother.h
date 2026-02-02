@@ -25,8 +25,10 @@ public:
     double initial_speed = 600;
     double speed_factor = 40;
     int speed_smooth_window_microseconds = 200000;
-    double max_speed_increase_per_wheel_event = 1200;
-    double max_speed_decrease_per_wheel_event = 0;
+    double max_speed_change_lowerbound = 512;
+    double min_speed_change_upperbound = 1024;
+    double min_speed_change_ratio = 0.0625;
+    double max_speed_change_ratio = 1;
     double damping = 3.1;
 
     bool use_braking = true;
@@ -77,8 +79,8 @@ private:
   double max_delta_decrease_per_tick_;
   double initial_delta_;
   double alpha_;
-  double max_delta_increase_;
-  double max_delta_decrease_;
+  double max_delta_change_lowerbound_;
+  double min_delta_change_upperbound_;
   double delta_decrease_per_braking_;
   double braking_cut_off_delta_;
   double delta_decrease_per_mouse_movement_;

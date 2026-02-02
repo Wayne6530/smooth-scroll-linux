@@ -18,8 +18,6 @@ initial_speed = 600.0
 
 speed_factor = 40.0
 
-max_speed_increase_per_wheel_event = 1200.0
-
 use_braking = true
 
 braking_dejitter_microseconds = 100000
@@ -36,7 +34,13 @@ min_speed = 0
 
 speed_smooth_window_microseconds = 200000
 
-max_speed_decrease_per_wheel_event = 0.0
+max_speed_change_lowerbound = 512
+
+min_speed_change_upperbound = 1024
+
+min_speed_change_ratio = 0.0625
+
+max_speed_change_ratio = 1
 
 braking_cut_off_speed = 1000.0
 

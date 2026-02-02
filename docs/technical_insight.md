@@ -37,12 +37,12 @@ The speed is measured in `REL_WHEEL_HI_RES` values per second.
      - The time interval (`event_interval`) since the last event.  
      - If `speed_smooth_window_microseconds` is enabled, `event_interval` is computed as the average interval of events inside that smoothing window instead of the raw interval to the last event.
      - The `speed_factor`, which scales the speed adjustment.  
-     - Clamping to ensure the speed change stays within bounds (`max_speed_increase_per_wheel_event` and `max_speed_decrease_per_wheel_event`).  
+     - Clamping to ensure the speed change stays within bounds.  
 
    The actual speed is calculated as:  
 
    ```text
-   actual_speed = max(initial_speed, clamp(speed_factor / event_interval, current_speed - max_speed_decrease_per_wheel_event, current_speed + max_speed_increase_per_wheel_event))
+   actual_speed = max(initial_speed, clamp(speed_factor / event_interval, current_speed + min(current_speed * min_speed_change_ratio, max_speed_change_lowerbound), current_speed + max(current_speed * max_speed_change_ratio, min_speed_change_upperbound)))
    ```
 
 3. **Decay Over Time**:  
@@ -85,8 +85,10 @@ Two methods can stop the scrolling:
 | `min_speed` | Minimum speed before motion stops. |  
 | `min_deceleration` | Minimum deceleration force (ensures linear slowdown at low speeds). |
 | `max_deceleration` | Maximum deceleration force (upper bound for computed deceleration). |
-| `max_speed_increase_per_wheel_event` | Limits how much speed can increase per event. |  
-| `max_speed_decrease_per_wheel_event` | Limits how much speed can decrease per event. |  
+| `max_speed_change_lowerbound` | The upper bound of the speed change lower bound. |  
+| `min_speed_change_upperbound` | The lower bound of the speed change upper bound. |  
+| `min_speed_change_ratio` | Minimum speed change ratio per wheel event. |  
+| `max_speed_change_ratio` | Maximum speed change ratio per wheel event. |  
 | `use_braking` | Whether reverse-scroll braking is enabled. |  
 | `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
 | `max_braking_times` | Maximum reverse-scroll braking event times. |

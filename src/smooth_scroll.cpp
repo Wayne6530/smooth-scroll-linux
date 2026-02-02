@@ -19,7 +19,7 @@
 using namespace std::string_view_literals;
 using namespace smooth_scroll;
 
-constexpr std::string_view kVersion = "0.2.0"sv;
+constexpr std::string_view kVersion = "0.3.0"sv;
 
 constexpr std::string_view kHelpStr =
     R"(Smooth Scroll for Linux (https://github.com/Wayne6530/smooth-scroll-linux)
@@ -332,8 +332,10 @@ int main(int argc, char* argv[])
   read_option("initial_speed", options.initial_speed);
   read_option("speed_factor", options.speed_factor);
   read_option("speed_smooth_window_microseconds", options.speed_smooth_window_microseconds);
-  read_option("max_speed_increase_per_wheel_event", options.max_speed_increase_per_wheel_event);
-  read_option("max_speed_decrease_per_wheel_event", options.max_speed_decrease_per_wheel_event);
+  read_option("max_speed_change_lowerbound", options.max_speed_change_lowerbound);
+  read_option("min_speed_change_upperbound", options.min_speed_change_upperbound);
+  read_option("min_speed_change_ratio", options.min_speed_change_ratio);
+  read_option("max_speed_change_ratio", options.max_speed_change_ratio);
   read_option("damping", options.damping);
   read_option("use_braking", options.use_braking);
   read_option("braking_dejitter_microseconds", options.braking_dejitter_microseconds);
@@ -494,7 +496,11 @@ int main(int argc, char* argv[])
         ev = *ev_wheel;
         SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                      libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-        write(uinput_fd, &ev, sizeof(ev));
+        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+        {
+          SPDLOG_ERROR("Write uinput failed");
+          break;
+        }
 
         ev.type = EV_SYN;
         ev.code = SYN_REPORT;
@@ -502,7 +508,11 @@ int main(int argc, char* argv[])
 
         SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                      libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-        write(uinput_fd, &ev, sizeof(ev));
+        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+        {
+          SPDLOG_ERROR("Write uinput failed");
+          break;
+        }
       }
     }
 
@@ -521,7 +531,11 @@ int main(int argc, char* argv[])
             SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                          libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
                          ev.value);
-            write(uinput_fd, &ev, sizeof(ev));
+            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+            {
+              SPDLOG_ERROR("Write uinput failed");
+              break;
+            }
           }
           else
           {
@@ -578,7 +592,11 @@ int main(int argc, char* argv[])
 
       SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                    libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-      write(uinput_fd, &ev, sizeof(ev));
+      if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+      {
+        SPDLOG_ERROR("Write uinput failed");
+        break;
+      }
     }
 
     if (result == -ENODEV)
@@ -609,7 +627,11 @@ int main(int argc, char* argv[])
             SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                          libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
                          ev.value);
-            write(uinput_fd, &ev, sizeof(ev));
+            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+            {
+              SPDLOG_ERROR("Write uinput failed");
+              break;
+            }
 
             ev.type = EV_SYN;
             ev.code = SYN_REPORT;
@@ -618,7 +640,11 @@ int main(int argc, char* argv[])
             SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
                          libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
                          ev.value);
-            write(uinput_fd, &ev, sizeof(ev));
+            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+            {
+              SPDLOG_ERROR("Write uinput failed");
+              break;
+            }
           }
         }
       }
