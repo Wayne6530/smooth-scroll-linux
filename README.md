@@ -29,11 +29,24 @@ English | [中文](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/RE
 
 ### Installation
 
-Download the latest package from the [Release](https://github.com/Wayne6530/smooth-scroll-linux/releases) page. In your download directory, run:
+1. Go to the [Releases](https://github.com/Wayne6530/smooth-scroll-linux/releases) page.
+2. Download the package matching your distribution:
+
+**Ubuntu / Linux Mint:**
 
 ```bash
-sudo apt install ./smooth-scroll_x.x.x_amd64.deb
+cd ~/Downloads
+sudo apt install ./smooth-scroll_*.deb
 ```
+
+**Fedora:**
+
+```bash
+cd ~/Downloads
+sudo dnf install ./smooth-scroll-*.rpm
+```
+
+> **Note:** If a pre-built package is not available for your distribution (e.g., Arch Linux, older distros), please refer to the [Build from Source](#build-from-source) section.
 
 After installation, **smooth-scroll.service** will start automatically and enable itself at boot.
 

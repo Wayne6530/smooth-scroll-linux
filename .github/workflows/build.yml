@@ -1,0 +1,112 @@
+name: Multi-Distro Build
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-matrix:
+    name: Build on ${{ matrix.distro_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro_name: "Ubuntu 24.04"
+            image: "ubuntu:24.04"
+            type: "DEB"
+            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev"
+
+          - distro_name: "Ubuntu 25.10"
+            image: "ubuntu:25.10"
+            type: "DEB"
+            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev"
+
+          - distro_name: "Fedora 42"
+            image: "fedora:42"
+            type: "RPM"
+            install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel rpm-build"
+
+          - distro_name: "Fedora 43"
+            image: "fedora:43"
+            type: "RPM"
+            install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel rpm-build"
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+      - name: Install Build Dependencies
+        run: ${{ matrix.install_cmd }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fix Git Safe Directory
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="${{ matrix.type }}"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package
+        run: |
+          cd build
+          cpack -G ${{ matrix.type }} -V
+
+      - name: Rename Artifact
+        id: build_info
+        run: |
+          VERSION=$(git describe --tags --always --dirty | sed 's/^v//')
+          DISTRO_ID=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+          VERSION_ID=$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+
+          ARTIFACT_KEY="${DISTRO_ID}-${VERSION_ID}"
+          echo "artifact_key=${ARTIFACT_KEY}" >> $GITHUB_OUTPUT
+
+          if [ "${{ matrix.type }}" = "DEB" ]; then
+            mv build/*.deb smooth-scroll-${VERSION}-${DISTRO_ID}${VERSION_ID}_amd64.deb
+          else
+            mv build/*.rpm smooth-scroll-${VERSION}-${DISTRO_ID}${VERSION_ID}.x86_64.rpm
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-${{ steps.build_info.outputs.artifact_key }}
+          path: |
+            *.deb
+            *.rpm
+
+  release:
+    needs: [build-matrix]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-*
+          merge-multiple: true
+
+      - name: List Files
+        run: ls -lh
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.deb
+            *.rpm
+          draft: false
+          prerelease: false
+          generate_release_notes: true

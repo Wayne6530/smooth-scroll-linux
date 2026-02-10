@@ -29,11 +29,24 @@
 
 ### 安装
 
-从 [Release](https://github.com/Wayne6530/smooth-scroll-linux/releases) 界面下载最新的安装包，在下载路径下，使用以下指令进行安装。
+1. 前往 [Releases](https://github.com/Wayne6530/smooth-scroll-linux/releases) 页面。
+2. 下载适合您发行版的安装包：
+
+**Ubuntu / Linux Mint:**
 
 ```bash
-sudo apt install ./smooth-scroll_x.x.x_amd64.deb
+cd ~/Downloads
+sudo apt install ./smooth-scroll_*.deb
 ```
+
+**Fedora:**
+
+```bash
+cd ~/Downloads
+sudo dnf install ./smooth-scroll-*.rpm
+```
+
+> **注意：** 如果没有找到适配您系统的安装包（例如 Arch Linux 或较旧的发行版），请参阅 [从源码编译](#4-从源码编译) 章节。
 
 安装完成后，**smooth-scroll.service** 会立刻自动启动并且开机自启。
 
