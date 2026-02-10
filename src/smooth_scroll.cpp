@@ -15,11 +15,10 @@
 #include <toml++/toml.hpp>
 
 #include "wheel_smoother.h"
+#include "version.h"
 
 using namespace std::string_view_literals;
 using namespace smooth_scroll;
-
-constexpr std::string_view kVersion = "0.3.0"sv;
 
 constexpr std::string_view kHelpStr =
     R"(Smooth Scroll for Linux (https://github.com/Wayne6530/smooth-scroll-linux)

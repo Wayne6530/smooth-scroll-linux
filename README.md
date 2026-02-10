@@ -120,6 +120,8 @@ For advanced users, see [Technical Insight](https://github.com/Wayne6530/smooth-
 
 ## Build from Source
 
+### DEB
+
 1. Install dependencies:
 
    ```bash
@@ -131,15 +133,28 @@ For advanced users, see [Technical Insight](https://github.com/Wayne6530/smooth-
    ```bash
    git clone https://github.com/Wayne6530/smooth-scroll-linux.git
    cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
    cd build
    make package
    ```
 
-```text
-Note:
-Do not use make install, as this will install to /usr/local/bin/smooth-scroll, which does not match the service's expected location (/usr/bin/smooth-scroll).
-```
+### RPM
+
+1. Install dependencies:
+
+   ```bash
+   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build 
+   ```
+
+2. Clone and build:
+
+   ```bash
+   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+   cd smooth-scroll-linux
+   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
+   cd build
+   make package
+   ```
 
 ## FAQ
 
@@ -168,4 +183,4 @@ This is a known issue in `libinput` ([Disable hi-res wheel event initial accumul
    sudo ninja -C builddir install
    ```
 
-4. Restart your desktop session or input-related services to apply the changes.
+4. Restart your desktop session.

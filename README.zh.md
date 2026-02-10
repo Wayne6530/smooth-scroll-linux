@@ -136,6 +136,8 @@ journalctl -xe -f -u smooth-scroll.service
 
 ## 4. 从源码编译
 
+### DEB
+
 1. 安装依赖
 
    ```bash
@@ -147,15 +149,28 @@ journalctl -xe -f -u smooth-scroll.service
    ```bash
    git clone https://github.com/Wayne6530/smooth-scroll-linux.git
    cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
    cd build
    make package
    ```
 
-```text
-注意：
-请不要使用 make install 安装，这会导致程序被安装到 /usr/local/bin/smooth-scroll，与 smooth-scroll.service 中的启动位置 /usr/bin/smooth-scroll 不符。
-```
+### RPM
+
+1. 安装依赖
+
+   ```bash
+   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build 
+   ```
+
+2. 下载源码并编译
+
+   ```bash
+   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+   cd smooth-scroll-linux
+   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
+   cd build
+   make package
+   ```
 
 ## 5. FAQ
 
