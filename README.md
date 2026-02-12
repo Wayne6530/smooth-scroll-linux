@@ -169,6 +169,33 @@ For advanced users, see [Technical Insight](https://github.com/Wayne6530/smooth-
    make package
    ```
 
+### Arch Linux / Manjaro
+
+1. Install dependencies:
+
+   ```bash
+   sudo pacman -S base-devel cmake git spdlog libevdev
+   ```
+
+2. Clone and build:
+
+   ```bash
+   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+   cd smooth-scroll-linux
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cd build
+   make
+
+   # Install (Installs to /usr/bin /usr/lib/systemd/system and /etc/smooth-scroll)
+   sudo make install
+   ```
+
+3. Enable Service:
+
+   ```bash
+   sudo systemctl enable --now smooth-scroll
+   ```
+
 ## FAQ
 
 ### Why is there a dead zone at the start of scrolling?

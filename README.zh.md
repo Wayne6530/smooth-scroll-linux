@@ -185,6 +185,33 @@ journalctl -xe -f -u smooth-scroll.service
    make package
    ```
 
+### Arch Linux / Manjaro
+
+1. 安装依赖
+
+   ```bash
+   sudo pacman -S base-devel cmake git spdlog libevdev
+   ```
+
+2. 下载源码并编译安装
+
+   ```bash
+   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+   cd smooth-scroll-linux
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cd build
+   make
+
+   # 安装 (将安装至 /usr/bin /usr/lib/systemd/system 和 /etc/smooth-scroll)
+   sudo make install
+   ```
+
+3. 启用服务
+
+   ```bash
+   sudo systemctl enable --now smooth-scroll
+   ```
+
 ## 5. FAQ
 
 ### 为什么开始滚动时有死区
