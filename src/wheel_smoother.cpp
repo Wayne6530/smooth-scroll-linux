@@ -24,6 +24,20 @@ WheelSmoother::WheelSmoother(const Options& options)
   , mouse_movement_braking_cut_off_delta_{ options.mouse_movement_braking_cut_off_speed * tick_interval_ }
 {
   SPDLOG_DEBUG("tick interval {}s alpha {}", tick_interval_, alpha_);
+
+  if (options.use_braking)
+  {
+    max_delta_braking_times_.reserve(options.max_braking_times);
+
+    double max_delta = initial_delta_;
+    max_delta_braking_times_.push_back(max_delta);
+
+    for (int i = 0; i < options.max_braking_times; ++i)
+    {
+      max_delta += std::max(max_delta * options.max_speed_change_ratio, min_delta_change_upperbound_);
+      max_delta_braking_times_.push_back(max_delta);
+    }
+  }
 }
 
 void WheelSmoother::stop()
@@ -104,8 +118,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
 
         positive_ = positive;
 
-        delta_ = std::clamp(speed * tick_interval_, initial_delta_,
-                            initial_delta_ + braking_times_ * min_delta_change_upperbound_);
+        delta_ = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
         braking_times_ = 0;
 
         SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);

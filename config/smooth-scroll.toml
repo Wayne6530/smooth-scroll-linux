@@ -36,11 +36,11 @@ speed_smooth_window_microseconds = 200000
 
 max_speed_change_lowerbound = 512
 
-min_speed_change_upperbound = 1024
+min_speed_change_upperbound = 512
 
 min_speed_change_ratio = 0.0625
 
-max_speed_change_ratio = 1
+max_speed_change_ratio = 0.5
 
 braking_cut_off_speed = 1000.0
 

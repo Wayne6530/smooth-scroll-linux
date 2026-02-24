@@ -85,6 +85,7 @@ private:
   double braking_cut_off_delta_;
   double delta_decrease_per_mouse_movement_;
   double mouse_movement_braking_cut_off_delta_;
+  std::vector<double> max_delta_braking_times_;
 
   std::vector<std::chrono::microseconds> event_intervals_;
   std::chrono::microseconds last_event_time_{ 0 };
