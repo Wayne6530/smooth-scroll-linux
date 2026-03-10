@@ -6,12 +6,14 @@
 #include <chrono>
 #include <string_view>
 #include <string>
+#include <vector>
 
 #include <dirent.h>
 #include <libevdev-1.0/libevdev/libevdev.h>
 #include <linux/uinput.h>
 #include <signal.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/ranges.h>
 #include <toml++/toml.hpp>
 
 #include "wheel_smoother.h"
@@ -133,9 +135,17 @@ std::string findDevice()
     std::chrono::microseconds now =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
 
+    auto usec = (deadline - now).count();
+
+    if (usec < 0)
+    {
+      SPDLOG_INFO("No active device detected");
+      break;
+    }
+
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = (deadline - now).count();
+    timeout.tv_usec = usec;
 
     while (timeout.tv_usec >= 1'000'000)
     {
@@ -215,6 +225,85 @@ std::string findDevice()
   }
 
   return "";
+}
+
+std::vector<std::pair<int, libevdev*>> findKeyboardDevices(const std::vector<unsigned int>& keys,
+                                                           const std::string& mouse_device)
+{
+  std::vector<std::pair<int, libevdev*>> keyboard_devices;
+
+  if (keys.empty())
+  {
+    return keyboard_devices;
+  }
+
+  DIR* dir = opendir("/dev/input");
+  if (!dir)
+  {
+    SPDLOG_ERROR("Failed to open /dev/input directory");
+    return keyboard_devices;
+  }
+
+  dirent* entry;
+  while ((entry = readdir(dir)) != nullptr)
+  {
+    std::string_view name = entry->d_name;
+    if (name.rfind("event", 0) == 0)
+    {
+      std::string path = "/dev/input/" + std::string(name);
+
+      if (path == mouse_device)
+      {
+        continue;
+      }
+
+      int fd = open(path.c_str(), O_RDONLY | O_NONBLOCK);
+      if (fd < 0)
+      {
+        SPDLOG_WARN("Failed to open device {}: {}", path, strerror(errno));
+        continue;
+      }
+
+      libevdev* dev = nullptr;
+      int rc = libevdev_new_from_fd(fd, &dev);
+      if (rc < 0)
+      {
+        SPDLOG_WARN("Failed to initialize libevdev for {}: {}", path, strerror(-rc));
+        close(fd);
+        continue;
+      }
+
+      bool has_keys = false;
+
+      bool is_keyboard = libevdev_has_event_type(dev, EV_KEY);
+      if (is_keyboard)
+      {
+        for (auto key : keys)
+        {
+          if (libevdev_has_event_code(dev, EV_KEY, key))
+          {
+            has_keys = true;
+            break;
+          }
+        }
+      }
+
+      if (has_keys)
+      {
+        SPDLOG_INFO("Use keyboard device: {}", path);
+        keyboard_devices.emplace_back(fd, dev);
+      }
+      else
+      {
+        SPDLOG_DEBUG("Device {} is not a valid keyboard", path);
+        close(fd);
+        libevdev_free(dev);
+      }
+    }
+  }
+  closedir(dir);
+
+  return keyboard_devices;
 }
 
 int main(int argc, char* argv[])
@@ -311,6 +400,20 @@ int main(int argc, char* argv[])
     SPDLOG_WARN("Use default free spin button {}", free_spin_button.value());
   }
 
+  std::vector<unsigned int> keys;
+  if (auto array = table["keyboard_braking_keys"].as_array())
+  {
+    for (auto& elem : *array)
+    {
+      if (auto val = elem.value<unsigned int>())
+      {
+        if (*val < KEY_CNT)
+          keys.push_back(*val);
+      }
+    }
+  }
+  SPDLOG_INFO("Use keyboard braking keys {}", keys);
+
   auto read_option = [&table](const char* name, auto& value) {
     if (auto opt = table[name].value<std::remove_reference_t<decltype(value)>>())
     {
@@ -353,27 +456,19 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  int fd = open((*device).c_str(), O_RDONLY | O_NONBLOCK);
-  if (fd < 0)
+  int mouse_fd = open((*device).c_str(), O_RDONLY | O_NONBLOCK);
+  if (mouse_fd < 0)
   {
     SPDLOG_ERROR("can't open {}", *device);
     return -1;
   }
 
-  struct libevdev* evdev = nullptr;
-  int rc = libevdev_new_from_fd(fd, &evdev);
+  struct libevdev* mouse_evdev = nullptr;
+  int rc = libevdev_new_from_fd(mouse_fd, &mouse_evdev);
   if (rc < 0)
   {
     SPDLOG_ERROR("failed to initialize libevdev: {}", strerror(-rc));
-    close(fd);
-    return -1;
-  }
-
-  if (libevdev_grab(evdev, LIBEVDEV_GRAB) < 0)
-  {
-    SPDLOG_ERROR("failed to grab evdev");
-    libevdev_free(evdev);
-    close(fd);
+    close(mouse_fd);
     return -1;
   }
 
@@ -381,18 +476,18 @@ int main(int argc, char* argv[])
   if (uinput_fd < 0)
   {
     SPDLOG_ERROR("failed to open /dev/uinput");
-    libevdev_free(evdev);
-    close(fd);
+    libevdev_free(mouse_evdev);
+    close(mouse_fd);
     return -1;
   }
 
-  SPDLOG_INFO("Input device name: \"{}\"", libevdev_get_name(evdev));
-  SPDLOG_INFO("Input device ID: bus {:#x} vendor {:#x} product {:#x}", libevdev_get_id_bustype(evdev),
-              libevdev_get_id_vendor(evdev), libevdev_get_id_product(evdev));
+  SPDLOG_INFO("Input device name: \"{}\"", libevdev_get_name(mouse_evdev));
+  SPDLOG_INFO("Input device ID: bus {:#x} vendor {:#x} product {:#x}", libevdev_get_id_bustype(mouse_evdev),
+              libevdev_get_id_vendor(mouse_evdev), libevdev_get_id_product(mouse_evdev));
 
   for (int type = 0; type < EV_MAX; type++)
   {
-    if (libevdev_has_event_type(evdev, type))
+    if (libevdev_has_event_type(mouse_evdev, type))
     {
       SPDLOG_INFO("  Event type {} ({}) supported", type, libevdev_event_type_get_name(type));
 
@@ -401,7 +496,7 @@ int main(int argc, char* argv[])
         ioctl(uinput_fd, UI_SET_EVBIT, type);
         for (int code = 0; code < KEY_MAX; code++)
         {
-          if (libevdev_has_event_code(evdev, type, code))
+          if (libevdev_has_event_code(mouse_evdev, type, code))
           {
             SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
             ioctl(uinput_fd, UI_SET_KEYBIT, code);
@@ -413,7 +508,7 @@ int main(int argc, char* argv[])
         ioctl(uinput_fd, UI_SET_EVBIT, type);
         for (int code = 0; code < REL_MAX; code++)
         {
-          if (libevdev_has_event_code(evdev, type, code))
+          if (libevdev_has_event_code(mouse_evdev, type, code))
           {
             SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
             ioctl(uinput_fd, UI_SET_RELBIT, code);
@@ -425,7 +520,7 @@ int main(int argc, char* argv[])
         ioctl(uinput_fd, UI_SET_EVBIT, type);
         for (int code = 0; code < MSC_MAX; code++)
         {
-          if (libevdev_has_event_code(evdev, type, code))
+          if (libevdev_has_event_code(mouse_evdev, type, code))
           {
             SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
             ioctl(uinput_fd, UI_SET_MSCBIT, code);
@@ -447,8 +542,8 @@ int main(int argc, char* argv[])
   {
     SPDLOG_ERROR("Write uidev failed");
     close(uinput_fd);
-    libevdev_free(evdev);
-    close(fd);
+    libevdev_free(mouse_evdev);
+    close(mouse_fd);
     return -1;
   }
 
@@ -456,24 +551,63 @@ int main(int argc, char* argv[])
   {
     SPDLOG_ERROR("Unable to create uinput device");
     close(uinput_fd);
-    libevdev_free(evdev);
-    close(fd);
+    libevdev_free(mouse_evdev);
+    close(mouse_fd);
+    return -1;
+  }
+
+  std::array<bool, KEY_CNT> key_table{};
+  std::vector<std::pair<int, libevdev*>> keyboard_devices;
+  if (!keys.empty())
+  {
+    for (auto key : keys)
+    {
+      key_table[key] = true;
+    }
+
+    keyboard_devices = findKeyboardDevices(keys, *device);
+  }
+
+  if (libevdev_grab(mouse_evdev, LIBEVDEV_GRAB) < 0)
+  {
+    SPDLOG_ERROR("failed to grab mouse_evdev");
+
+    ioctl(uinput_fd, UI_DEV_DESTROY);
+    close(uinput_fd);
+    libevdev_free(mouse_evdev);
+    close(mouse_fd);
+    for (const auto& [fd, evdev] : keyboard_devices)
+    {
+      libevdev_free(evdev);
+      close(fd);
+    }
     return -1;
   }
 
   WheelSmoother wheel_smoother{ options };
 
+  int max_fd = mouse_fd;
+  fd_set fds;
+  FD_ZERO(&fds);
+  FD_SET(mouse_fd, &fds);
+  for (const auto& [fd, evdev] : keyboard_devices)
+  {
+    FD_SET(fd, &fds);
+    if (fd > max_fd)
+    {
+      max_fd = fd;
+    }
+  }
+
   bool drop_syn_report = false;
   struct input_event ev;
   while (!kShutdown.load(std::memory_order_relaxed))
   {
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(fd, &read_fds);
+    fd_set read_fds = fds;
 
     auto timeout = wheel_smoother.timeout();
 
-    int select_ret = select(fd + 1, &read_fds, NULL, NULL, timeout.has_value() ? &timeout.value() : NULL);
+    int select_ret = select(max_fd + 1, &read_fds, NULL, NULL, timeout.has_value() ? &timeout.value() : NULL);
     if (select_ret < 0)
     {
       if (errno == EINTR)
@@ -515,8 +649,60 @@ int main(int argc, char* argv[])
       }
     }
 
+    for (auto it = keyboard_devices.begin(); it != keyboard_devices.end();)
+    {
+      const unsigned int fd = it->first;
+
+      if (!FD_ISSET(fd, &read_fds))
+      {
+        ++it;
+        continue;
+      }
+
+      libevdev* evdev = it->second;
+
+      int result;
+      while ((result = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
+      {
+        if (ev.type == EV_KEY && ev.code < KEY_CNT && key_table[ev.code] && ev.value != 2)
+        {
+          wheel_smoother.stop();
+        }
+      }
+
+      if (result == -ENODEV)
+      {
+        SPDLOG_WARN("Keyboard device lost");
+        libevdev_free(evdev);
+        close(fd);
+
+        it = keyboard_devices.erase(it);
+
+        max_fd = mouse_fd;
+        FD_ZERO(&fds);
+        FD_SET(mouse_fd, &fds);
+        for (const auto& [fd, evdev] : keyboard_devices)
+        {
+          FD_SET(fd, &fds);
+          if (fd > max_fd)
+          {
+            max_fd = fd;
+          }
+        }
+
+        continue;
+      }
+
+      ++it;
+    }
+
+    if (!FD_ISSET(mouse_fd, &read_fds))
+    {
+      continue;
+    }
+
     int result;
-    while ((result = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
+    while ((result = libevdev_next_event(mouse_evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
     {
       if (ev.type == EV_REL)
       {
@@ -600,11 +786,16 @@ int main(int argc, char* argv[])
 
     if (result == -ENODEV)
     {
-      SPDLOG_ERROR("Device lost");
+      SPDLOG_ERROR("Mouse device lost");
       ioctl(uinput_fd, UI_DEV_DESTROY);
       close(uinput_fd);
-      libevdev_free(evdev);
-      close(fd);
+      libevdev_free(mouse_evdev);
+      close(mouse_fd);
+      for (const auto& [fd, evdev] : keyboard_devices)
+      {
+        libevdev_free(evdev);
+        close(fd);
+      }
       return -1;
     }
 
@@ -650,19 +841,29 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (libevdev_grab(evdev, LIBEVDEV_UNGRAB) < 0)
+  if (libevdev_grab(mouse_evdev, LIBEVDEV_UNGRAB) < 0)
   {
-    SPDLOG_ERROR("failed to ungrab evdev");
+    SPDLOG_ERROR("failed to ungrab mouse_evdev");
     ioctl(uinput_fd, UI_DEV_DESTROY);
     close(uinput_fd);
-    libevdev_free(evdev);
-    close(fd);
+    libevdev_free(mouse_evdev);
+    close(mouse_fd);
+    for (const auto& [fd, evdev] : keyboard_devices)
+    {
+      libevdev_free(evdev);
+      close(fd);
+    }
     return -1;
   }
 
   ioctl(uinput_fd, UI_DEV_DESTROY);
   close(uinput_fd);
-  libevdev_free(evdev);
-  close(fd);
+  libevdev_free(mouse_evdev);
+  close(mouse_fd);
+  for (const auto& [fd, evdev] : keyboard_devices)
+  {
+    libevdev_free(evdev);
+    close(fd);
+  }
   return 0;
 }

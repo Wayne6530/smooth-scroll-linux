@@ -60,6 +60,7 @@ After installation, **smooth-scroll.service** will start automatically and enabl
    1. **Reverse wheel** (recommended): Briefly scroll in the opposite direction while scrolling is active to stop immediately. Too many or too long reverse scrolls may cause reverse scrolling. Adjust the stop parameters in the config for your preferred feel.
    2. **Click any mouse button** (except the **Free Spin** button).
    3. **Move the mouse pointer**: Moving the mouse a certain distance while scrolling will stop the scroll, useful when switching to another window.
+   4. **Specific keyboard keys**: Pressing or releasing L_SHIFT or R_SHIFT (these keys can be customized) will immediately stop the scroll. This is primarily useful for stopping the scroll when switching between horizontal and vertical scrolling.
 3. Try **Free Spin** mode:
    - Open a long document, start scrolling, then hold the **Free Spin** button (default: right mouse button) while scrolling is active.
    - Scrolling will continue smoothly; you can increase speed with the wheel or use any stop method.

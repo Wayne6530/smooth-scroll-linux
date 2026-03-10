@@ -1,11 +1,11 @@
 # device = "/dev/input/event9"
 
 # DISABLED    0
-# BTN_LEFT		272
-# BTN_RIGHT		273
-# BTN_MIDDLE	274
-# BTN_SIDE		275
-# BTN_EXTRA		276
+# BTN_LEFT    272
+# BTN_RIGHT   273
+# BTN_MIDDLE  274
+# BTN_SIDE    275
+# BTN_EXTRA   276
 free_spin_button = 273
 
 damping = 3.1
@@ -25,6 +25,13 @@ braking_dejitter_microseconds = 100000
 max_braking_times = 3
 
 use_mouse_movement_braking = true
+
+# KEY_LEFTSHIFT     42
+# KEY_RIGHTSHIFT    54
+# KEY_LEFTCTRL      29
+# KEY_RIGHTCTRL     97
+# https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+keyboard_braking_keys = [42, 54]
 
 # advanced
 
