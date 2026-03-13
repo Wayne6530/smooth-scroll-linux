@@ -306,6 +306,43 @@ std::vector<std::pair<int, libevdev*>> findKeyboardDevices(const std::vector<uns
   return keyboard_devices;
 }
 
+void waitUntilAllButtonsReleased(libevdev* evdev, const std::vector<int>& supported_buttons)
+{
+  auto are_any_buttons_pressed = [&]() -> bool {
+    for (int btn : supported_buttons)
+    {
+      if (libevdev_get_event_value(evdev, EV_KEY, btn) != 0)
+      {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  while (!kShutdown.load(std::memory_order_relaxed) && are_any_buttons_pressed())
+  {
+    struct input_event ev;
+
+    int rc = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING, &ev);
+
+    if (rc == LIBEVDEV_READ_STATUS_SUCCESS)
+    {
+      continue;
+    }
+    else if (rc == LIBEVDEV_READ_STATUS_SYNC)
+    {
+      while (rc == LIBEVDEV_READ_STATUS_SYNC)
+      {
+        rc = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_SYNC, &ev);
+      }
+    }
+    else if (rc < 0 && rc != -EAGAIN)
+    {
+      break;
+    }
+  }
+}
+
 int main(int argc, char* argv[])
 {
   spdlog::set_pattern("[%E.%f] [%^%L%$] %v");
@@ -481,6 +518,8 @@ int main(int argc, char* argv[])
     return -1;
   }
 
+  std::vector<int> supported_buttons;
+
   SPDLOG_INFO("Input device name: \"{}\"", libevdev_get_name(mouse_evdev));
   SPDLOG_INFO("Input device ID: bus {:#x} vendor {:#x} product {:#x}", libevdev_get_id_bustype(mouse_evdev),
               libevdev_get_id_vendor(mouse_evdev), libevdev_get_id_product(mouse_evdev));
@@ -500,6 +539,7 @@ int main(int argc, char* argv[])
           {
             SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
             ioctl(uinput_fd, UI_SET_KEYBIT, code);
+            supported_buttons.push_back(code);
           }
         }
       }
@@ -567,6 +607,8 @@ int main(int argc, char* argv[])
 
     keyboard_devices = findKeyboardDevices(keys, *device);
   }
+
+  waitUntilAllButtonsReleased(mouse_evdev, supported_buttons);
 
   if (libevdev_grab(mouse_evdev, LIBEVDEV_GRAB) < 0)
   {
