@@ -689,6 +689,7 @@ int main(int argc, char* argv[])
           break;
         }
       }
+      continue;
     }
 
     for (auto it = keyboard_devices.begin(); it != keyboard_devices.end();)
@@ -704,8 +705,24 @@ int main(int argc, char* argv[])
       libevdev* evdev = it->second;
 
       int result;
-      while ((result = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
+      int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
+      while (true)
       {
+        result = libevdev_next_event(evdev, read_flag, &ev);
+
+        if (result == LIBEVDEV_READ_STATUS_SYNC)
+        {
+          if (ev.type == EV_SYN && ev.code == SYN_DROPPED)
+          {
+            read_flag = LIBEVDEV_READ_FLAG_SYNC;
+            continue;
+          }
+        }
+        else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
+        {
+          break;
+        }
+
         if (ev.type == EV_KEY && ev.code < KEY_CNT && key_table[ev.code] && ev.value != 2)
         {
           wheel_smoother.stop();
@@ -738,107 +755,122 @@ int main(int argc, char* argv[])
       ++it;
     }
 
-    if (!FD_ISSET(mouse_fd, &read_fds))
+    if (FD_ISSET(mouse_fd, &read_fds))
     {
-      continue;
-    }
-
-    int result;
-    while ((result = libevdev_next_event(mouse_evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
-    {
-      if (ev.type == EV_REL)
+      int result;
+      int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
+      while (true)
       {
-        if (ev.code == REL_WHEEL)
-        {
-          auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
-          if (ev_wheel.has_value())
-          {
-            ev = *ev_wheel;
+        result = libevdev_next_event(mouse_evdev, read_flag, &ev);
 
-            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                         ev.value);
-            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+        if (result == LIBEVDEV_READ_STATUS_SYNC)
+        {
+          if (ev.type == EV_SYN && ev.code == SYN_DROPPED)
+          {
+            read_flag = LIBEVDEV_READ_FLAG_SYNC;
+            continue;
+          }
+        }
+        else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
+        {
+          break;
+        }
+
+        if (ev.type == EV_REL)
+        {
+          if (ev.code == REL_WHEEL)
+          {
+            auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
+            if (ev_wheel.has_value())
             {
-              SPDLOG_ERROR("Write uinput failed");
-              break;
+              ev = *ev_wheel;
+
+              SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
+                           libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
+                           ev.value);
+              if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+              {
+                SPDLOG_ERROR("Write uinput failed");
+                break;
+              }
+            }
+            else
+            {
+              drop_syn_report = true;
+            }
+
+            continue;
+          }
+
+          if (ev.code == REL_WHEEL_HI_RES)
+          {
+            continue;
+          }
+
+          if (ev.code == REL_X)
+          {
+            wheel_smoother.handleRelXEvent(ev.time, ev.value);
+          }
+          else if (ev.code == REL_Y)
+          {
+            wheel_smoother.handleRelYEvent(ev.time, ev.value);
+          }
+        }
+
+        if (ev.type == EV_MSC)
+        {
+          continue;
+        }
+
+        if (ev.type == EV_KEY)
+        {
+          if (ev.code == *free_spin_button)
+          {
+            if (wheel_smoother.setFreeSpin(ev.value == 1))
+            {
+              drop_syn_report = true;
+              continue;
             }
           }
-          else
+
+          wheel_smoother.stop();
+        }
+
+        if (drop_syn_report)
+        {
+          if (ev.type == EV_SYN && ev.code == SYN_REPORT)
           {
-            drop_syn_report = true;
-          }
-
-          continue;
-        }
-
-        if (ev.code == REL_WHEEL_HI_RES)
-        {
-          continue;
-        }
-
-        if (ev.code == REL_X)
-        {
-          wheel_smoother.handleRelXEvent(ev.time, ev.value);
-        }
-        else if (ev.code == REL_Y)
-        {
-          wheel_smoother.handleRelYEvent(ev.time, ev.value);
-        }
-      }
-
-      if (ev.type == EV_MSC)
-      {
-        continue;
-      }
-
-      if (ev.type == EV_KEY)
-      {
-        if (ev.code == *free_spin_button)
-        {
-          if (wheel_smoother.setFreeSpin(ev.value == 1))
-          {
-            drop_syn_report = true;
+            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {} dropped", ev.time.tv_sec, ev.time.tv_usec,
+                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
+                         ev.value);
+            drop_syn_report = false;
             continue;
           }
         }
 
-        wheel_smoother.stop();
-      }
-
-      if (drop_syn_report)
-      {
-        if (ev.type == EV_SYN && ev.code == SYN_REPORT)
+        SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
+                     libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
+        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
         {
-          SPDLOG_TRACE("{}.{:0>6} type {} code {} value {} dropped", ev.time.tv_sec, ev.time.tv_usec,
-                       libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-          drop_syn_report = false;
-          continue;
+          SPDLOG_ERROR("Write uinput failed");
+          break;
         }
       }
 
-      SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                   libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-      if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+      if (result == -ENODEV)
       {
-        SPDLOG_ERROR("Write uinput failed");
-        break;
+        SPDLOG_ERROR("Mouse device lost");
+        ioctl(uinput_fd, UI_DEV_DESTROY);
+        close(uinput_fd);
+        libevdev_free(mouse_evdev);
+        close(mouse_fd);
+        for (const auto& [fd, evdev] : keyboard_devices)
+        {
+          libevdev_free(evdev);
+          close(fd);
+        }
+        return -1;
       }
-    }
-
-    if (result == -ENODEV)
-    {
-      SPDLOG_ERROR("Mouse device lost");
-      ioctl(uinput_fd, UI_DEV_DESTROY);
-      close(uinput_fd);
-      libevdev_free(mouse_evdev);
-      close(mouse_fd);
-      for (const auto& [fd, evdev] : keyboard_devices)
-      {
-        libevdev_free(evdev);
-        close(fd);
-      }
-      return -1;
     }
 
     if (ev.type == EV_SYN && ev.code == SYN_REPORT)
