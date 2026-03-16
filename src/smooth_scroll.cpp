@@ -528,7 +528,8 @@ int main(int argc, char* argv[])
   {
     if (libevdev_has_event_type(mouse_evdev, type))
     {
-      SPDLOG_INFO("  Event type {} ({}) supported", type, libevdev_event_type_get_name(type));
+      const char* type_name = libevdev_event_type_get_name(type);
+      SPDLOG_INFO("  Event type {} ({}) supported", type, type_name ? type_name : "?");
 
       if (type == EV_KEY)
       {
@@ -537,7 +538,8 @@ int main(int argc, char* argv[])
         {
           if (libevdev_has_event_code(mouse_evdev, type, code))
           {
-            SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
+            const char* code_name = libevdev_event_code_get_name(type, code);
+            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
             ioctl(uinput_fd, UI_SET_KEYBIT, code);
             supported_buttons.push_back(code);
           }
@@ -550,7 +552,8 @@ int main(int argc, char* argv[])
         {
           if (libevdev_has_event_code(mouse_evdev, type, code))
           {
-            SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
+            const char* code_name = libevdev_event_code_get_name(type, code);
+            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
             ioctl(uinput_fd, UI_SET_RELBIT, code);
           }
         }
@@ -562,7 +565,8 @@ int main(int argc, char* argv[])
         {
           if (libevdev_has_event_code(mouse_evdev, type, code))
           {
-            SPDLOG_INFO("    Event code {} ({})", code, libevdev_event_code_get_name(type, code));
+            const char* code_name = libevdev_event_code_get_name(type, code);
+            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
             ioctl(uinput_fd, UI_SET_MSCBIT, code);
           }
         }
