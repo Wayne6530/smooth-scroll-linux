@@ -830,7 +830,7 @@ int main(int argc, char* argv[])
         {
           if (ev.code == *free_spin_button)
           {
-            if (wheel_smoother.setFreeSpin(ev.value == 1))
+            if (wheel_smoother.setFreeSpin(ev.value != 0))
             {
               drop_syn_report = true;
               continue;
