@@ -44,16 +44,25 @@ void WheelSmoother::stop()
 {
   if (delta_ != 0)
   {
-    SPDLOG_DEBUG("click stop");
+    SPDLOG_DEBUG("key stop");
     delta_ = 0;
   }
 }
 
-bool WheelSmoother::setFreeSpin(bool enabled)
+bool WheelSmoother::handleFreeSpinButton(int value)
 {
-  if (free_spin_ || delta_ != 0)
+  if (delta_ != 0 && value == 1)
   {
-    free_spin_ = enabled;
+    free_spin_ = true;
+    return true;
+  }
+
+  if (free_spin_)
+  {
+    if (value == 0)
+    {
+      free_spin_ = false;
+    }
     return true;
   }
 

@@ -54,7 +54,7 @@ public:
 
   void stop();
 
-  bool setFreeSpin(bool enabled);
+  bool handleFreeSpinButton(int value);
 
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive);
 

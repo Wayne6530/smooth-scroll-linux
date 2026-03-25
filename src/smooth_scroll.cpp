@@ -426,15 +426,15 @@ int main(int argc, char* argv[])
     }
   }
 
-  std::optional<int> free_spin_button = table["free_spin_button"].value<int>();
-  if (free_spin_button.has_value())
+  int free_spin_button = BTN_RIGHT;
+  if (auto opt = table["free_spin_button"].value<int>())
   {
-    SPDLOG_INFO("Use free spin button {}", free_spin_button.value());
+    free_spin_button = *opt;
+    SPDLOG_INFO("Use free spin button {}", free_spin_button);
   }
   else
   {
-    free_spin_button = BTN_RIGHT;
-    SPDLOG_WARN("Use default free spin button {}", free_spin_button.value());
+    SPDLOG_WARN("Use default free spin button {}", free_spin_button);
   }
 
   std::vector<unsigned int> keys;
@@ -828,9 +828,9 @@ int main(int argc, char* argv[])
 
         if (ev.type == EV_KEY)
         {
-          if (ev.code == *free_spin_button)
+          if (ev.code == free_spin_button)
           {
-            if (wheel_smoother.setFreeSpin(ev.value != 0))
+            if (wheel_smoother.handleFreeSpinButton(ev.value))
             {
               drop_syn_report = true;
               continue;
