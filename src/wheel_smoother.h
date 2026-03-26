@@ -9,6 +9,8 @@
 
 #include <linux/input.h>
 
+#include "mouse_movement_buffer.h"
+
 namespace smooth_scroll
 {
 
@@ -38,10 +40,8 @@ public:
     double speed_decrease_per_braking = std::numeric_limits<double>::infinity();
 
     bool use_mouse_movement_braking = true;
-    int mouse_movement_dejitter_distance = 200;
-    int max_mouse_movement_event_interval_microseconds = 50000;
-    double mouse_movement_braking_cut_off_speed = 200;
-    double speed_decrease_per_mouse_movement = std::numeric_limits<double>::infinity();
+    int max_mouse_movement_distance = 30;
+    int mouse_movement_window_milliseconds = 20;
   };
 
   explicit WheelSmoother(const Options& options);
@@ -64,9 +64,7 @@ public:
 
   std::optional<std::chrono::microseconds> next_tick_time();
 
-  void handleRelXEvent(const struct timeval& time, int value);
-
-  void handleRelYEvent(const struct timeval& time, int value);
+  void handleRelXYEvent(const struct timeval& time, int rel_x, int rel_y);
 
 private:
   double smoothSpeed(const std::chrono::microseconds event_interval);
@@ -83,23 +81,19 @@ private:
   double min_delta_change_upperbound_;
   double delta_decrease_per_braking_;
   double braking_cut_off_delta_;
-  double delta_decrease_per_mouse_movement_;
-  double mouse_movement_braking_cut_off_delta_;
+  int squared_max_mouse_movement_distance_;
+  MouseMovementBuffer mouse_movement_buffer_;
   std::vector<double> max_delta_braking_times_;
 
   std::vector<std::chrono::microseconds> event_intervals_;
   std::chrono::microseconds last_event_time_{ 0 };
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };
-  std::chrono::microseconds last_mouse_movement_time_{ 0 };
   bool positive_ = false;
   double delta_ = 0;
   double deviation_ = 0;
   int total_delta_ = 0;
   int braking_times_ = 0;
-  bool mouse_movement_dejitter_ = true;
-  int mouse_movement_x_ = 0;
-  int mouse_movement_y_ = 0;
   bool free_spin_ = false;
 };
 

@@ -482,10 +482,8 @@ int main(int argc, char* argv[])
   read_option("braking_cut_off_speed", options.braking_cut_off_speed);
   read_option("speed_decrease_per_braking", options.speed_decrease_per_braking);
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
-  read_option("mouse_movement_dejitter_distance", options.mouse_movement_dejitter_distance);
-  read_option("max_mouse_movement_event_interval_microseconds", options.max_mouse_movement_event_interval_microseconds);
-  read_option("mouse_movement_braking_cut_off_speed", options.mouse_movement_braking_cut_off_speed);
-  read_option("speed_decrease_per_mouse_movement", options.speed_decrease_per_mouse_movement);
+  read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
+  read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)
   {
@@ -647,6 +645,8 @@ int main(int argc, char* argv[])
 
   bool drop_syn_report = false;
   struct input_event ev;
+  int rel_x = 0;
+  int rel_y = 0;
   while (!kShutdown.load(std::memory_order_relaxed))
   {
     fd_set read_fds = fds;
@@ -813,11 +813,11 @@ int main(int argc, char* argv[])
 
           if (ev.code == REL_X)
           {
-            wheel_smoother.handleRelXEvent(ev.time, ev.value);
+            rel_x = ev.value;
           }
           else if (ev.code == REL_Y)
           {
-            wheel_smoother.handleRelYEvent(ev.time, ev.value);
+            rel_y = ev.value;
           }
         }
 
@@ -840,15 +840,22 @@ int main(int argc, char* argv[])
           wheel_smoother.stop();
         }
 
-        if (drop_syn_report)
+        if (ev.type == EV_SYN && ev.code == SYN_REPORT)
         {
-          if (ev.type == EV_SYN && ev.code == SYN_REPORT)
+          if (drop_syn_report)
           {
             SPDLOG_TRACE("{}.{:0>6} type {} code {} value {} dropped", ev.time.tv_sec, ev.time.tv_usec,
                          libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
                          ev.value);
             drop_syn_report = false;
             continue;
+          }
+
+          if (rel_x || rel_y)
+          {
+            wheel_smoother.handleRelXYEvent(ev.time, rel_x, rel_y);
+            rel_x = 0;
+            rel_y = 0;
           }
         }
 

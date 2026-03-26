@@ -69,14 +69,14 @@ Two methods can stop the scrolling:
    - To prevent accidental reverse-scroll jitter, opposite direction events within `braking_dejitter_microseconds` and less than `max_braking_times - 1` after braking are ignored.  
 
 3. **Mouse Movement Braking**  
-   - When the cumulative distance of continuous mouse movement exceeds `mouse_movement_dejitter_distance`, each subsequent movement unit reduces the speed by `speed_decrease_per_mouse_movement`.  
-   - If `current_speed` falls below `mouse_movement_braking_cut_off_speed`, the speed resets to zero.  
-   - If the time interval between mouse movements exceeds `max_mouse_movement_event_interval_microseconds`, it's treated as a new movement sequence, and `mouse_movement_dejitter_distance` resets.  
+   - Mouse movement (X and Y axes) is tracked over a sliding time window defined by `mouse_movement_window_milliseconds`.
+   - The system calculates the cumulative 2D vector distance of all movements within this active window.
+   - If the distance exceeds `max_mouse_movement_distance`, the scrolling speed immediately resets to zero, instantly stopping the motion.
 
 ### Key Parameters  
 
 | Parameter | Description |  
-|-----------|-------------|  
+| --------- | ----------- |  
 | `tick_interval_microseconds` | Interval between synthetic event generations. |  
 | `initial_speed` | Base speed when scrolling starts. |  
 | `speed_factor` | Scales speed adjustments per wheel event. |  
@@ -95,7 +95,5 @@ Two methods can stop the scrolling:
 | `braking_cut_off_speed` | Speed threshold to stop scrolling during braking. |  
 | `speed_decrease_per_braking` | Speed reduction per opposite-direction wheel event. |  
 | `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
-| `mouse_movement_dejitter_distance` | Minimum cumulative movement distance before braking activates. |  
-| `max_mouse_movement_event_interval_microseconds` | Maximum time between movements to be considered continuous. |  
-| `mouse_movement_braking_cut_off_speed` | Speed threshold to stop scrolling during mouse movement braking. |  
-| `speed_decrease_per_mouse_movement` | Speed reduction per movement unit after dejitter distance. |  
+| `max_mouse_movement_distance` | Maximum allowed 2D movement distance within the time window before scrolling stops. |
+| `mouse_movement_window_milliseconds` | The sliding time window (in milliseconds) used to track recent mouse movements. |
