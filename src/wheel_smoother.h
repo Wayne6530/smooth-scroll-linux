@@ -42,6 +42,8 @@ public:
     bool use_mouse_movement_braking = true;
     int max_mouse_movement_distance = 30;
     int mouse_movement_window_milliseconds = 20;
+
+    int drag_view_speed = 3;
   };
 
   explicit WheelSmoother(const Options& options);
@@ -56,6 +58,8 @@ public:
 
   bool handleFreeSpinButton(int value);
 
+  bool handleDragViewButton(int value);
+
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive);
 
   std::optional<struct input_event> tick();
@@ -64,7 +68,11 @@ public:
 
   std::optional<std::chrono::microseconds> next_tick_time();
 
-  void handleRelXYEvent(const struct timeval& time, int rel_x, int rel_y);
+  void handleRelXEvent(struct input_event& ev);
+
+  void handleRelYEvent(struct input_event& ev);
+
+  void handleReportEvent(const struct timeval& time);
 
 private:
   double smoothSpeed(const std::chrono::microseconds event_interval);
@@ -94,7 +102,10 @@ private:
   double deviation_ = 0;
   int total_delta_ = 0;
   int braking_times_ = 0;
+  int rel_x_ = 0;
+  int rel_y_ = 0;
   bool free_spin_ = false;
+  bool drag_view_ = false;
 };
 
 }  // namespace smooth_scroll

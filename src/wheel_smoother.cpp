@@ -69,8 +69,34 @@ bool WheelSmoother::handleFreeSpinButton(int value)
   return false;
 }
 
+bool WheelSmoother::handleDragViewButton(int value)
+{
+  if (delta_ != 0 && value == 1)
+  {
+    drag_view_ = true;
+    delta_ = 0;
+    return true;
+  }
+
+  if (drag_view_)
+  {
+    if (value == 0)
+    {
+      drag_view_ = false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive)
 {
+  if (drag_view_)
+  {
+    return {};
+  }
+
   std::chrono::microseconds event_time =
       std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
@@ -285,24 +311,54 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
   return next_tick_time_;
 }
 
-void WheelSmoother::handleRelXYEvent(const struct timeval& time, int rel_x, int rel_y)
+void WheelSmoother::handleRelXEvent(struct input_event& ev)
 {
-  if (delta_ == 0 || !options_.use_mouse_movement_braking || free_spin_)
+  if (drag_view_)
+  {
+    ev.code = REL_HWHEEL_HI_RES;
+    ev.value = options_.drag_view_speed * ev.value;
+    return;
+  }
+
+  rel_x_ = ev.value;
+}
+
+void WheelSmoother::handleRelYEvent(struct input_event& ev)
+{
+  if (drag_view_)
+  {
+    ev.code = REL_WHEEL_HI_RES;
+    ev.value = -options_.drag_view_speed * ev.value;
+    return;
+  }
+
+  rel_y_ = ev.value;
+}
+
+void WheelSmoother::handleReportEvent(const struct timeval& time)
+{
+  if (rel_x_ == 0 && rel_y_ == 0)
   {
     return;
   }
 
-  std::chrono::milliseconds event_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec });
-
-  auto result = mouse_movement_buffer_.add(event_time, rel_x, rel_y);
-
-  int squared_distance = result.x * result.x + result.y * result.y;
-  if (squared_distance > squared_max_mouse_movement_distance_)
+  if (delta_ != 0 && options_.use_mouse_movement_braking && !free_spin_)
   {
-    SPDLOG_DEBUG("movement stop");
-    delta_ = 0;
+    std::chrono::milliseconds event_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec });
+
+    auto result = mouse_movement_buffer_.add(event_time, rel_x_, rel_y_);
+
+    int squared_distance = result.x * result.x + result.y * result.y;
+    if (squared_distance > squared_max_mouse_movement_distance_)
+    {
+      SPDLOG_DEBUG("movement stop");
+      delta_ = 0;
+    }
   }
+
+  rel_x_ = 0;
+  rel_y_ = 0;
 }
 
 double WheelSmoother::smoothSpeed(const std::chrono::microseconds event_interval)

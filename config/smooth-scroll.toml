@@ -8,6 +8,10 @@
 # BTN_EXTRA   276
 free_spin_button = 273
 
+drag_view_button = 272
+
+drag_view_speed = 3
+
 damping = 3.1
 
 min_deceleration = 1420

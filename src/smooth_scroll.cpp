@@ -437,6 +437,17 @@ int main(int argc, char* argv[])
     SPDLOG_WARN("Use default free spin button {}", free_spin_button);
   }
 
+  int drag_view_button = BTN_LEFT;
+  if (auto opt = table["drag_view_button"].value<int>())
+  {
+    drag_view_button = *opt;
+    SPDLOG_INFO("Use drag view button {}", drag_view_button);
+  }
+  else
+  {
+    SPDLOG_WARN("Use default drag view button {}", drag_view_button);
+  }
+
   std::vector<unsigned int> keys;
   if (auto array = table["keyboard_braking_keys"].as_array())
   {
@@ -484,6 +495,7 @@ int main(int argc, char* argv[])
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
   read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
   read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);
+  read_option("drag_view_speed", options.drag_view_speed);
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)
   {
@@ -645,8 +657,6 @@ int main(int argc, char* argv[])
 
   bool drop_syn_report = false;
   struct input_event ev;
-  int rel_x = 0;
-  int rel_y = 0;
   while (!kShutdown.load(std::memory_order_relaxed))
   {
     fd_set read_fds = fds;
@@ -813,11 +823,11 @@ int main(int argc, char* argv[])
 
           if (ev.code == REL_X)
           {
-            rel_x = ev.value;
+            wheel_smoother.handleRelXEvent(ev);
           }
           else if (ev.code == REL_Y)
           {
-            rel_y = ev.value;
+            wheel_smoother.handleRelYEvent(ev);
           }
         }
 
@@ -828,7 +838,15 @@ int main(int argc, char* argv[])
 
         if (ev.type == EV_KEY)
         {
-          if (ev.code == free_spin_button)
+          if (ev.code == drag_view_button)
+          {
+            if (wheel_smoother.handleDragViewButton(ev.value))
+            {
+              drop_syn_report = true;
+              continue;
+            }
+          }
+          else if (ev.code == free_spin_button)
           {
             if (wheel_smoother.handleFreeSpinButton(ev.value))
             {
@@ -851,12 +869,7 @@ int main(int argc, char* argv[])
             continue;
           }
 
-          if (rel_x || rel_y)
-          {
-            wheel_smoother.handleRelXYEvent(ev.time, rel_x, rel_y);
-            rel_x = 0;
-            rel_y = 0;
-          }
+          wheel_smoother.handleReportEvent(ev.time);
         }
 
         SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
