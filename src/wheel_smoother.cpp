@@ -287,7 +287,7 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
 
 void WheelSmoother::handleRelXYEvent(const struct timeval& time, int rel_x, int rel_y)
 {
-  if (delta_ == 0 || !options_.use_mouse_movement_braking)
+  if (delta_ == 0 || !options_.use_mouse_movement_braking || free_spin_)
   {
     return;
   }
