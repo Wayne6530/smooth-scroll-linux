@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2025 Wayne6530
+// Copyright (c) 2026 Wayne6530
 
 #include <atomic>
 #include <optional>

@@ -22,6 +22,7 @@
 - 类似 Android/IOS 的滚动阻尼
 - 高度可自定义的平滑参数
 - 特色的 **Free Spin** 模式，一键释放滚动阻尼，专为长文档浏览设计
+- **Drag View** 模式，通过移动鼠标实现快速的全向（上下左右）平移视角
 - 多种停止滚动的方式
 - 轻量
 
@@ -73,6 +74,11 @@ sudo dnf install ./smooth-scroll-*.rpm
    - 屏幕将保持连续丝滑的滚动，在这期间，你可以正常使用滚轮加快滚动速度，使用任意停止滚动的方式
    - 松开 **Free Spin** 按键，屏幕滚动将缓慢停止
    - 在屏幕滚动缓慢停止期间，你可以再次按下并保持 **Free Spin** 键，通过这种方式获得你想要的滚动速度
+4. 尝试 **Drag View** 模式：
+   - 开始滚动，然后在滚动期间按住 **Drag View** 键（默认为鼠标左键）
+   - 滚动会立即停止，此时移动鼠标即可直观地向任意方向（上下左右）平移视角
+   - 这对于需要临时左右滚动，或在大型文档中四处平移视角的场景非常适用
+   - 松开按键即可恢复正常的鼠标操作
 
 ### 管理
 
@@ -138,6 +144,11 @@ journalctl -xe -f -u smooth-scroll.service
 - `braking_dejitter_microseconds`：反向滚轮停止的最长时间
 - `max_braking_times`：反向滚轮停止的最多次数
 - `use_mouse_movement_braking`：是否使用连续移动鼠标停止功能
+
+### Drag View 参数
+
+- `drag_view_button`: 用于触发 Drag View 模式的鼠标按键（默认为鼠标左键）。
+- `drag_view_speed`: 调整在 Drag View 模式下移动视角的灵敏度和速度。
 
 ### 使用调试模式
 

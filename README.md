@@ -22,6 +22,7 @@ English | [中文](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/RE
 - Android/iOS-like scroll damping
 - Highly customizable smoothness parameters
 - Unique **Free Spin** mode for effortless long-document navigation
+- **Drag View** mode for quick, omnidirectional panning using mouse movement
 - Multiple ways to stop scrolling
 - Lightweight and efficient
 
@@ -66,6 +67,11 @@ After installation, **smooth-scroll.service** will start automatically and enabl
    - Scrolling will continue smoothly; you can increase speed with the wheel or use any stop method.
    - Release the **Free Spin** button to gradually stop.
    - You can re-engage **Free Spin** during deceleration to adjust speed as needed.
+4. Try **Drag View** mode:
+   - Start scrolling, then press and hold the **Drag View** button (default: left mouse button) while scrolling is active.
+   - The scroll will stop immediately, and moving your mouse will now intuitively pan the view in any direction (up, down, left, right).
+   - This is highly useful for temporarily scrolling horizontally or panning around a large document.
+   - Release the button to return to normal mouse operation.
 
 ### Service Management
 
@@ -116,6 +122,11 @@ Examples:
 - `braking_dejitter_microseconds`: Max time for reverse wheel stop.
 - `max_braking_times`: Max reverse wheel stop count.
 - `use_mouse_movement_braking`: Enable stop by mouse movement.
+
+### Drag View Parameters
+
+- `drag_view_button`: The mouse button used to trigger Drag View mode (default is left mouse button).
+- `drag_view_speed`: Adjusts the sensitivity and speed of the panning when in Drag View mode.
 
 ### Debug Mode
 
