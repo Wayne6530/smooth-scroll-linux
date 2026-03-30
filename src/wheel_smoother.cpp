@@ -333,16 +333,20 @@ void WheelSmoother::handleReportEvent(const struct timeval& time)
 
   if (delta_ != 0 && options_.use_mouse_movement_braking && !free_spin_)
   {
-    std::chrono::milliseconds event_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec });
+    std::chrono::microseconds event_time =
+        std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
-    auto result = mouse_movement_buffer_.add(event_time, rel_x_, rel_y_);
-
-    int squared_distance = result.x * result.x + result.y * result.y;
-    if (squared_distance > squared_max_mouse_movement_distance_)
+    if (event_time > last_event_time_ + std::chrono::microseconds{ options_.mouse_movement_delay_microseconds })
     {
-      SPDLOG_DEBUG("movement stop");
-      delta_ = 0;
+      auto result =
+          mouse_movement_buffer_.add(std::chrono::duration_cast<std::chrono::milliseconds>(event_time), rel_x_, rel_y_);
+
+      int squared_distance = result.x * result.x + result.y * result.y;
+      if (squared_distance > squared_max_mouse_movement_distance_)
+      {
+        SPDLOG_DEBUG("movement stop");
+        delta_ = 0;
+      }
     }
   }
 

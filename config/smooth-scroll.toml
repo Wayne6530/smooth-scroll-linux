@@ -54,3 +54,5 @@ max_speed_change_ratio = 0.5
 max_mouse_movement_distance = 30
 
 mouse_movement_window_milliseconds = 20
+
+mouse_movement_delay_microseconds = 100000

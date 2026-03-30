@@ -68,6 +68,7 @@ Two methods can stop the scrolling:
    - To prevent accidental reverse-scroll jitter, opposite direction events within `max_reverse_scroll_braking_microseconds` and less than `max_reverse_scroll_braking_times - 1` after braking are ignored.  
 
 3. **Mouse Movement Braking**  
+   - Mouse movement only begins accumulating after `mouse_movement_delay_microseconds` has elapsed since the last wheel event.
    - Mouse movement (X and Y axes) is tracked over a sliding time window defined by `mouse_movement_window_milliseconds`.
    - The system calculates the cumulative 2D vector distance of all movements within this active window.
    - If the distance exceeds `max_mouse_movement_distance`, the scrolling speed immediately resets to zero, instantly stopping the motion.
@@ -93,3 +94,4 @@ Two methods can stop the scrolling:
 | `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
 | `max_mouse_movement_distance` | Maximum allowed 2D movement distance within the time window before scrolling stops. |
 | `mouse_movement_window_milliseconds` | The sliding time window (in milliseconds) used to track recent mouse movements. |
+| `mouse_movement_delay_microseconds` | The delay (in microseconds) after the last wheel event before mouse movements begin accumulating for braking. |

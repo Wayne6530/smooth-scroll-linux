@@ -492,6 +492,7 @@ int main(int argc, char* argv[])
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
   read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
   read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);
+  read_option("mouse_movement_delay_microseconds", options.mouse_movement_delay_microseconds);
   read_option("drag_view_speed", options.drag_view_speed);
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)

@@ -39,6 +39,7 @@ public:
     bool use_mouse_movement_braking = true;
     int max_mouse_movement_distance = 30;
     int mouse_movement_window_milliseconds = 20;
+    int mouse_movement_delay_microseconds = 100000;
 
     int drag_view_speed = 3;
   };
