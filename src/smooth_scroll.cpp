@@ -476,7 +476,6 @@ int main(int argc, char* argv[])
 
   WheelSmoother::Options options;
   read_option("tick_interval_microseconds", options.tick_interval_microseconds);
-  read_option("min_speed", options.min_speed);
   read_option("min_deceleration", options.min_deceleration);
   read_option("max_deceleration", options.max_deceleration);
   read_option("initial_speed", options.initial_speed);
@@ -487,11 +486,9 @@ int main(int argc, char* argv[])
   read_option("min_speed_change_ratio", options.min_speed_change_ratio);
   read_option("max_speed_change_ratio", options.max_speed_change_ratio);
   read_option("damping", options.damping);
-  read_option("use_braking", options.use_braking);
-  read_option("braking_dejitter_microseconds", options.braking_dejitter_microseconds);
-  read_option("max_braking_times", options.max_braking_times);
-  read_option("braking_cut_off_speed", options.braking_cut_off_speed);
-  read_option("speed_decrease_per_braking", options.speed_decrease_per_braking);
+  read_option("use_reverse_scroll_braking", options.use_reverse_scroll_braking);
+  read_option("max_reverse_scroll_braking_microseconds", options.max_reverse_scroll_braking_microseconds);
+  read_option("max_reverse_scroll_braking_times", options.max_reverse_scroll_braking_times);
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
   read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
   read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);

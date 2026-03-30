@@ -140,9 +140,9 @@ journalctl -xe -f -u smooth-scroll.service
 
 ### 调整停止参数
 
-- `use_braking`：是否使用反向滚轮停止功能
-- `braking_dejitter_microseconds`：反向滚轮停止的最长时间
-- `max_braking_times`：反向滚轮停止的最多次数
+- `use_reverse_scroll_braking`：是否使用反向滚轮停止功能
+- `max_reverse_scroll_braking_microseconds`：反向滚轮停止的最长时间
+- `max_reverse_scroll_braking_times`：反向滚轮停止的最多次数
 - `use_mouse_movement_braking`：是否使用连续移动鼠标停止功能
 
 ### Drag View 参数

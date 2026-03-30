@@ -21,7 +21,6 @@ public:
   {
     int tick_interval_microseconds = 2000;
 
-    double min_speed = 0;
     double min_deceleration = 1420;
     double max_deceleration = 6000;
     double initial_speed = 600;
@@ -33,11 +32,9 @@ public:
     double max_speed_change_ratio = 1;
     double damping = 3.1;
 
-    bool use_braking = true;
-    int braking_dejitter_microseconds = 100000;
-    int max_braking_times = 3;
-    double braking_cut_off_speed = 1000;
-    double speed_decrease_per_braking = std::numeric_limits<double>::infinity();
+    bool use_reverse_scroll_braking = true;
+    int max_reverse_scroll_braking_microseconds = 100000;
+    int max_reverse_scroll_braking_times = 3;
 
     bool use_mouse_movement_braking = true;
     int max_mouse_movement_distance = 30;
@@ -80,15 +77,12 @@ private:
   Options options_;
 
   double tick_interval_;
-  double min_delta_;
   double min_delta_decrease_per_tick_;
   double max_delta_decrease_per_tick_;
   double initial_delta_;
   double alpha_;
   double max_delta_change_lowerbound_;
   double min_delta_change_upperbound_;
-  double delta_decrease_per_braking_;
-  double braking_cut_off_delta_;
   int squared_max_mouse_movement_distance_;
   MouseMovementBuffer mouse_movement_buffer_;
   std::vector<double> max_delta_braking_times_;

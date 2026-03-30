@@ -11,28 +11,25 @@ namespace smooth_scroll
 WheelSmoother::WheelSmoother(const Options& options)
   : options_{ options }
   , tick_interval_{ static_cast<double>(options.tick_interval_microseconds) / 1.e6 }
-  , min_delta_{ options.min_speed * tick_interval_ }
   , min_delta_decrease_per_tick_{ options.min_deceleration * tick_interval_ * tick_interval_ }
   , max_delta_decrease_per_tick_{ options.max_deceleration * tick_interval_ * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
   , alpha_{ std::exp(-options.damping * tick_interval_) }
   , max_delta_change_lowerbound_{ options.max_speed_change_lowerbound * tick_interval_ }
   , min_delta_change_upperbound_{ options.min_speed_change_upperbound * tick_interval_ }
-  , delta_decrease_per_braking_{ options.speed_decrease_per_braking * tick_interval_ }
-  , braking_cut_off_delta_{ options_.braking_cut_off_speed * tick_interval_ }
   , squared_max_mouse_movement_distance_(options.max_mouse_movement_distance * options.max_mouse_movement_distance)
   , mouse_movement_buffer_{ std::chrono::milliseconds(options.mouse_movement_window_milliseconds) }
 {
   SPDLOG_DEBUG("tick interval {}s alpha {}", tick_interval_, alpha_);
 
-  if (options.use_braking)
+  if (options.use_reverse_scroll_braking)
   {
-    max_delta_braking_times_.reserve(options.max_braking_times);
+    max_delta_braking_times_.reserve(options.max_reverse_scroll_braking_times);
 
     double max_delta = initial_delta_;
     max_delta_braking_times_.push_back(max_delta);
 
-    for (int i = 0; i < options.max_braking_times; ++i)
+    for (int i = 0; i < options.max_reverse_scroll_braking_times; ++i)
     {
       max_delta += std::max(max_delta * options.max_speed_change_ratio, min_delta_change_upperbound_);
       max_delta_braking_times_.push_back(max_delta);
@@ -100,7 +97,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   std::chrono::microseconds event_time =
       std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
-  if (options_.use_braking)
+  if (options_.use_reverse_scroll_braking)
   {
     if (positive == positive_)
     {
@@ -110,21 +107,12 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     {
       if (delta_ != 0)
       {
-        delta_ -= delta_decrease_per_braking_;
-
-        if (delta_ < braking_cut_off_delta_)
-        {
-          SPDLOG_DEBUG("braking stop");
-          event_intervals_.clear();
-          last_event_time_ = event_time;
-          last_brake_stop_time_ = event_time;
-          delta_ = 0;
-          braking_times_ = 1;
-        }
-        else
-        {
-          SPDLOG_DEBUG("braking");
-        }
+        SPDLOG_DEBUG("reverse scroll stop");
+        event_intervals_.clear();
+        last_event_time_ = event_time;
+        last_brake_stop_time_ = event_time;
+        delta_ = 0;
+        braking_times_ = 1;
 
         return {};
       }
@@ -132,8 +120,9 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
       // delta_ == 0
       if (braking_times_)
       {
-        if (event_time < last_brake_stop_time_ + std::chrono::microseconds{ options_.braking_dejitter_microseconds } &&
-            braking_times_ < options_.max_braking_times)
+        if (event_time <
+                last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
+            braking_times_ < options_.max_reverse_scroll_braking_times)
         {
           SPDLOG_DEBUG("braking dejitter");
           event_intervals_.push_back(event_time - last_event_time_);
@@ -235,7 +224,7 @@ std::optional<struct input_event> WheelSmoother::tick()
       delta_ = min_delta;
     }
 
-    if (delta_ < min_delta_)
+    if (delta_ < 0)
     {
       SPDLOG_DEBUG("damping stop, total {}", total_delta_);
 

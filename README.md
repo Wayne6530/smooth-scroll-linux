@@ -118,9 +118,9 @@ Examples:
 
 ### Stop Parameters
 
-- `use_braking`: Enable reverse wheel stop.
-- `braking_dejitter_microseconds`: Max time for reverse wheel stop.
-- `max_braking_times`: Max reverse wheel stop count.
+- `use_reverse_scroll_braking`: Enable reverse wheel stop.
+- `max_reverse_scroll_braking_microseconds`: Max time for reverse wheel stop.
+- `max_reverse_scroll_braking_times`: Max reverse wheel stop count.
 - `use_mouse_movement_braking`: Enable stop by mouse movement.
 
 ### Drag View Parameters

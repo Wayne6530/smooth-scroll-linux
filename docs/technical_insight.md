@@ -54,7 +54,7 @@ The speed is measured in `REL_WHEEL_HI_RES` values per second.
 
    - If the deceleration caused by `damping` is weaker than `min_deceleration`, the deceleration is clamped to `min_deceleration`. This ensures **linear deceleration** at low speeds for a more predictable stop.  
    - The computed deceleration is also clamped by `max_deceleration` to prevent excessively large instantaneous deceleration at high speeds.
-   - If `current_speed` drops below `min_speed`, it resets to zero (stopping the motion).  
+   - If `current_speed` drops below zero, it resets to zero (stopping the motion).  
 
 ### Braking Logic  
 
@@ -64,9 +64,8 @@ Two methods can stop the scrolling:
    - A mouse click forces `current_speed = 0`.  
 
 2. **Reverse-Scroll Braking**:  
-   - A wheel event in the **opposite direction** reduces the speed by `speed_decrease_per_braking`.  
-   - If `current_speed` falls below `braking_cut_off_speed`, it resets to zero.  
-   - To prevent accidental reverse-scroll jitter, opposite direction events within `braking_dejitter_microseconds` and less than `max_braking_times - 1` after braking are ignored.  
+   - A wheel event in the **opposite direction** sets the speed to 0.  
+   - To prevent accidental reverse-scroll jitter, opposite direction events within `max_reverse_scroll_braking_microseconds` and less than `max_reverse_scroll_braking_times - 1` after braking are ignored.  
 
 3. **Mouse Movement Braking**  
    - Mouse movement (X and Y axes) is tracked over a sliding time window defined by `mouse_movement_window_milliseconds`.
@@ -82,18 +81,15 @@ Two methods can stop the scrolling:
 | `speed_factor` | Scales speed adjustments per wheel event. |  
 | `speed_smooth_window_microseconds` | Uses a sliding time window (microseconds) to compute average event interval for speed estimation. |
 | `damping` | Controls how quickly speed decays over time. |  
-| `min_speed` | Minimum speed before motion stops. |  
 | `min_deceleration` | Minimum deceleration force (ensures linear slowdown at low speeds). |
 | `max_deceleration` | Maximum deceleration force (upper bound for computed deceleration). |
 | `max_speed_change_lowerbound` | The upper bound of the speed change lower bound. |  
 | `min_speed_change_upperbound` | The lower bound of the speed change upper bound. |  
 | `min_speed_change_ratio` | Minimum speed change ratio per wheel event. |  
 | `max_speed_change_ratio` | Maximum speed change ratio per wheel event. |  
-| `use_braking` | Whether reverse-scroll braking is enabled. |  
-| `braking_dejitter_microseconds` | Time window to ignore jitter after braking. |  
-| `max_braking_times` | Maximum reverse-scroll braking event times. |
-| `braking_cut_off_speed` | Speed threshold to stop scrolling during braking. |  
-| `speed_decrease_per_braking` | Speed reduction per opposite-direction wheel event. |  
+| `use_reverse_scroll_braking` | Whether reverse-scroll braking is enabled. |  
+| `max_reverse_scroll_braking_microseconds` | Time window to ignore jitter after braking. |  
+| `max_reverse_scroll_braking_times` | Maximum reverse-scroll braking event times. |
 | `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
 | `max_mouse_movement_distance` | Maximum allowed 2D movement distance within the time window before scrolling stops. |
 | `mouse_movement_window_milliseconds` | The sliding time window (in milliseconds) used to track recent mouse movements. |
