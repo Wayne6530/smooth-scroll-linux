@@ -227,10 +227,16 @@ std::string findDevice()
   return "";
 }
 
-std::vector<std::pair<int, libevdev*>> findKeyboardDevices(const std::vector<unsigned int>& keys,
-                                                           const std::string& mouse_device)
+struct KeyboardDevice
 {
-  std::vector<std::pair<int, libevdev*>> keyboard_devices;
+  int fd;
+  libevdev* evdev;
+  int num_passthrough;
+};
+
+std::vector<KeyboardDevice> findKeyboardDevices(const std::vector<unsigned int>& keys, const std::string& mouse_device)
+{
+  std::vector<KeyboardDevice> keyboard_devices;
 
   if (keys.empty())
   {
@@ -291,7 +297,7 @@ std::vector<std::pair<int, libevdev*>> findKeyboardDevices(const std::vector<uns
       if (has_keys)
       {
         SPDLOG_INFO("Use keyboard device: {}", path);
-        keyboard_devices.emplace_back(fd, dev);
+        keyboard_devices.push_back(KeyboardDevice{ fd, dev, 0 });
       }
       else
       {
@@ -448,7 +454,7 @@ int main(int argc, char* argv[])
     SPDLOG_WARN("Use default drag view button {}", drag_view_button);
   }
 
-  std::vector<unsigned int> keys;
+  std::vector<unsigned int> keyboard_braking_keys;
   if (auto array = table["keyboard_braking_keys"].as_array())
   {
     for (auto& elem : *array)
@@ -456,11 +462,25 @@ int main(int argc, char* argv[])
       if (auto val = elem.value<unsigned int>())
       {
         if (*val < KEY_CNT)
-          keys.push_back(*val);
+          keyboard_braking_keys.push_back(*val);
       }
     }
   }
-  SPDLOG_INFO("Use keyboard braking keys {}", keys);
+  SPDLOG_INFO("Use keyboard braking keys {}", keyboard_braking_keys);
+
+  std::vector<unsigned int> keyboard_passthrough_keys;
+  if (auto array = table["keyboard_passthrough_keys"].as_array())
+  {
+    for (auto& elem : *array)
+    {
+      if (auto val = elem.value<unsigned int>())
+      {
+        if (*val < KEY_CNT)
+          keyboard_passthrough_keys.push_back(*val);
+      }
+    }
+  }
+  SPDLOG_INFO("Use keyboard passthrough keys {}", keyboard_passthrough_keys);
 
   auto read_option = [&table](const char* name, auto& value) {
     if (auto opt = table[name].value<std::remove_reference_t<decltype(value)>>())
@@ -608,13 +628,25 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  std::array<bool, KEY_CNT> key_table{};
-  std::vector<std::pair<int, libevdev*>> keyboard_devices;
-  if (!keys.empty())
+  int num_passthrough = 0;
+  std::array<bool, KEY_CNT> braking_keys_table{};
+  std::array<bool, KEY_CNT> passthrough_keys_table{};
+  std::vector<KeyboardDevice> keyboard_devices;
+  if (!keyboard_braking_keys.empty() || !keyboard_passthrough_keys.empty())
   {
+    std::vector<unsigned int> keys;
+    keys.reserve(keyboard_braking_keys.size() + keyboard_passthrough_keys.size());
+    keys.insert(keys.end(), keyboard_braking_keys.begin(), keyboard_braking_keys.end());
+    keys.insert(keys.end(), keyboard_passthrough_keys.begin(), keyboard_passthrough_keys.end());
+
     for (auto key : keys)
     {
-      key_table[key] = true;
+      braking_keys_table[key] = true;
+    }
+
+    for (auto key : keyboard_passthrough_keys)
+    {
+      passthrough_keys_table[key] = true;
     }
 
     keyboard_devices = findKeyboardDevices(keys, *device);
@@ -630,10 +662,10 @@ int main(int argc, char* argv[])
     close(uinput_fd);
     libevdev_free(mouse_evdev);
     close(mouse_fd);
-    for (const auto& [fd, evdev] : keyboard_devices)
+    for (const auto& dev : keyboard_devices)
     {
-      libevdev_free(evdev);
-      close(fd);
+      libevdev_free(dev.evdev);
+      close(dev.fd);
     }
     return -1;
   }
@@ -644,12 +676,12 @@ int main(int argc, char* argv[])
   fd_set fds;
   FD_ZERO(&fds);
   FD_SET(mouse_fd, &fds);
-  for (const auto& [fd, evdev] : keyboard_devices)
+  for (const auto& dev : keyboard_devices)
   {
-    FD_SET(fd, &fds);
-    if (fd > max_fd)
+    FD_SET(dev.fd, &fds);
+    if (dev.fd > max_fd)
     {
-      max_fd = fd;
+      max_fd = dev.fd;
     }
   }
 
@@ -706,7 +738,7 @@ int main(int argc, char* argv[])
 
     for (auto it = keyboard_devices.begin(); it != keyboard_devices.end();)
     {
-      const unsigned int fd = it->first;
+      const unsigned int fd = it->fd;
 
       if (!FD_ISSET(fd, &read_fds))
       {
@@ -714,7 +746,7 @@ int main(int argc, char* argv[])
         continue;
       }
 
-      libevdev* evdev = it->second;
+      libevdev* evdev = it->evdev;
 
       int result;
       int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
@@ -735,9 +767,29 @@ int main(int argc, char* argv[])
           break;
         }
 
-        if (ev.type == EV_KEY && ev.code < KEY_CNT && key_table[ev.code] && ev.value != 2)
+        if (ev.type == EV_KEY && ev.code < KEY_CNT && ev.value != 2)
         {
-          wheel_smoother.stop();
+          if (braking_keys_table[ev.code])
+          {
+            wheel_smoother.stop();
+          }
+
+          if (passthrough_keys_table[ev.code])
+          {
+            if (ev.value == 1)
+            {
+              ++it->num_passthrough;
+              ++num_passthrough;
+            }
+            else
+            {
+              if (it->num_passthrough)
+              {
+                --it->num_passthrough;
+                --num_passthrough;
+              }
+            }
+          }
         }
       }
 
@@ -746,18 +798,19 @@ int main(int argc, char* argv[])
         SPDLOG_WARN("Keyboard device lost");
         libevdev_free(evdev);
         close(fd);
+        num_passthrough -= it->num_passthrough;
 
         it = keyboard_devices.erase(it);
 
         max_fd = mouse_fd;
         FD_ZERO(&fds);
         FD_SET(mouse_fd, &fds);
-        for (const auto& [fd, evdev] : keyboard_devices)
+        for (const auto& dev : keyboard_devices)
         {
-          FD_SET(fd, &fds);
-          if (fd > max_fd)
+          FD_SET(dev.fd, &fds);
+          if (dev.fd > max_fd)
           {
-            max_fd = fd;
+            max_fd = dev.fd;
           }
         }
 
@@ -792,14 +845,8 @@ int main(int argc, char* argv[])
         {
           if (ev.code == REL_WHEEL)
           {
-            auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
-            if (ev_wheel.has_value())
+            if (num_passthrough)
             {
-              ev = *ev_wheel;
-
-              SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                           libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                           ev.value);
               if (write(uinput_fd, &ev, sizeof(ev)) == -1)
               {
                 SPDLOG_ERROR("Write uinput failed");
@@ -808,7 +855,24 @@ int main(int argc, char* argv[])
             }
             else
             {
-              drop_syn_report = true;
+              auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
+              if (ev_wheel.has_value())
+              {
+                ev = *ev_wheel;
+
+                SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
+                             libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
+                             ev.value);
+                if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+                {
+                  SPDLOG_ERROR("Write uinput failed");
+                  break;
+                }
+              }
+              else
+              {
+                drop_syn_report = true;
+              }
             }
 
             continue;
@@ -816,6 +880,15 @@ int main(int argc, char* argv[])
 
           if (ev.code == REL_WHEEL_HI_RES)
           {
+            if (num_passthrough)
+            {
+              if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+              {
+                SPDLOG_ERROR("Write uinput failed");
+                break;
+              }
+            }
+
             continue;
           }
 
@@ -886,10 +959,10 @@ int main(int argc, char* argv[])
         close(uinput_fd);
         libevdev_free(mouse_evdev);
         close(mouse_fd);
-        for (const auto& [fd, evdev] : keyboard_devices)
+        for (const auto& dev : keyboard_devices)
         {
-          libevdev_free(evdev);
-          close(fd);
+          libevdev_free(dev.evdev);
+          close(dev.fd);
         }
         return -1;
       }
@@ -944,10 +1017,10 @@ int main(int argc, char* argv[])
     close(uinput_fd);
     libevdev_free(mouse_evdev);
     close(mouse_fd);
-    for (const auto& [fd, evdev] : keyboard_devices)
+    for (const auto& dev : keyboard_devices)
     {
-      libevdev_free(evdev);
-      close(fd);
+      libevdev_free(dev.evdev);
+      close(dev.fd);
     }
     return -1;
   }
@@ -956,10 +1029,10 @@ int main(int argc, char* argv[])
   close(uinput_fd);
   libevdev_free(mouse_evdev);
   close(mouse_fd);
-  for (const auto& [fd, evdev] : keyboard_devices)
+  for (const auto& dev : keyboard_devices)
   {
-    libevdev_free(evdev);
-    close(fd);
+    libevdev_free(dev.evdev);
+    close(dev.fd);
   }
   return 0;
 }

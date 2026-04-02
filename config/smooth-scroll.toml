@@ -34,8 +34,12 @@ use_mouse_movement_braking = true
 # KEY_RIGHTSHIFT    54
 # KEY_LEFTCTRL      29
 # KEY_RIGHTCTRL     97
+# KEY_LEFTMETA      125
+# KEY_RIGHTMETA     126
 # https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
 keyboard_braking_keys = [42, 54]
+
+keyboard_passthrough_keys = [29, 97, 125, 126]
 
 # advanced
 

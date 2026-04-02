@@ -72,6 +72,7 @@ After installation, **smooth-scroll.service** will start automatically and enabl
    - The scroll will stop immediately, and moving your mouse will now intuitively pan the view in any direction (up, down, left, right).
    - This is highly useful for temporarily scrolling horizontally or panning around a large document.
    - Release the button to return to normal mouse operation.
+5. **Hold a passthrough key** (e.g., Ctrl or Meta): While held, scroll events are passed through unmodified, allowing shortcuts like Ctrl+Scroll to zoom to work as expected.
 
 ### Service Management
 
