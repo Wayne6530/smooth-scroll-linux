@@ -39,11 +39,8 @@ WheelSmoother::WheelSmoother(const Options& options)
 
 void WheelSmoother::stop()
 {
-  if (delta_ != 0)
-  {
-    SPDLOG_DEBUG("key stop");
-    delta_ = 0;
-  }
+  delta_ = 0;
+  braking_times_ = 0;
 }
 
 bool WheelSmoother::handleFreeSpinButton(int value)
@@ -87,11 +84,17 @@ bool WheelSmoother::handleDragViewButton(int value)
   return false;
 }
 
-std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive)
+std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive, bool horizontal)
 {
   if (drag_view_)
   {
-    return {};
+    return std::nullopt;
+  }
+
+  if (horizontal_ != horizontal)
+  {
+    delta_ = 0;
+    braking_times_ = 0;
   }
 
   std::chrono::microseconds event_time =
@@ -114,7 +117,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
         delta_ = 0;
         braking_times_ = 1;
 
-        return {};
+        return std::nullopt;
       }
 
       // delta_ == 0
@@ -128,7 +131,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
           event_intervals_.push_back(event_time - last_event_time_);
           last_event_time_ = event_time;
           ++braking_times_;
-          return {};
+          return std::nullopt;
         }
 
         double speed = smoothSpeed(event_time - last_event_time_);
@@ -151,7 +154,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
         struct input_event ev;
         ev.time = time;
         ev.type = EV_REL;
-        ev.code = REL_WHEEL_HI_RES;
+        ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
         ev.value = positive_ ? round_delta : -round_delta;
 
         return ev;
@@ -159,13 +162,14 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     }
   }
 
-  if (delta_ == 0 || positive != positive_)
+  if (delta_ == 0)
   {
     event_intervals_.clear();
     last_event_time_ = event_time;
     next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
     positive_ = positive;
+    horizontal_ = horizontal;
     delta_ = initial_delta_;
 
     SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
@@ -178,7 +182,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     struct input_event ev;
     ev.time = time;
     ev.type = EV_REL;
-    ev.code = REL_WHEEL_HI_RES;
+    ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
     ev.value = positive_ ? round_delta : -round_delta;
 
     return ev;
@@ -191,20 +195,18 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   double delta = std::clamp(speed * tick_interval_, delta_ + min_delta_change, delta_ + max_delta_change);
 
   last_event_time_ = event_time;
-
-  positive_ = positive;
   delta_ = delta < initial_delta_ ? initial_delta_ : delta;
 
   SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", delta_ / tick_interval_, speed);
 
-  return {};
+  return std::nullopt;
 }
 
 std::optional<struct input_event> WheelSmoother::tick()
 {
   if (delta_ == 0)
   {
-    return {};
+    return std::nullopt;
   }
 
   if (!free_spin_)
@@ -229,7 +231,7 @@ std::optional<struct input_event> WheelSmoother::tick()
       SPDLOG_DEBUG("damping stop, total {}", total_delta_);
 
       delta_ = 0;
-      return {};
+      return std::nullopt;
     }
 
     SPDLOG_TRACE("tick speed {:.2f} deceleration {:.2f}", delta_ / tick_interval_,
@@ -244,7 +246,7 @@ std::optional<struct input_event> WheelSmoother::tick()
 
   if (round_delta == 0)
   {
-    return {};
+    return std::nullopt;
   }
 
   total_delta_ += round_delta;
@@ -253,7 +255,7 @@ std::optional<struct input_event> WheelSmoother::tick()
   ev.time.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(current_tick_time).count();
   ev.time.tv_usec = (current_tick_time - std::chrono::seconds{ ev.time.tv_sec }).count();
   ev.type = EV_REL;
-  ev.code = REL_WHEEL_HI_RES;
+  ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
   ev.value = positive_ ? round_delta : -round_delta;
 
   return ev;
@@ -263,7 +265,7 @@ std::optional<struct timeval> WheelSmoother::timeout()
 {
   if (delta_ == 0)
   {
-    return {};
+    return std::nullopt;
   }
 
   std::chrono::microseconds now =
@@ -294,7 +296,7 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
 {
   if (delta_ == 0)
   {
-    return {};
+    return std::nullopt;
   }
 
   return next_tick_time_;

@@ -841,114 +841,108 @@ int main(int argc, char* argv[])
           break;
         }
 
-        if (ev.type == EV_REL)
+        bool should_write = true;
+
+        switch (ev.type)
         {
-          if (ev.code == REL_WHEEL)
-          {
-            if (num_passthrough)
+          case EV_REL:
+            switch (ev.code)
             {
-              if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-              {
-                SPDLOG_ERROR("Write uinput failed");
+              case REL_WHEEL:
+              case REL_HWHEEL:
+                if (!num_passthrough)
+                {
+                  auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL);
+                  if (ev_wheel.has_value())
+                  {
+                    ev = *ev_wheel;
+                  }
+                  else
+                  {
+                    drop_syn_report = true;
+                    should_write = false;
+                  }
+                }
                 break;
-              }
+
+              case REL_WHEEL_HI_RES:
+              case REL_HWHEEL_HI_RES:
+                if (!num_passthrough)
+                {
+                  should_write = false;
+                }
+                break;
+
+              case REL_X:
+                wheel_smoother.handleRelXEvent(ev);
+                break;
+
+              case REL_Y:
+                wheel_smoother.handleRelYEvent(ev);
+                break;
+
+              default:
+                break;
+            }
+            break;
+
+          case EV_KEY: {
+            bool handled = false;
+
+            if (ev.code == drag_view_button)
+            {
+              handled = wheel_smoother.handleDragViewButton(ev.value);
+            }
+            else if (ev.code == free_spin_button)
+            {
+              handled = wheel_smoother.handleFreeSpinButton(ev.value);
+            }
+
+            if (handled)
+            {
+              drop_syn_report = true;
+              should_write = false;
             }
             else
             {
-              auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0);
-              if (ev_wheel.has_value())
-              {
-                ev = *ev_wheel;
+              wheel_smoother.stop();
+            }
+            break;
+          }
 
-                SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                             libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                             ev.value);
-                if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-                {
-                  SPDLOG_ERROR("Write uinput failed");
-                  break;
-                }
+          case EV_MSC:
+            should_write = false;
+            break;
+
+          case EV_SYN:
+            if (ev.code == SYN_REPORT)
+            {
+              if (drop_syn_report)
+              {
+                drop_syn_report = false;
+                should_write = false;
               }
               else
               {
-                drop_syn_report = true;
+                wheel_smoother.handleReportEvent(ev.time);
               }
             }
+            break;
 
-            continue;
-          }
-
-          if (ev.code == REL_WHEEL_HI_RES)
-          {
-            if (num_passthrough)
-            {
-              if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-              {
-                SPDLOG_ERROR("Write uinput failed");
-                break;
-              }
-            }
-
-            continue;
-          }
-
-          if (ev.code == REL_X)
-          {
-            wheel_smoother.handleRelXEvent(ev);
-          }
-          else if (ev.code == REL_Y)
-          {
-            wheel_smoother.handleRelYEvent(ev);
-          }
+          default:
+            break;
         }
 
-        if (ev.type == EV_MSC)
+        if (should_write)
         {
-          continue;
-        }
+          SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
+                       libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
 
-        if (ev.type == EV_KEY)
-        {
-          if (ev.code == drag_view_button)
+          if (write(uinput_fd, &ev, sizeof(ev)) == -1)
           {
-            if (wheel_smoother.handleDragViewButton(ev.value))
-            {
-              drop_syn_report = true;
-              continue;
-            }
+            SPDLOG_ERROR("Write uinput failed");
+            break;
           }
-          else if (ev.code == free_spin_button)
-          {
-            if (wheel_smoother.handleFreeSpinButton(ev.value))
-            {
-              drop_syn_report = true;
-              continue;
-            }
-          }
-
-          wheel_smoother.stop();
-        }
-
-        if (ev.type == EV_SYN && ev.code == SYN_REPORT)
-        {
-          if (drop_syn_report)
-          {
-            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {} dropped", ev.time.tv_sec, ev.time.tv_usec,
-                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                         ev.value);
-            drop_syn_report = false;
-            continue;
-          }
-
-          wheel_smoother.handleReportEvent(ev.time);
-        }
-
-        SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                     libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-        {
-          SPDLOG_ERROR("Write uinput failed");
-          break;
         }
       }
 

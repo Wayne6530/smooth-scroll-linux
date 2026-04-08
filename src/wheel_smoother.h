@@ -58,7 +58,7 @@ public:
 
   bool handleDragViewButton(int value);
 
-  std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive);
+  std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive, bool horizontal);
 
   std::optional<struct input_event> tick();
 
@@ -93,6 +93,7 @@ private:
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };
   bool positive_ = false;
+  bool horizontal_ = false;
   double delta_ = 0;
   double deviation_ = 0;
   int total_delta_ = 0;
