@@ -654,10 +654,8 @@ int main(int argc, char* argv[])
 
   waitUntilAllButtonsReleased(mouse_evdev, supported_buttons);
 
-  if (libevdev_grab(mouse_evdev, LIBEVDEV_GRAB) < 0)
-  {
-    SPDLOG_ERROR("failed to grab mouse_evdev");
-
+  auto cleanup = [&]() {
+    libevdev_grab(mouse_evdev, LIBEVDEV_UNGRAB);
     ioctl(uinput_fd, UI_DEV_DESTROY);
     close(uinput_fd);
     libevdev_free(mouse_evdev);
@@ -667,26 +665,51 @@ int main(int argc, char* argv[])
       libevdev_free(dev.evdev);
       close(dev.fd);
     }
+  };
+
+  if (libevdev_grab(mouse_evdev, LIBEVDEV_GRAB) < 0)
+  {
+    SPDLOG_ERROR("failed to grab mouse_evdev");
+    cleanup();
     return -1;
   }
 
   WheelSmoother wheel_smoother{ options };
 
-  int max_fd = mouse_fd;
+  int max_fd;
   fd_set fds;
-  FD_ZERO(&fds);
-  FD_SET(mouse_fd, &fds);
-  for (const auto& dev : keyboard_devices)
-  {
-    FD_SET(dev.fd, &fds);
-    if (dev.fd > max_fd)
-    {
-      max_fd = dev.fd;
-    }
-  }
 
-  bool drop_syn_report = false;
+  auto set_fds = [&]() {
+    max_fd = mouse_fd;
+    FD_ZERO(&fds);
+    FD_SET(mouse_fd, &fds);
+    for (const auto& dev : keyboard_devices)
+    {
+      FD_SET(dev.fd, &fds);
+      if (dev.fd > max_fd)
+      {
+        max_fd = dev.fd;
+      }
+    }
+  };
+
+  set_fds();
+
   struct input_event ev;
+  std::vector<struct input_event> events;
+  events.reserve(16);
+
+  auto write_events = [&](const timeval& time) -> bool {
+    if (events.empty())
+      return true;
+
+    events.push_back({ time, EV_SYN, SYN_REPORT, 0 });
+    ssize_t expected_bytes = events.size() * sizeof(struct input_event);
+    ssize_t bytes_written = write(uinput_fd, events.data(), expected_bytes);
+    events.clear();
+    return bytes_written == expected_bytes;
+  };
+
   while (!kShutdown.load(std::memory_order_relaxed))
   {
     fd_set read_fds = fds;
@@ -707,30 +730,14 @@ int main(int argc, char* argv[])
     }
     else if (select_ret == 0)
     {
-      auto ev_wheel = wheel_smoother.tick();
-      if (ev_wheel.has_value())
+      if (auto ev_wheel = wheel_smoother.tick())
       {
-        SPDLOG_TRACE("select timeout");
-
-        ev = *ev_wheel;
-        SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                     libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
+        events.push_back(*ev_wheel);
+        if (!write_events(ev_wheel->time))
         {
           SPDLOG_ERROR("Write uinput failed");
-          break;
-        }
-
-        ev.type = EV_SYN;
-        ev.code = SYN_REPORT;
-        ev.value = 0;
-
-        SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                     libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-        if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-        {
-          SPDLOG_ERROR("Write uinput failed");
-          break;
+          cleanup();
+          return -1;
         }
       }
       continue;
@@ -802,18 +809,7 @@ int main(int argc, char* argv[])
 
         it = keyboard_devices.erase(it);
 
-        max_fd = mouse_fd;
-        FD_ZERO(&fds);
-        FD_SET(mouse_fd, &fds);
-        for (const auto& dev : keyboard_devices)
-        {
-          FD_SET(dev.fd, &fds);
-          if (dev.fd > max_fd)
-          {
-            max_fd = dev.fd;
-          }
-        }
-
+        set_fds();
         continue;
       }
 
@@ -841,8 +837,6 @@ int main(int argc, char* argv[])
           break;
         }
 
-        bool should_write = true;
-
         switch (ev.type)
         {
           case EV_REL:
@@ -850,38 +844,39 @@ int main(int argc, char* argv[])
             {
               case REL_WHEEL:
               case REL_HWHEEL:
-                if (!num_passthrough)
+                if (num_passthrough)
                 {
-                  auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL);
-                  if (ev_wheel.has_value())
+                  events.push_back(ev);
+                }
+                else
+                {
+                  if (auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL))
                   {
-                    ev = *ev_wheel;
-                  }
-                  else
-                  {
-                    drop_syn_report = true;
-                    should_write = false;
+                    events.push_back(*ev_wheel);
                   }
                 }
                 break;
 
               case REL_WHEEL_HI_RES:
               case REL_HWHEEL_HI_RES:
-                if (!num_passthrough)
+                if (num_passthrough)
                 {
-                  should_write = false;
+                  events.push_back(ev);
                 }
                 break;
 
               case REL_X:
                 wheel_smoother.handleRelXEvent(ev);
+                events.push_back(ev);
                 break;
 
               case REL_Y:
                 wheel_smoother.handleRelYEvent(ev);
+                events.push_back(ev);
                 break;
 
               default:
+                events.push_back(ev);
                 break;
             }
             break;
@@ -898,135 +893,64 @@ int main(int argc, char* argv[])
               handled = wheel_smoother.handleFreeSpinButton(ev.value);
             }
 
-            if (handled)
-            {
-              drop_syn_report = true;
-              should_write = false;
-            }
-            else
+            if (!handled)
             {
               wheel_smoother.stop();
+              events.push_back(ev);
             }
             break;
           }
 
           case EV_MSC:
-            should_write = false;
             break;
 
           case EV_SYN:
             if (ev.code == SYN_REPORT)
             {
-              if (drop_syn_report)
+              wheel_smoother.handleReportEvent(ev.time);
+              if (!write_events(ev.time))
               {
-                drop_syn_report = false;
-                should_write = false;
-              }
-              else
-              {
-                wheel_smoother.handleReportEvent(ev.time);
+                SPDLOG_ERROR("Write uinput failed");
+                cleanup();
+                return -1;
               }
             }
             break;
 
           default:
+            events.push_back(ev);
             break;
-        }
-
-        if (should_write)
-        {
-          SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                       libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-
-          if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-          {
-            SPDLOG_ERROR("Write uinput failed");
-            break;
-          }
         }
       }
 
       if (result == -ENODEV)
       {
         SPDLOG_ERROR("Mouse device lost");
-        ioctl(uinput_fd, UI_DEV_DESTROY);
-        close(uinput_fd);
-        libevdev_free(mouse_evdev);
-        close(mouse_fd);
-        for (const auto& dev : keyboard_devices)
-        {
-          libevdev_free(dev.evdev);
-          close(dev.fd);
-        }
+        cleanup();
         return -1;
       }
     }
 
-    if (ev.type == EV_SYN && ev.code == SYN_REPORT)
+    if (auto next_tick_time = wheel_smoother.next_tick_time())
     {
-      auto next_tick_time = wheel_smoother.next_tick_time();
-      if (next_tick_time.has_value())
+      std::chrono::microseconds event_time =
+          std::chrono::seconds{ ev.time.tv_sec } + std::chrono::microseconds{ ev.time.tv_usec };
+      if (event_time > *next_tick_time)
       {
-        std::chrono::microseconds event_time =
-            std::chrono::seconds{ ev.time.tv_sec } + std::chrono::microseconds{ ev.time.tv_usec };
-        if (event_time > *next_tick_time)
+        if (auto ev_wheel = wheel_smoother.tick())
         {
-          auto ev_wheel = wheel_smoother.tick();
-          if (ev_wheel.has_value())
+          events.push_back(*ev_wheel);
+          if (!write_events(ev_wheel->time))
           {
-            SPDLOG_TRACE("event_time > *next_tick_time");
-
-            ev = *ev_wheel;
-            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                         ev.value);
-            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-            {
-              SPDLOG_ERROR("Write uinput failed");
-              break;
-            }
-
-            ev.type = EV_SYN;
-            ev.code = SYN_REPORT;
-            ev.value = 0;
-
-            SPDLOG_TRACE("{}.{:0>6} type {} code {} value {}", ev.time.tv_sec, ev.time.tv_usec,
-                         libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code),
-                         ev.value);
-            if (write(uinput_fd, &ev, sizeof(ev)) == -1)
-            {
-              SPDLOG_ERROR("Write uinput failed");
-              break;
-            }
+            SPDLOG_ERROR("Write uinput failed");
+            cleanup();
+            return -1;
           }
         }
       }
     }
   }
 
-  if (libevdev_grab(mouse_evdev, LIBEVDEV_UNGRAB) < 0)
-  {
-    SPDLOG_ERROR("failed to ungrab mouse_evdev");
-    ioctl(uinput_fd, UI_DEV_DESTROY);
-    close(uinput_fd);
-    libevdev_free(mouse_evdev);
-    close(mouse_fd);
-    for (const auto& dev : keyboard_devices)
-    {
-      libevdev_free(dev.evdev);
-      close(dev.fd);
-    }
-    return -1;
-  }
-
-  ioctl(uinput_fd, UI_DEV_DESTROY);
-  close(uinput_fd);
-  libevdev_free(mouse_evdev);
-  close(mouse_fd);
-  for (const auto& dev : keyboard_devices)
-  {
-    libevdev_free(dev.evdev);
-    close(dev.fd);
-  }
+  cleanup();
   return 0;
 }

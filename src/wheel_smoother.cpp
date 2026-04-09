@@ -35,6 +35,8 @@ WheelSmoother::WheelSmoother(const Options& options)
       max_delta_braking_times_.push_back(max_delta);
     }
   }
+
+  event_intervals_.reserve(16);
 }
 
 void WheelSmoother::stop()
