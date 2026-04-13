@@ -52,25 +52,50 @@ public:
   WheelSmoother(WheelSmoother&&) = delete;
   WheelSmoother& operator=(WheelSmoother&&) = delete;
 
-  void stop();
+  void stop() noexcept;
 
-  bool handleFreeSpinButton(int value);
+  bool handleFreeSpinButton(int value) noexcept;
 
-  bool handleDragViewButton(int value);
+  bool handleDragViewButton(int value) noexcept;
 
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive, bool horizontal);
 
-  std::optional<struct input_event> tick();
+  std::optional<struct input_event> tick() noexcept;
 
-  std::optional<struct timeval> timeout();
+  std::optional<struct timeval> timeout() const noexcept;
 
-  std::optional<std::chrono::microseconds> next_tick_time();
+  std::optional<std::chrono::microseconds> next_tick_time() const noexcept;
 
-  void handleRelXEvent(struct input_event& ev);
+  void handleRelXEvent(struct input_event& ev) noexcept;
 
-  void handleRelYEvent(struct input_event& ev);
+  void handleRelYEvent(struct input_event& ev) noexcept;
 
-  void handleReportEvent(const struct timeval& time);
+  bool handleReportEvent(const struct timeval& time) noexcept;
+
+  [[nodiscard]] bool positive() const noexcept
+  {
+    return positive_;
+  }
+
+  [[nodiscard]] bool horizontal() const noexcept
+  {
+    return horizontal_;
+  }
+
+  [[nodiscard]] double speed() const noexcept
+  {
+    return speed_;
+  }
+
+  [[nodiscard]] bool free_spin() const noexcept
+  {
+    return free_spin_;
+  }
+
+  [[nodiscard]] bool drag_view() const noexcept
+  {
+    return drag_view_;
+  }
 
 private:
   double smoothSpeed(const std::chrono::microseconds event_interval);
@@ -78,6 +103,7 @@ private:
   Options options_;
 
   double tick_interval_;
+  double inv_tick_interval_;
   double min_delta_decrease_per_tick_;
   double max_delta_decrease_per_tick_;
   double initial_delta_;
@@ -95,6 +121,7 @@ private:
   bool positive_ = false;
   bool horizontal_ = false;
   double delta_ = 0;
+  double speed_ = 0;
   double deviation_ = 0;
   int total_delta_ = 0;
   int braking_times_ = 0;

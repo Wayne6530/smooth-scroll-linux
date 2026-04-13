@@ -16,7 +16,7 @@ MouseMovementBuffer::MouseMovementBuffer(std::chrono::milliseconds window)
   assert(window.count() > 1);
 }
 
-MouseMovementBuffer::Result MouseMovementBuffer::add(std::chrono::milliseconds time, int rel_x, int rel_y)
+MouseMovementBuffer::Result MouseMovementBuffer::add(std::chrono::milliseconds time, int rel_x, int rel_y) noexcept
 {
   if (time <= buffer_[pos_].time)
   {

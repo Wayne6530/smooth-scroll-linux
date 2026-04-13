@@ -11,6 +11,7 @@ namespace smooth_scroll
 WheelSmoother::WheelSmoother(const Options& options)
   : options_{ options }
   , tick_interval_{ static_cast<double>(options.tick_interval_microseconds) / 1.e6 }
+  , inv_tick_interval_{ 1.0 / tick_interval_ }
   , min_delta_decrease_per_tick_{ options.min_deceleration * tick_interval_ * tick_interval_ }
   , max_delta_decrease_per_tick_{ options.max_deceleration * tick_interval_ * tick_interval_ }
   , initial_delta_{ options.initial_speed * tick_interval_ }
@@ -39,13 +40,14 @@ WheelSmoother::WheelSmoother(const Options& options)
   event_intervals_.reserve(16);
 }
 
-void WheelSmoother::stop()
+void WheelSmoother::stop() noexcept
 {
   delta_ = 0;
+  speed_ = 0;
   braking_times_ = 0;
 }
 
-bool WheelSmoother::handleFreeSpinButton(int value)
+bool WheelSmoother::handleFreeSpinButton(int value) noexcept
 {
   if (delta_ != 0 && value == 1)
   {
@@ -65,12 +67,13 @@ bool WheelSmoother::handleFreeSpinButton(int value)
   return false;
 }
 
-bool WheelSmoother::handleDragViewButton(int value)
+bool WheelSmoother::handleDragViewButton(int value) noexcept
 {
   if (delta_ != 0 && value == 1)
   {
     drag_view_ = true;
     delta_ = 0;
+    speed_ = 0;
     return true;
   }
 
@@ -96,6 +99,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   if (horizontal_ != horizontal)
   {
     delta_ = 0;
+    speed_ = 0;
     braking_times_ = 0;
   }
 
@@ -117,6 +121,7 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
         last_event_time_ = event_time;
         last_brake_stop_time_ = event_time;
         delta_ = 0;
+        speed_ = 0;
         braking_times_ = 1;
 
         return std::nullopt;
@@ -144,9 +149,10 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
         positive_ = positive;
 
         delta_ = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
+        speed_ = delta_ * inv_tick_interval_;
         braking_times_ = 0;
 
-        SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
+        SPDLOG_DEBUG("initial speed {:.2f}", speed_);
 
         int round_delta = std::round(delta_);
         deviation_ = delta_ - round_delta;
@@ -173,8 +179,9 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     positive_ = positive;
     horizontal_ = horizontal;
     delta_ = initial_delta_;
+    speed_ = delta_ * inv_tick_interval_;
 
-    SPDLOG_DEBUG("initial speed {:.2f}", delta_ / tick_interval_);
+    SPDLOG_DEBUG("initial speed {:.2f}", speed_);
 
     int round_delta = std::round(delta_);
     deviation_ = delta_ - round_delta;
@@ -198,13 +205,14 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
 
   last_event_time_ = event_time;
   delta_ = delta < initial_delta_ ? initial_delta_ : delta;
+  speed_ = delta_ * inv_tick_interval_;
 
-  SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", delta_ / tick_interval_, speed);
+  SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", speed_, speed);
 
   return std::nullopt;
 }
 
-std::optional<struct input_event> WheelSmoother::tick()
+std::optional<struct input_event> WheelSmoother::tick() noexcept
 {
   if (delta_ == 0)
   {
@@ -233,10 +241,12 @@ std::optional<struct input_event> WheelSmoother::tick()
       SPDLOG_DEBUG("damping stop, total {}", total_delta_);
 
       delta_ = 0;
+      speed_ = 0;
       return std::nullopt;
     }
 
-    SPDLOG_TRACE("tick speed {:.2f} deceleration {:.2f}", delta_ / tick_interval_,
+    speed_ = delta_ * inv_tick_interval_;
+    SPDLOG_TRACE("tick speed {:.2f} deceleration {:.2f}", speed_,
                  (max_delta + min_delta_decrease_per_tick_ - delta_) / (tick_interval_ * tick_interval_));
   }
 
@@ -263,7 +273,7 @@ std::optional<struct input_event> WheelSmoother::tick()
   return ev;
 }
 
-std::optional<struct timeval> WheelSmoother::timeout()
+std::optional<struct timeval> WheelSmoother::timeout() const noexcept
 {
   if (delta_ == 0)
   {
@@ -294,7 +304,7 @@ std::optional<struct timeval> WheelSmoother::timeout()
   return timeout;
 }
 
-std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
+std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time() const noexcept
 {
   if (delta_ == 0)
   {
@@ -304,7 +314,7 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time()
   return next_tick_time_;
 }
 
-void WheelSmoother::handleRelXEvent(struct input_event& ev)
+void WheelSmoother::handleRelXEvent(struct input_event& ev) noexcept
 {
   if (drag_view_)
   {
@@ -316,7 +326,7 @@ void WheelSmoother::handleRelXEvent(struct input_event& ev)
   rel_x_ = ev.value;
 }
 
-void WheelSmoother::handleRelYEvent(struct input_event& ev)
+void WheelSmoother::handleRelYEvent(struct input_event& ev) noexcept
 {
   if (drag_view_)
   {
@@ -328,11 +338,11 @@ void WheelSmoother::handleRelYEvent(struct input_event& ev)
   rel_y_ = ev.value;
 }
 
-void WheelSmoother::handleReportEvent(const struct timeval& time)
+bool WheelSmoother::handleReportEvent(const struct timeval& time) noexcept
 {
   if (rel_x_ == 0 && rel_y_ == 0)
   {
-    return;
+    return false;
   }
 
   if (delta_ != 0 && options_.use_mouse_movement_braking && !free_spin_)
@@ -350,12 +360,18 @@ void WheelSmoother::handleReportEvent(const struct timeval& time)
       {
         SPDLOG_DEBUG("movement stop");
         delta_ = 0;
+        speed_ = 0;
+
+        rel_x_ = 0;
+        rel_y_ = 0;
+        return true;
       }
     }
   }
 
   rel_x_ = 0;
   rel_y_ = 0;
+  return false;
 }
 
 double WheelSmoother::smoothSpeed(const std::chrono::microseconds event_interval)

@@ -17,6 +17,7 @@
 #include <toml++/toml.hpp>
 
 #include "wheel_smoother.h"
+#include "ipc_server.h"
 #include "version.h"
 
 using namespace std::string_view_literals;
@@ -405,6 +406,12 @@ int main(int argc, char* argv[])
     return 0;
   }
 
+  IpcServer ipc;
+  if (!ipc.initialize())
+  {
+    return -1;
+  }
+
   if (access(config_path.c_str(), R_OK) != 0)
   {
     SPDLOG_INFO("Config file '{}' is not readable: {}", config_path, strerror(errno));
@@ -674,6 +681,8 @@ int main(int argc, char* argv[])
     return -1;
   }
 
+  ipc.setConnected();
+
   WheelSmoother wheel_smoother{ options };
 
   int max_fd;
@@ -730,16 +739,25 @@ int main(int argc, char* argv[])
     }
     else if (select_ret == 0)
     {
-      if (auto ev_wheel = wheel_smoother.tick())
+      if (ipc.checkBrakeSignal() || ipc.isForcePassthroughEnabled())
       {
-        events.push_back(*ev_wheel);
-        if (!write_events(ev_wheel->time))
+        wheel_smoother.stop();
+      }
+      else
+      {
+        if (auto ev_wheel = wheel_smoother.tick())
         {
-          SPDLOG_ERROR("Write uinput failed");
-          cleanup();
-          return -1;
+          events.push_back(*ev_wheel);
+          if (!write_events(ev_wheel->time))
+          {
+            SPDLOG_ERROR("Write uinput failed");
+            cleanup();
+            return -1;
+          }
         }
       }
+
+      ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
       continue;
     }
 
@@ -778,6 +796,10 @@ int main(int argc, char* argv[])
         {
           if (braking_keys_table[ev.code])
           {
+            if (wheel_smoother.speed() != 0)
+            {
+              ipc.setSpeed(0, false, false);
+            }
             wheel_smoother.stop();
           }
 
@@ -796,6 +818,7 @@ int main(int argc, char* argv[])
                 --num_passthrough;
               }
             }
+            ipc.setPassthrough(num_passthrough);
           }
         }
       }
@@ -806,6 +829,7 @@ int main(int argc, char* argv[])
         libevdev_free(evdev);
         close(fd);
         num_passthrough -= it->num_passthrough;
+        ipc.setPassthrough(num_passthrough);
 
         it = keyboard_devices.erase(it);
 
@@ -844,22 +868,29 @@ int main(int argc, char* argv[])
             {
               case REL_WHEEL:
               case REL_HWHEEL:
-                if (num_passthrough)
+                if (num_passthrough || ipc.isForcePassthroughEnabled())
                 {
                   events.push_back(ev);
                 }
                 else
                 {
+                  if (ipc.checkBrakeSignal())
+                  {
+                    wheel_smoother.stop();
+                  }
+
                   if (auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL))
                   {
                     events.push_back(*ev_wheel);
                   }
+
+                  ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
                 }
                 break;
 
               case REL_WHEEL_HI_RES:
               case REL_HWHEEL_HI_RES:
-                if (num_passthrough)
+                if (num_passthrough || ipc.isForcePassthroughEnabled())
                 {
                   events.push_back(ev);
                 }
@@ -886,15 +917,25 @@ int main(int argc, char* argv[])
 
             if (ev.code == drag_view_button)
             {
-              handled = wheel_smoother.handleDragViewButton(ev.value);
+              if ((handled = wheel_smoother.handleDragViewButton(ev.value)))
+              {
+                ipc.setDragView(wheel_smoother.drag_view());
+              }
             }
             else if (ev.code == free_spin_button)
             {
-              handled = wheel_smoother.handleFreeSpinButton(ev.value);
+              if ((handled = wheel_smoother.handleFreeSpinButton(ev.value)))
+              {
+                ipc.setFreeSpin(wheel_smoother.free_spin());
+              }
             }
 
             if (!handled)
             {
+              if (wheel_smoother.speed() != 0)
+              {
+                ipc.setSpeed(0, false, false);
+              }
               wheel_smoother.stop();
               events.push_back(ev);
             }
@@ -907,7 +948,11 @@ int main(int argc, char* argv[])
           case EV_SYN:
             if (ev.code == SYN_REPORT)
             {
-              wheel_smoother.handleReportEvent(ev.time);
+              if (wheel_smoother.handleReportEvent(ev.time))
+              {
+                ipc.setSpeed(0, false, false);
+              }
+
               if (!write_events(ev.time))
               {
                 SPDLOG_ERROR("Write uinput failed");
@@ -937,16 +982,25 @@ int main(int argc, char* argv[])
           std::chrono::seconds{ ev.time.tv_sec } + std::chrono::microseconds{ ev.time.tv_usec };
       if (event_time > *next_tick_time)
       {
-        if (auto ev_wheel = wheel_smoother.tick())
+        if (ipc.checkBrakeSignal() || ipc.isForcePassthroughEnabled())
         {
-          events.push_back(*ev_wheel);
-          if (!write_events(ev_wheel->time))
+          wheel_smoother.stop();
+        }
+        else
+        {
+          if (auto ev_wheel = wheel_smoother.tick())
           {
-            SPDLOG_ERROR("Write uinput failed");
-            cleanup();
-            return -1;
+            events.push_back(*ev_wheel);
+            if (!write_events(ev_wheel->time))
+            {
+              SPDLOG_ERROR("Write uinput failed");
+              cleanup();
+              return -1;
+            }
           }
         }
+
+        ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
       }
     }
   }
