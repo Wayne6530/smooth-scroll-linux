@@ -8,7 +8,8 @@
 2. [快速上手](#2-快速上手)
 3. [个性化](#3-个性化)
 4. [从源码编译](#4-从源码编译)
-5. [FAQ](#5-faq)
+5. [外部集成与工具](#5-外部集成与工具)
+6. [FAQ](#6-faq)
 
 ## 1. 介绍
 
@@ -56,7 +57,7 @@ sudo dnf install ./smooth-scroll-*.rpm
 1. 找个你喜欢的界面，正常使用鼠标滚轮
    - 屏幕滚动不再是一格一格的，而是平滑的追随鼠标滚轮的速度
    - 即便停下鼠标滚轮，屏幕滚动也不会立刻停止，而是会像拥有惯性一样缓慢停止
-   - 如果你的现象与上述不符，请先参照 [FAQ](#5-faq) 自行排查
+   - 如果你的现象与上述不符，请先参照 [FAQ](#6-faq) 自行排查
 2. 尝试多种停止滚动的方式
    1. 使用反向滚轮（推荐）
       - 在屏幕还在滚动时，向相反方向短暂滚动鼠标滚轮，屏幕会立刻停止滚动
@@ -227,7 +228,38 @@ journalctl -xe -f -u smooth-scroll.service
    sudo systemctl enable --now smooth-scroll
    ```
 
-## 5. FAQ
+## 5. 外部集成与工具
+
+Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC 协议 (`/dev/shm/smooth_scroll_shm`)。它允许外部应用程序（如托盘图标、自动化脚本或桌面环境扩展）以真正的零延迟监控和控制守护进程。
+
+### 内置 CLI 工具
+
+安装或编译本项目时，会自动包含以下三个 CLI 实用工具，方便你在终端中使用或通过脚本调用：
+
+- **`ss-status`**: 以 JSONL (JSON Lines) 格式持续监听并输出守护进程的当前状态。非常适合配合 `jq`、Node.js 或 Python 进行数据流解析。
+
+  ```bash
+  # 示例输出
+  {"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"horizontal":false,"direction":"positive","speed":150}
+   ```
+
+- **`ss-stop`**: 向守护进程发送异步刹车信号，立即终止当前正在进行的惯性滑动。
+- **`ss-passthrough`**: 切换或设置强制透传（Force Passthrough）状态。在透传状态下，所有滚轮事件将跳过平滑算法直接发往系统。
+
+    ```bash
+    ss-passthrough       # 切换状态 (Toggle)
+    ss-passthrough 1     # 开启透传
+    ss-passthrough off   # 关闭透传
+    ```
+
+### 开发者指南
+
+如果你想为 Smooth Scroll Linux 开发自己的 GUI 前端或状态栏插件，可以通过读取系统的共享内存直接与守护进程通信，无需经过任何 Socket 或网络协议。
+
+- 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解详细的 32 字节内存布局。
+- 你也可以直接参考源码中 `tools/ipc_client.h` 的标准 C++ 实现。
+
+## 6. FAQ
 
 ### 为什么开始滚动时有死区
 

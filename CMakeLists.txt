@@ -56,7 +56,11 @@ target_include_directories(smooth-scroll
 )
 target_link_libraries(smooth-scroll fmt::fmt evdev)
 
-install(TARGETS smooth-scroll DESTINATION /usr/bin)
+add_executable(ss-status tools/ss_status.cpp)
+add_executable(ss-stop tools/ss_stop.cpp)
+add_executable(ss-passthrough tools/ss_passthrough.cpp)
+
+install(TARGETS smooth-scroll ss-status ss-stop ss-passthrough DESTINATION /usr/bin)
 install(FILES debian/smooth-scroll.service DESTINATION /usr/lib/systemd/system)
 install(DIRECTORY config/ DESTINATION /etc/smooth-scroll)
 

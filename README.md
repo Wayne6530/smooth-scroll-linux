@@ -8,7 +8,8 @@ English | [中文](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/RE
 2. [Quick Start](#quick-start)
 3. [Customization](#customization)
 4. [Build from Source](#build-from-source)
-5. [FAQ](#faq)
+5. [Integration & External Tools](#integration--external-tools)
+6. [FAQ](#faq)
 
 ## Introduction
 
@@ -208,6 +209,37 @@ For advanced users, see [Technical Insight](https://github.com/Wayne6530/smooth-
    ```bash
    sudo systemctl enable --now smooth-scroll
    ```
+
+## Integration & External Tools
+
+Smooth Scroll Linux provides a lock-free, shared memory IPC protocol (`/dev/shm/smooth_scroll_shm`). This allows external applications—such as system tray icons, automation scripts, or desktop environment extensions—to monitor and control the daemon with true zero latency.
+
+### Included CLI Utilities
+
+When you install or build the project, three CLI utilities are automatically included for terminal use or script integration:
+
+- **`ss-status`**: Continuously listens to and outputs the daemon's state in JSONL (JSON Lines) format. This is highly suitable for streaming and parsing with `jq`, Node.js, or Python.
+
+  ```bash
+  # Example output
+  {"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"horizontal":false,"direction":"positive","speed":150}
+  ```
+
+- **`ss-stop`**: Sends an asynchronous brake signal to the daemon, immediately halting any ongoing inertial scrolling.
+- **`ss-passthrough`**: Toggles or sets the "Force Passthrough" state. When passthrough is active, all wheel events bypass the smoothing algorithm and are sent directly to the system.
+
+    ```bash
+    ss-passthrough       # Toggle state
+    ss-passthrough 1     # Enable passthrough
+    ss-passthrough off   # Disable passthrough
+    ```
+
+### For Developers
+
+If you want to build your own GUI frontend or status bar widget for Smooth Scroll Linux, you can communicate directly with the daemon by reading the system's shared memory, avoiding socket or network overhead.
+
+- Read the [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) for details on the 32-byte memory layout.
+- You can also reference the standard C++ implementation in the source code at `tools/ipc_client.h`.
 
 ## FAQ
 

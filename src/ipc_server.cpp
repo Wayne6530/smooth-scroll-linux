@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Wayne6530
+
 #include "ipc_server.h"
 
 #include <fcntl.h>
