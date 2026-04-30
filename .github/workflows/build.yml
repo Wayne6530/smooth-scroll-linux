@@ -18,20 +18,20 @@ jobs:
           - distro_name: "Ubuntu 24.04"
             image: "ubuntu:24.04"
             type: "DEB"
-            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev"
+            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev file dpkg-dev"
 
-          - distro_name: "Ubuntu 25.10"
-            image: "ubuntu:25.10"
+          - distro_name: "Ubuntu 26.04"
+            image: "ubuntu:26.04"
             type: "DEB"
-            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev"
-
-          - distro_name: "Fedora 42"
-            image: "fedora:42"
-            type: "RPM"
-            install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel rpm-build"
+            install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev file dpkg-dev"
 
           - distro_name: "Fedora 43"
             image: "fedora:43"
+            type: "RPM"
+            install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel rpm-build"
+
+          - distro_name: "Fedora 44"
+            image: "fedora:44"
             type: "RPM"
             install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel rpm-build"
 
