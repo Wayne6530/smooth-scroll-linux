@@ -1,0 +1,98 @@
+/* Navigation bar */
+
+.site-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+  height: 48px;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-right: 16px;
+  white-space: nowrap;
+}
+
+.nav-link {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.nav-link.active {
+  color: var(--primary);
+  font-weight: 600;
+  background: rgba(74, 144, 217, 0.08);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-github {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.nav-github:hover {
+  color: var(--text);
+}
+
+#lang-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+
+#lang-toggle:hover {
+  background: var(--bg);
+}
+
+/* Responsive nav */
+@media (max-width: 600px) {
+  .site-nav {
+    padding: 0 12px;
+  }
+
+  .nav-title {
+    font-size: 14px;
+    margin-right: 8px;
+  }
+
+  .nav-link {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}

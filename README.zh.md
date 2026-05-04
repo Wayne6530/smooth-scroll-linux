@@ -110,47 +110,9 @@ journalctl -xe -f -u smooth-scroll.service
 
 你可以编辑 `/etc/smooth-scroll/smooth-scroll.toml` 修改参数，然后手动重启服务，从而应用最新的参数。
 
-### 调整滚动参数
+### Web 配置器
 
-- `damping`：滚动阻尼
-  - 滚动速度越大，减速越快
-  - 值越大，减速越快
-  - 为 0 时，减速度只取决于 `min_deceleration`
-- `min_deceleration`：最小减速度
-  - 值越大，低速滚动时，减速越快
-- `max_deceleration`：最大减速度
-  - 值越小，高速滚动时，减速越慢，滚动距离越远
-- `initial_speed`：初始速度
-  - 从停止开始滚动的初始速度
-  - 值越大，单次滚轮引起的滚动距离越大
-- `speed_factor`：速度系数
-  - 值越大，速度越大
-
-举例：
-
-1. 增大一次滚轮滚动的距离
-   - 增大 `initial_speed`
-   - 减小 `min_deceleration`
-2. 保持一次滚轮滚动距离不变，减小滚动的时间
-   - 同时增大 `initial_speed` 和 `min_deceleration`
-3. 更加顺滑
-   - 减小 `damping`
-4. 增大最高滚动速度
-   - 增大 `speed_factor`
-   - 减小 `damping`
-   - 减小 `max_deceleration`
-
-### 调整停止参数
-
-- `use_reverse_scroll_braking`：是否使用反向滚轮停止功能
-- `max_reverse_scroll_braking_microseconds`：反向滚轮停止的最长时间
-- `max_reverse_scroll_braking_times`：反向滚轮停止的最多次数
-- `use_mouse_movement_braking`：是否使用连续移动鼠标停止功能
-
-### Drag View 参数
-
-- `drag_view_button`: 用于触发 Drag View 模式的鼠标按键（默认为鼠标左键）。
-- `drag_view_speed`: 调整在 Drag View 模式下移动视角的灵敏度和速度。
+使用 [**Web 配置器**](https://wayne6530.github.io/smooth-scroll-linux/) 可以交互式地调整滚动、停止和 Drag View 参数，并实时预览物理模拟效果。导出生成的 TOML 配置后，将其复制到 `/etc/smooth-scroll/smooth-scroll.toml` 并重启服务即可生效。
 
 ### 使用调试模式
 

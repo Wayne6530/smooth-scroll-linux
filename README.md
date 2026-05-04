@@ -103,32 +103,9 @@ journalctl -xe -f -u smooth-scroll.service
 
 Edit `/etc/smooth-scroll/smooth-scroll.toml` to change parameters, then restart the service to apply changes.
 
-### Scroll Parameters
+### Web Configurator
 
-- `damping`: Scroll damping. Higher values decelerate faster. If 0, only `min_deceleration` applies.
-- `min_deceleration`: Minimum deceleration. Higher values decelerate faster at low speeds.
-- `max_deceleration`: Maximum deceleration. Smaller values reduce deceleration strength at high speeds, making high-speed scrolls last longer and travel farther.
-- `initial_speed`: Initial speed when starting to scroll. Higher values increase distance per wheel tick.
-- `speed_factor`: Speed multiplier. Higher values increase speed.
-
-Examples:
-
-1. **Increase scroll distance per tick**: Increase `initial_speed`, decrease `min_deceleration`.
-2. **Shorten scroll time without changing distance**: Increase both `initial_speed` and `min_deceleration`.
-3. **Make scrolling smoother**: Decrease `damping`.
-4. **Increase max scroll speed**: Increase `speed_factor`, decrease `damping` and `max_deceleration`.
-
-### Stop Parameters
-
-- `use_reverse_scroll_braking`: Enable reverse wheel stop.
-- `max_reverse_scroll_braking_microseconds`: Max time for reverse wheel stop.
-- `max_reverse_scroll_braking_times`: Max reverse wheel stop count.
-- `use_mouse_movement_braking`: Enable stop by mouse movement.
-
-### Drag View Parameters
-
-- `drag_view_button`: The mouse button used to trigger Drag View mode (default is left mouse button).
-- `drag_view_speed`: Adjusts the sensitivity and speed of the panning when in Drag View mode.
+Use the [**Web Configurator**](https://wayne6530.github.io/smooth-scroll-linux/) to interactively adjust scroll, stop, and Drag View parameters with real-time physics simulation. Export the generated TOML configuration, copy it to `/etc/smooth-scroll/smooth-scroll.toml`, and restart the service.
 
 ### Debug Mode
 
