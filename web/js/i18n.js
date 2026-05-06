@@ -4,7 +4,7 @@
  */
 // eslint-disable-next-line no-unused-vars
 const I18n = (() => {
-  let currentLang = localStorage.getItem('lang') || 'zh';
+  let currentLang = localStorage.getItem('lang') || 'en';
 
   function lang() {
     return currentLang;
