@@ -1,0 +1,2 @@
+# Exclude web configurator from GitHub language statistics so C++ is detected as the primary language.
+web/** linguist-vendored
