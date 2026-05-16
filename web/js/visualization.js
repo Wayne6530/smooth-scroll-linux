@@ -10,7 +10,7 @@ const Visualization = (() => {
 
   function init(values) {
     currentValues = values;
-    run();
+    renderLabels();
 
     let resizeTimer;
     window.addEventListener('resize', () => {
@@ -116,7 +116,7 @@ const Visualization = (() => {
     document.getElementById('summary-distance').textContent = formatComparison(totalDistance, defaultDistance);
     document.getElementById('summary-duration').textContent = formatComparison(duration.toFixed(0) + ' ms', defaultDuration !== null ? defaultDuration.toFixed(0) + ' ms' : null);
 
-    // Native distance hint — only for single-tick scenario
+    // Native distance hint, only for single-tick scenario.
     const hintEl = document.getElementById('summary-distance-hint');
     if (currentScenario === 'single' && Math.abs(totalDistance - 120) > 0.5) {
       hintEl.textContent = I18n.t('validation.native-distance');
@@ -138,7 +138,7 @@ const Visualization = (() => {
     if (defaultVal === null || defaultVal === undefined || current === defaultVal || current == defaultVal) {
       return String(current);
     }
-    return `${defaultVal} (${I18n.t('summary.default')}) → ${current} (${I18n.t('summary.current')})`;
+    return `${defaultVal} (${I18n.t('summary.default')}) -> ${current} (${I18n.t('summary.current')})`;
   }
 
   function renderTips() {

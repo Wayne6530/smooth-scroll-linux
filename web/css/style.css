@@ -5,21 +5,59 @@
 }
 
 :root {
-  --bg: #f8f9fa;
-  --surface: #ffffff;
-  --border: #e0e0e0;
-  --text: #333;
-  --text-muted: #888;
-  --primary: #4a90d9;
-  --primary-hover: #3a7bc8;
-  --accent: #2d8cf0;
-  --danger: #e74c3c;
+  /* Color: OKLCH, neutrals tinted toward blue (hue 250) */
+  --bg: oklch(0.975 0.008 250);
+  --surface: oklch(0.995 0.005 250);
+  --surface-raised: oklch(0.985 0.006 250);
+  --border: oklch(0.895 0.012 250);
+  --border-subtle: oklch(0.935 0.008 250);
+  --text: oklch(0.215 0.015 250);
+  --text-secondary: oklch(0.465 0.015 250);
+  --text-muted: oklch(0.615 0.012 250);
+  --accent: oklch(0.55 0.16 255);
+  --accent-hover: oklch(0.49 0.16 255);
+  --accent-subtle: oklch(0.95 0.04 255);
+  --danger: oklch(0.575 0.2 25);
   --radius: 6px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --radius-lg: 8px;
+  --shadow: 0 1px 3px oklch(0.3 0 0 / 0.06);
+  --shadow-none: none;
+
+  /* Demo box colors */
+  --demo-bg: oklch(0.175 0.018 270);
+  --demo-text: oklch(0.895 0.02 270);
+  --demo-line-num: oklch(0.5 0.02 270);
+
+  /* Chart colors */
+  --speed-off: oklch(0.55 0.06 30);
+  --speed-on: oklch(0.55 0.16 255);
+
+  /* Typography */
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 32px;
+  --space-xl: 48px;
+  --space-2xl: 80px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-gentle: cubic-bezier(0.33, 1, 0.68, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* Legacy aliases (used by configurator) */
+  --primary: var(--accent);
+  --primary-hover: var(--accent-hover);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
@@ -33,28 +71,35 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  background:
+    linear-gradient(90deg, oklch(0.9 0.012 250 / 0.36) 1px, transparent 1px) 50% 0 / 96px 96px,
+    linear-gradient(180deg, var(--bg) 0%, oklch(0.962 0.01 250) 100%);
+}
+
+.config-page {
+  min-height: 0;
 }
 
 .editor-panel {
-  width: 40%;
-  min-width: 360px;
+  width: 42%;
+  min-width: 390px;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
+  border-right: 1px solid var(--border-subtle);
+  background: oklch(0.995 0.005 250 / 0.78);
 }
 
 .editor-params {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 22px 24px;
 }
 
 /* Config version badge */
 .config-version {
   font-size: 12px;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -62,31 +107,33 @@ body {
 
 .config-version .version-badge {
   display: inline-block;
-  padding: 1px 8px;
-  background: var(--bg);
+  padding: 2px 9px;
+  background: var(--accent-subtle);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 500;
-  color: var(--text);
+  font-weight: 650;
+  color: var(--accent);
 }
 
 .editor-footer {
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
-  padding: 10px 20px;
+  border-top: 1px solid var(--border-subtle);
+  padding: 14px 24px 16px;
+  background: oklch(0.995 0.005 250 / 0.9);
 }
 
 .editor-actions {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .viz-panel {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 22px clamp(20px, 3vw, 34px);
 }
 
 /* Empty page content for non-config pages */
@@ -97,26 +144,39 @@ body {
 
 /* Parameter groups */
 .param-group {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .group-header {
   font-size: 14px;
-  font-weight: 600;
-  padding: 8px 0;
+  font-weight: 650;
+  padding: 10px 12px;
   cursor: pointer;
   user-select: none;
-  border-bottom: 1px solid var(--border);
+  border: 1px solid transparent;
+  border-bottom-color: var(--border-subtle);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--text);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.group-header:hover {
+  color: var(--accent);
+  background: oklch(0.995 0.005 250 / 0.62);
+  border-color: var(--border-subtle);
 }
 
 .group-header::before {
   content: '\25BC';
   font-size: 10px;
-  transition: transform 0.2s;
+  color: var(--accent);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 
 .group-header.collapsed::before {
@@ -124,7 +184,7 @@ body {
 }
 
 .group-content {
-  padding: 8px 0 4px;
+  padding: 10px 0 8px;
 }
 
 .group-content.collapsed {
@@ -136,8 +196,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 6px 0;
-  min-height: 36px;
+  padding: 7px 0;
+  min-height: 40px;
 }
 
 .param-row:has(.key-chips) {
@@ -151,14 +211,15 @@ body {
 }
 
 .param-row.has-warning .param-label {
-  color: #e67e22;
+  color: oklch(0.625 0.15 60);
 }
 
 .param-label {
   font-size: 13px;
-  min-width: 140px;
+  min-width: 152px;
   flex-shrink: 0;
   color: var(--text);
+  line-height: 1.35;
 }
 
 .param-control {
@@ -183,7 +244,7 @@ body {
   height: 16px;
   font-size: 11px;
   border-radius: 50%;
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: help;
@@ -194,11 +255,11 @@ body {
   display: none;
   position: fixed;
   padding: 6px 10px;
-  background: #333;
-  color: #fff;
+  background: var(--demo-bg);
+  color: var(--demo-text);
   font-size: 12px;
   font-weight: 400;
-  border-radius: 4px;
+  border-radius: var(--radius);
   white-space: normal;
   width: 240px;
   z-index: 200;
@@ -213,7 +274,7 @@ body {
 /* Validation warnings */
 .validation-warning {
   font-size: 12px;
-  color: #e67e22;
+  color: oklch(0.625 0.15 60);
   padding: 2px 0 2px 152px;
 }
 
@@ -229,23 +290,26 @@ body {
 .param-slider {
   flex: 1;
   min-width: 80px;
-  accent-color: var(--primary);
+  accent-color: var(--accent);
   height: 4px;
 }
 
 .param-input {
   font-size: 13px;
-  padding: 4px 8px;
+  padding: 5px 9px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--text);
   outline: none;
-  transition: border-color 0.2s;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .param-input:focus {
-  border-color: var(--primary);
+  background: oklch(0.995 0.005 250);
+  border-color: var(--accent);
 }
 
 .param-input.number {
@@ -278,27 +342,31 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  min-height: 24px;
   padding: 2px 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 12px;
   line-height: 1.4;
   cursor: pointer;
   user-select: none;
-  transition: all 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
   background: var(--surface);
   color: var(--text);
   white-space: nowrap;
 }
 
 .key-chip:hover {
-  border-color: var(--primary);
+  border-color: oklch(0.82 0.07 255);
 }
 
 .key-chip.selected {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: oklch(0.82 0.07 255);
 }
 
 .key-chip.custom {
@@ -317,7 +385,7 @@ body {
   width: 14px;
   height: 14px;
   border: none;
-  background: rgba(0, 0, 0, 0.15);
+  background: oklch(0.72 0.02 250 / 0.22);
   color: inherit;
   font-size: 11px;
   line-height: 1;
@@ -328,15 +396,15 @@ body {
 }
 
 .key-chip-remove:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: oklch(0.72 0.02 250 / 0.36);
 }
 
 .key-chip.custom.selected .key-chip-remove {
-  background: rgba(255, 255, 255, 0.3);
+  background: oklch(0.72 0.09 255 / 0.18);
 }
 
 .key-chip.custom.selected .key-chip-remove:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: oklch(0.72 0.09 255 / 0.28);
 }
 
 .key-add-btn {
@@ -344,18 +412,22 @@ body {
   align-items: center;
   padding: 2px 8px;
   border: 1px dashed var(--border);
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
   background: none;
-  transition: all 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .key-add-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .key-add-input {
@@ -367,8 +439,8 @@ body {
 .key-add-input input {
   width: 52px;
   padding: 2px 6px;
-  border: 1px solid var(--primary);
-  border-radius: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
   font-size: 12px;
   text-align: center;
   outline: none;
@@ -395,8 +467,8 @@ body {
   width: 20px;
   height: 20px;
   border: none;
-  background: var(--primary);
-  color: white;
+  background: var(--accent);
+  color: var(--surface);
   font-size: 12px;
   border-radius: 50%;
   cursor: pointer;
@@ -404,7 +476,7 @@ body {
 }
 
 .key-add-ok:hover {
-  background: var(--primary-hover);
+  background: var(--accent-hover);
 }
 
 @keyframes shake {
@@ -433,7 +505,7 @@ body {
   inset: 0;
   background: var(--border);
   border-radius: 10px;
-  transition: background 0.2s;
+  transition: background var(--duration-fast) var(--ease-out);
 }
 
 .toggle-slider::before {
@@ -443,13 +515,14 @@ body {
   height: 16px;
   left: 2px;
   top: 2px;
-  background: white;
+  background: var(--surface);
   border-radius: 50%;
-  transition: transform 0.2s;
+  box-shadow: 0 1px 2px oklch(0.35 0.02 250 / 0.12);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 
 .toggle input:checked + .toggle-slider {
-  background: var(--primary);
+  background: var(--accent);
 }
 
 .toggle input:checked + .toggle-slider::before {
@@ -458,35 +531,44 @@ body {
 
 /* Buttons */
 .btn {
+  min-height: 32px;
   padding: 6px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
+  font-weight: 550;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .btn:hover {
-  background: var(--bg);
-  border-color: var(--text-muted);
+  background: var(--accent-subtle);
+  border-color: oklch(0.82 0.07 255);
+  color: var(--accent);
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
 }
 
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: var(--accent-hover);
+  color: var(--surface);
+  border-color: var(--accent-hover);
 }
 
 /* TOML Preview */
 .toml-section {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
 }
 
 .toml-section label {
@@ -499,21 +581,21 @@ body {
 #toml-preview {
   width: 100%;
   height: 80px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
-  padding: 8px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: oklch(0.985 0.006 250 / 0.78);
   color: var(--text);
   resize: vertical;
   outline: none;
 }
 
 .next-steps {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-  margin-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  margin-top: 12px;
 }
 
 .next-steps-title {
@@ -532,18 +614,20 @@ body {
 
 /* Visualization panel */
 .viz-panel h2 {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 12px;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 420;
+  line-height: 1.12;
+  margin-bottom: 18px;
   color: var(--text);
+  letter-spacing: 0;
 }
 
 .chart-container {
-  background: var(--surface);
+  background: oklch(0.995 0.005 250 / 0.76);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  margin-bottom: 12px;
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  margin-bottom: 14px;
 }
 
 .chart-container canvas {
@@ -554,48 +638,55 @@ body {
 
 .chart-label {
   font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 650;
 }
 
 /* Scenario buttons */
 .scenario-bar {
   display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
 .scenario-btn {
+  min-height: 30px;
   padding: 5px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 999px;
   background: var(--surface);
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 13px;
+  font-weight: 550;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .scenario-btn:hover {
-  background: var(--bg);
+  color: var(--text);
+  background: oklch(0.975 0.01 250 / 0.72);
+  border-color: var(--border-subtle);
 }
 
 .scenario-btn.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: oklch(0.82 0.07 255);
 }
 
 .scenario-tips {
   font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: oklch(0.995 0.005 250 / 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   line-height: 1.5;
 }
 
@@ -603,15 +694,15 @@ body {
 .summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .summary-item {
-  background: var(--surface);
+  background: oklch(0.995 0.005 250 / 0.76);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
 }
 
 .summary-item .summary-label {
@@ -621,14 +712,14 @@ body {
 }
 
 .summary-item .summary-value {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 650;
   color: var(--text);
 }
 
 .summary-hint {
   font-size: 11px;
-  color: #e67e22;
+  color: oklch(0.625 0.15 60);
   padding: 2px 0;
   display: none;
 }
@@ -637,14 +728,25 @@ body {
 @media (max-width: 768px) {
   .main {
     flex-direction: column;
+    overflow: auto;
   }
 
   .editor-panel {
     width: 100%;
     min-width: unset;
-    max-height: 50vh;
+    max-height: none;
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .editor-params,
+  .viz-panel {
+    overflow: visible;
+    padding: 18px 16px;
+  }
+
+  .editor-footer {
+    padding: 14px 16px 16px;
   }
 
   .param-label {

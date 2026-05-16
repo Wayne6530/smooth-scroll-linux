@@ -3,6 +3,7 @@
  */
 document.addEventListener('DOMContentLoaded', () => {
   const schema = ParamSchema;
+  document.documentElement.lang = I18n.lang();
 
   // Render nav first (creates #lang-toggle in the DOM)
   if (typeof Nav !== 'undefined') {
@@ -45,7 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lang-toggle').addEventListener('click', () => {
     const newLang = I18n.lang() === 'zh' ? 'en' : 'zh';
     I18n.setLang(newLang);
+    document.documentElement.lang = newLang;
     updateLangToggle();
+    renderConfigPageLabels();
     ConfigEditor.render();
     if (typeof Visualization !== 'undefined') {
       Visualization.renderLabels();
@@ -57,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateLangToggle();
+  renderConfigPageLabels();
   renderNextSteps();
 
   document.querySelectorAll('.scenario-btn').forEach(btn => {
@@ -84,6 +88,20 @@ function updateTomlPreview(values) {
 function updateLangToggle() {
   const btn = document.getElementById('lang-toggle');
   if (btn) btn.textContent = I18n.lang() === 'zh' ? 'EN' : '中文';
+}
+
+function renderConfigPageLabels() {
+  const labels = [
+    ['btn-copy', 'btn.copy'],
+    ['btn-download', 'btn.download'],
+    ['btn-reset', 'btn.reset'],
+    ['toml-preview-label', 'toml.preview'],
+  ];
+
+  for (const [id, key] of labels) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = I18n.t(key);
+  }
 }
 
 function renderNextSteps() {

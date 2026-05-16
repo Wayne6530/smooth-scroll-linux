@@ -1,98 +1,198 @@
 /* Navigation bar */
 
 .site-nav {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0 24px;
+  background:
+    linear-gradient(90deg, oklch(0.995 0.005 250 / 0.98), oklch(0.985 0.008 250 / 0.98));
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 clamp(16px, 3vw, 32px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: var(--shadow);
+  box-shadow: none;
   height: 48px;
+  overflow: hidden;
+}
+
+.site-nav::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(0.72 0.09 255 / 0.72), transparent);
+  pointer-events: none;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-size: 16px;
-  font-weight: 700;
-  color: var(--primary);
-  margin-right: 16px;
+  font-weight: 650;
+  color: var(--text);
+  margin-right: clamp(12px, 2vw, 24px);
+  text-decoration: none;
   white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.nav-title::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border: 1px solid oklch(0.78 0.055 255);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--accent) 0 3px, transparent 3.5px),
+    linear-gradient(135deg, transparent 0 42%, oklch(0.72 0.1 255) 43% 57%, transparent 58%),
+    var(--accent-subtle);
+  box-shadow: 0 1px 2px oklch(0.35 0.02 255 / 0.08);
 }
 
 .nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
   font-size: 13px;
-  padding: 6px 12px;
-  border-radius: var(--radius);
-  color: var(--text-muted);
+  font-weight: 500;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .nav-link:hover {
   color: var(--text);
-  background: var(--bg);
+  background: oklch(0.975 0.01 250 / 0.72);
+  border-color: var(--border-subtle);
 }
 
 .nav-link.active {
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 600;
-  background: rgba(74, 144, 217, 0.08);
+  background: var(--accent-subtle);
+  border-color: oklch(0.82 0.07 255);
+  box-shadow: inset 0 0 0 1px oklch(0.99 0.004 250 / 0.7);
 }
 
 .nav-right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .nav-github {
-  color: var(--text-muted);
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
-  transition: color 0.15s;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .nav-github:hover {
   color: var(--text);
+  background: oklch(0.975 0.01 250 / 0.72);
+  border-color: var(--border-subtle);
 }
 
 #lang-toggle {
-  background: none;
+  min-width: 54px;
+  min-height: 30px;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 999px;
   padding: 4px 12px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 550;
   color: var(--text);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 #lang-toggle:hover {
-  background: var(--bg);
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: oklch(0.82 0.07 255);
 }
 
 /* Responsive nav */
 @media (max-width: 600px) {
   .site-nav {
     padding: 0 12px;
+    gap: 8px;
+  }
+
+  .nav-left {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-left::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-title {
-    font-size: 14px;
-    margin-right: 8px;
+    gap: 0;
+    font-size: 0;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+
+  .nav-title::before {
+    width: 16px;
+    height: 16px;
   }
 
   .nav-link {
     font-size: 12px;
-    padding: 4px 8px;
+    min-height: 28px;
+    padding: 4px 9px;
+  }
+
+  .nav-right {
+    gap: 6px;
+  }
+
+  .nav-github {
+    width: 28px;
+    height: 28px;
+  }
+
+  #lang-toggle {
+    min-width: 48px;
+    min-height: 28px;
+    padding: 3px 9px;
+    font-size: 12px;
   }
 }

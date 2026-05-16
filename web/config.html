@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smooth Scroll - Customization</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/nav.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="main config-page">
+    <div class="editor-panel" id="editor">
+      <div class="editor-params" id="editor-params">
+        <p>Loading...</p>
+      </div>
+      <div class="editor-footer">
+        <div class="editor-actions">
+          <button class="btn btn-primary" id="btn-copy">Copy TOML</button>
+          <button class="btn" id="btn-download">Download .toml</button>
+          <button class="btn" id="btn-reset">Reset to Defaults</button>
+        </div>
+        <div class="toml-section">
+          <label id="toml-preview-label">TOML Preview</label>
+          <textarea id="toml-preview" readonly></textarea>
+        </div>
+        <div class="next-steps" id="next-steps">
+          <div class="next-steps-title" id="next-steps-title"></div>
+          <ol class="next-steps-list" id="next-steps-list"></ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="viz-panel" id="viz-panel">
+      <h2 data-i18n="scenario.title">Simulation Scenario</h2>
+      <div class="scenario-bar">
+        <button class="scenario-btn active" data-scenario="single">Single Tick</button>
+        <button class="scenario-btn" data-scenario="slow">Slow Scroll</button>
+        <button class="scenario-btn" data-scenario="fast">Fast Scroll</button>
+        <button class="scenario-btn" data-scenario="multi-burst">Multi-Burst</button>
+      </div>
+      <div class="scenario-tips" id="scenario-tips"></div>
+
+      <div class="summary" id="summary">
+        <div class="summary-item">
+          <span class="summary-label" data-i18n="summary.distance">Total Distance</span>
+          <span class="summary-value" id="summary-distance">--</span>
+          <div class="summary-hint" id="summary-distance-hint"></div>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label" data-i18n="summary.duration">Duration</span>
+          <span class="summary-value" id="summary-duration">--</span>
+        </div>
+      </div>
+      <div class="summary-hint" id="summary-truncated"></div>
+
+      <div class="chart-container">
+        <div class="chart-label" data-i18n="chart.speed">Speed vs Time</div>
+        <canvas id="chart-speed"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-label" data-i18n="chart.displacement">Displacement vs Time</div>
+        <canvas id="chart-displacement"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/param-schema.js"></script>
+  <script src="js/scenarios.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/config-editor.js"></script>
+  <script src="js/config-writer.js"></script>
+  <script src="js/physics-engine.js"></script>
+  <script src="js/chart-renderer.js"></script>
+  <script src="js/visualization.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

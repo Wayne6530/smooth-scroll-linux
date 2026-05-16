@@ -1,80 +1,171 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smooth Scroll - Customization</title>
+  <title>Smooth Scroll - Feature</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/feature.css">
 </head>
 <body>
   <div id="nav"></div>
+  <div class="page-content feature-page" id="feature-page">
+    <nav class="section-indicator" id="section-indicator" aria-label="Section navigation">
+      <a class="section-pip active" href="#section-smooth" aria-label="Smooth Scrolling"></a>
+      <a class="section-pip" href="#section-adaptive" aria-label="Speed Adaptive"></a>
+      <a class="section-pip" href="#section-freespin" aria-label="Free Spin"></a>
+      <a class="section-pip" href="#section-dragview" aria-label="Drag View"></a>
+      <a class="section-pip" href="#section-closing" aria-label="More"></a>
+    </nav>
 
-  <div class="main">
-    <div class="editor-panel" id="editor">
-      <div class="editor-params" id="editor-params">
-        <p>Loading...</p>
+    <section class="feature-section hero-section" id="section-smooth">
+      <div class="section-inner hero-inner">
+        <div class="hero-copy">
+          <p class="hero-note" data-i18n="feature.hero.note"></p>
+          <h1 class="hero-title" data-i18n="feature.hero.title"></h1>
+          <p class="hero-subtitle" data-i18n="feature.hero.subtitle"></p>
+        </div>
+        <div class="demo-pair">
+          <div class="demo-wrapper">
+            <div class="demo-label" data-i18n="feature.smooth.off"></div>
+            <div class="demo-box" id="demo-smooth-off"></div>
+            <div class="demo-timeline" id="timeline-smooth-off"></div>
+          </div>
+          <div class="demo-wrapper">
+            <div class="demo-label demo-label-on" data-i18n="feature.smooth.on"></div>
+            <div class="demo-box" id="demo-smooth-on"></div>
+            <div class="demo-timeline" id="timeline-smooth-on"></div>
+          </div>
+        </div>
       </div>
-      <div class="editor-footer">
-        <div class="editor-actions">
-          <button class="btn btn-primary" id="btn-copy">Copy TOML</button>
-          <button class="btn" id="btn-download">Download .toml</button>
-          <button class="btn" id="btn-reset">Reset to Defaults</button>
-        </div>
-        <div class="toml-section">
-          <label>TOML Preview</label>
-          <textarea id="toml-preview" readonly></textarea>
-        </div>
-        <div class="next-steps" id="next-steps">
-          <div class="next-steps-title" id="next-steps-title"></div>
-          <ol class="next-steps-list" id="next-steps-list"></ol>
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <div class="viz-panel" id="viz-panel">
-      <h2 data-i18n="scenario.title">Simulation Scenario</h2>
-      <div class="scenario-bar">
-        <button class="scenario-btn active" data-scenario="single">Single Tick</button>
-        <button class="scenario-btn" data-scenario="slow">Slow Scroll</button>
-        <button class="scenario-btn" data-scenario="fast">Fast Scroll</button>
-        <button class="scenario-btn" data-scenario="multi-burst">Multi-Burst</button>
-      </div>
-      <div class="scenario-tips" id="scenario-tips"></div>
-
-      <div class="summary" id="summary">
-        <div class="summary-item">
-          <span class="summary-label" data-i18n="summary.distance">Total Distance</span>
-          <span class="summary-value" id="summary-distance">--</span>
-          <div class="summary-hint" id="summary-distance-hint"></div>
+    <section class="feature-section" id="section-adaptive">
+      <div class="section-inner">
+        <div class="split-layout">
+          <div class="split-demo">
+            <div class="demo-wrapper">
+              <div class="demo-label demo-label-on" id="adaptive-demo-label" data-i18n="feature.adaptive.slow"></div>
+              <div class="demo-box" id="demo-adaptive"></div>
+              <div class="demo-timeline" id="timeline-adaptive"></div>
+            </div>
+          </div>
+          <div class="split-text">
+            <p class="section-kicker" data-i18n="feature.adaptive.kicker"></p>
+            <h2 class="section-title" data-i18n="feature.adaptive.title"></h2>
+            <p class="section-desc" data-i18n="feature.adaptive.desc"></p>
+            <div class="adaptive-data-panel">
+              <div class="adaptive-data-row" id="adaptive-row-slow">
+                <span class="data-name" data-i18n="feature.adaptive.slow"></span>
+                <div class="data-stats">
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.distance"></span><span class="data-dist" id="adaptive-dist-slow">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.events"></span><span class="data-events" id="adaptive-events-slow">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.avg"></span><span class="data-avg" id="adaptive-avg-slow">&mdash;</span></div>
+                </div>
+              </div>
+              <div class="adaptive-data-row" id="adaptive-row-fast">
+                <span class="data-name" data-i18n="feature.adaptive.fast"></span>
+                <div class="data-stats">
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.distance"></span><span class="data-dist" id="adaptive-dist-fast">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.events"></span><span class="data-events" id="adaptive-events-fast">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.avg"></span><span class="data-avg" id="adaptive-avg-fast">&mdash;</span></div>
+                </div>
+              </div>
+              <div class="adaptive-data-row" id="adaptive-row-burst">
+                <span class="data-name" data-i18n="feature.adaptive.burst"></span>
+                <div class="data-stats">
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.distance"></span><span class="data-dist" id="adaptive-dist-burst">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.events"></span><span class="data-events" id="adaptive-events-burst">&mdash;</span></div>
+                  <div class="data-stat"><span class="data-label" data-i18n="feature.adaptive.avg"></span><span class="data-avg" id="adaptive-avg-burst">&mdash;</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="summary-item">
-          <span class="summary-label" data-i18n="summary.duration">Duration</span>
-          <span class="summary-value" id="summary-duration">--</span>
+      </div>
+    </section>
+
+    <section class="feature-section" id="section-freespin">
+      <div class="section-inner">
+        <div class="split-layout reverse">
+          <div class="split-demo">
+            <div class="demo-wrapper">
+              <div class="demo-label demo-label-on" data-i18n="feature.freespin.with"></div>
+              <div class="demo-box" id="demo-freespin-on"></div>
+              <div class="demo-timeline" id="timeline-freespin-on"></div>
+            </div>
+          </div>
+          <div class="split-text">
+            <p class="section-kicker" data-i18n="feature.freespin.kicker"></p>
+            <h2 class="section-title" data-i18n="feature.freespin.title"></h2>
+            <p class="section-desc" data-i18n="feature.freespin.desc"></p>
+          </div>
         </div>
       </div>
-      <div class="summary-hint" id="summary-truncated"></div>
+    </section>
 
-      <div class="chart-container">
-        <div class="chart-label" data-i18n="chart.speed">Speed vs Time</div>
-        <canvas id="chart-speed"></canvas>
+    <section class="feature-section" id="section-dragview">
+      <div class="section-inner">
+        <div class="split-layout">
+          <div class="split-demo">
+            <div class="demo-wrapper">
+              <div class="demo-box" id="demo-dragview"></div>
+              <div class="demo-timeline" id="timeline-dragview"></div>
+            </div>
+          </div>
+          <div class="split-text">
+            <p class="section-kicker" data-i18n="feature.dragview.kicker"></p>
+            <h2 class="section-title" data-i18n="feature.dragview.title"></h2>
+            <p class="section-desc" data-i18n="feature.dragview.desc"></p>
+          </div>
+        </div>
       </div>
-      <div class="chart-container">
-        <div class="chart-label" data-i18n="chart.displacement">Displacement vs Time</div>
-        <canvas id="chart-displacement"></canvas>
+    </section>
+
+    <section class="feature-section" id="section-closing">
+      <div class="section-inner closing-inner">
+        <p class="section-kicker" data-i18n="feature.more.kicker"></p>
+        <h2 class="section-title" data-i18n="feature.more.title"></h2>
+        <p class="section-desc" data-i18n="feature.more.desc"></p>
+        <div class="feature-cards">
+          <div class="feature-card">
+            <span class="feature-card-mark">24</span>
+            <h3 data-i18n="feature.more.config.title"></h3>
+            <p data-i18n="feature.more.config.desc"></p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-card-mark">Wayland</span>
+            <h3 data-i18n="feature.more.compat.title"></h3>
+            <p data-i18n="feature.more.compat.desc"></p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-card-mark">C++</span>
+            <h3 data-i18n="feature.more.light.title"></h3>
+            <p data-i18n="feature.more.light.desc"></p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-card-mark">IPC</span>
+            <h3 data-i18n="feature.more.ipc.title"></h3>
+            <p data-i18n="feature.more.ipc.desc"></p>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
   </div>
 
+  <script src="js/i18n.js"></script>
   <script src="js/param-schema.js"></script>
   <script src="js/scenarios.js"></script>
-  <script src="js/i18n.js"></script>
-  <script src="js/nav.js"></script>
-  <script src="js/config-editor.js"></script>
-  <script src="js/config-writer.js"></script>
   <script src="js/physics-engine.js"></script>
-  <script src="js/chart-renderer.js"></script>
-  <script src="js/visualization.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/feature.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      FeaturePage.init();
+    });
+  </script>
 </body>
 </html>

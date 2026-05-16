@@ -41,6 +41,7 @@ const ConfigEditor = (() => {
   function render() {
     const container = document.getElementById('editor-params');
     container.innerHTML = '';
+    document.querySelectorAll('.param-tooltip').forEach(el => el.remove());
 
     // Config version badge
     const versionEl = document.createElement('div');

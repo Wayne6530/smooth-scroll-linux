@@ -45,9 +45,62 @@ const PhysicsEngine = (() => {
       this.speed_ = 0;
       this.deviation_ = 0;
       this.totalDelta_ = 0;
+      this.totalDeltaH_ = 0;
       this.brakingTimes_ = 0;
+      this.relX_ = 0;
+      this.relY_ = 0;
       this.freeSpin_ = false;
       this.dragView_ = false;
+    }
+
+    // handleFreeSpinButton (wheel_smoother.cpp:50-68)
+    handleFreeSpinButton(value) {
+      if (this.delta_ !== 0 && value === 1) {
+        this.freeSpin_ = true;
+        return true;
+      }
+      if (this.freeSpin_) {
+        if (value === 0) {
+          this.freeSpin_ = false;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // handleDragViewButton (wheel_smoother.cpp:70-90)
+    handleDragViewButton(value) {
+      if (this.delta_ !== 0 && value === 1) {
+        this.dragView_ = true;
+        this.delta_ = 0;
+        this.speed_ = 0;
+        return true;
+      }
+      if (this.dragView_) {
+        if (value === 0) {
+          this.dragView_ = false;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // handleRelXEvent (wheel_smoother.cpp:317-327)
+    handleRelXEvent(value) {
+      if (this.dragView_) {
+        return { code: 'REL_HWHEEL_HI_RES', value: this.options.drag_view_speed * value };
+      }
+      this.relX_ = value;
+      return null;
+    }
+
+    // handleRelYEvent (wheel_smoother.cpp:329-339)
+    handleRelYEvent(value) {
+      if (this.dragView_) {
+        return { code: 'REL_WHEEL_HI_RES', value: -this.options.drag_view_speed * value };
+      }
+      this.relY_ = value;
+      return null;
     }
 
     // handleEvent (wheel_smoother.cpp:92-213)
@@ -191,23 +244,34 @@ const PhysicsEngine = (() => {
    * Run a full simulation given a scenario.
    * Returns an array of data points for charting.
    */
-  function simulate(options, scenario) {
+  function simulate(options, scenario, featureOptions) {
     const smoother = new WheelSmootherJS(options);
     const tickInterval = options.tick_interval_microseconds;
 
-    // Build event timeline from scenario
+    // Build unified event timeline
     const events = [];
+
+    // Convert scenario scroll events
     for (const evt of scenario.events) {
-      events.push({ timeUs: evt.timeMs * 1000, positive: evt.positive !== false });
+      events.push({ timeUs: evt.timeMs * 1000, type: 'scroll', positive: evt.positive !== false });
+    }
+
+    // Add typed feature events
+    if (featureOptions && featureOptions.events) {
+      for (const evt of featureOptions.events) {
+        events.push({ ...evt });
+      }
+    }
+
+    // Backward compat: convert freeSpinStartTimeUs to a typed event
+    if (featureOptions && featureOptions.freeSpinStartTimeUs != null && !featureOptions.events) {
+      events.push({ timeUs: featureOptions.freeSpinStartTimeUs, type: 'free-spin', value: 1 });
     }
 
     // Sort events by time
     events.sort((a, b) => a.timeUs - b.timeUs);
 
     // Simulation: mirrors the C++ event loop (poll-based)
-    // 1. Wait until next tick time or next wheel event, whichever comes first
-    // 2. Process wheel events that have arrived
-    // 3. Process tick if it's time
     const timeline = [];
     let eventIdx = 0;
     let maxTimeUs = (scenario.maxDurationMs || 3000) * 1000;
@@ -218,7 +282,64 @@ const PhysicsEngine = (() => {
     while (currentTime - startTimeUs < maxTimeUs && maxIter-- > 0) {
       // Process all events at or before currentTime
       while (eventIdx < events.length && events[eventIdx].timeUs <= currentTime) {
-        smoother.handleEvent(events[eventIdx].timeUs, events[eventIdx].positive, false);
+        const evt = events[eventIdx];
+        switch (evt.type) {
+          case 'scroll':
+            smoother.handleEvent(evt.timeUs, evt.positive, false);
+            break;
+          case 'free-spin':
+            smoother.handleFreeSpinButton(evt.value);
+            break;
+          case 'drag-view':
+            smoother.handleDragViewButton(evt.value);
+            timeline.push({
+              timeMs: (currentTime - startTimeUs) / 1000,
+              delta: smoother.delta_,
+              speed: smoother.speed_,
+              emittedDelta: 0,
+              totalDelta: smoother.totalDelta_,
+              totalDeltaH: smoother.totalDeltaH_,
+            });
+            break;
+          case 'rel-x': {
+            const res = smoother.handleRelXEvent(evt.value);
+            if (res) {
+              const roundDelta = Math.round(res.value);
+              if (res.code === 'REL_HWHEEL_HI_RES') {
+                smoother.totalDeltaH_ += roundDelta;
+                timeline.push({
+                  timeMs: (currentTime - startTimeUs) / 1000,
+                  delta: 0,
+                  speed: 0,
+                  emittedDelta: roundDelta,
+                  emittedH: true,
+                  totalDelta: smoother.totalDelta_,
+                  totalDeltaH: smoother.totalDeltaH_,
+                });
+              }
+            }
+            break;
+          }
+          case 'rel-y': {
+            const res = smoother.handleRelYEvent(evt.value);
+            if (res) {
+              const roundDelta = Math.round(res.value);
+              if (res.code === 'REL_WHEEL_HI_RES') {
+                smoother.totalDelta_ += roundDelta;
+                timeline.push({
+                  timeMs: (currentTime - startTimeUs) / 1000,
+                  delta: 0,
+                  speed: 0,
+                  emittedDelta: roundDelta,
+                  emittedV: true,
+                  totalDelta: smoother.totalDelta_,
+                  totalDeltaH: smoother.totalDeltaH_,
+                });
+              }
+            }
+            break;
+          }
+        }
         eventIdx++;
       }
 
@@ -232,6 +353,7 @@ const PhysicsEngine = (() => {
             speed: smoother.speed_,
             emittedDelta: result.emittedDelta,
             totalDelta: result.totalDelta,
+            totalDeltaH: smoother.totalDeltaH_,
           });
         } else if (smoother.delta_ === 0) {
           break;

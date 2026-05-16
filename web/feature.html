@@ -1,29 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0; url=index.html">
+  <link rel="canonical" href="index.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <title>Smooth Scroll - Feature</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/nav.css">
 </head>
 <body>
-  <div id="nav"></div>
-  <div class="page-content">
-  </div>
-
-  <script src="js/i18n.js"></script>
-  <script src="js/param-schema.js"></script>
-  <script src="js/nav.js"></script>
+  <p><a href="index.html">Open Smooth Scroll feature page</a></p>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      Nav.render('nav');
-      document.getElementById('lang-toggle').addEventListener('click', () => {
-        I18n.setLang(I18n.lang() === 'zh' ? 'en' : 'zh');
-        document.getElementById('lang-toggle').textContent = I18n.lang() === 'zh' ? 'EN' : '中文';
-        Nav.updateLang();
-      });
-    });
+    location.replace('index.html' + location.search + location.hash);
   </script>
 </body>
 </html>
