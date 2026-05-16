@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,23 +7,55 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/content.css">
 </head>
 <body>
   <div id="nav"></div>
-  <div class="page-content">
-  </div>
+  <main class="page-content doc-page">
+    <div class="doc-shell">
+      <section class="faq-list">
+        <article class="qa-item">
+          <h2 class="qa-question lang-block lang-en">Why is there a dead zone at the start of scrolling?</h2>
+          <h2 class="qa-question lang-block lang-zh">为什么开始滚动时有死区？</h2>
+          <div class="qa-answer">
+            <p class="lang-block lang-en">This is a known <code>libinput</code> issue: <a href="https://gitlab.freedesktop.org/libinput/libinput/-/issues/1129">Disable hi-res wheel event initial accumulation for uinput (#1129)</a>. It has been fixed upstream, but the fix may not have reached your distribution yet.</p>
+            <p class="lang-block lang-zh">这是 <code>libinput</code> 的一个已知问题：<a href="https://gitlab.freedesktop.org/libinput/libinput/-/issues/1129">Disable hi-res wheel event initial accumulation for uinput (#1129)</a>。上游已经修复，但你的发行版未必已经包含这个修复。</p>
+            <p class="lang-block lang-en">If your system still has this behavior, installing a newer <code>libinput</code> can help:</p>
+            <p class="lang-block lang-zh">如果你的系统仍然有这个现象，可以尝试安装更新版本的 <code>libinput</code>：</p>
+            <pre><code>sudo apt install meson ninja-build libmtdev-dev libevdev-dev libudev-dev libwacom-dev
+git clone https://gitlab.freedesktop.org/libinput/libinput.git
+cd libinput
+meson setup builddir --prefix=/usr -Ddocumentation=false -Dtests=false -Ddebug-gui=false
+ninja -C builddir
+sudo ninja -C builddir install</code></pre>
+            <p class="lang-block lang-en">Restart your desktop session after installation.</p>
+            <p class="lang-block lang-zh">安装后请重启桌面会话。</p>
+          </div>
+        </article>
+
+        <article class="qa-item">
+          <h2 class="qa-question lang-block lang-en">Why do key braking or key passthrough stop working after I plug in a keyboard?</h2>
+          <h2 class="qa-question lang-block lang-zh">为什么启动后再接入键盘，按键停止或按键透传不可用？</h2>
+          <div class="qa-answer">
+            <p class="lang-block lang-en">Smooth Scroll currently detects keyboard devices only when the daemon starts. If you plug in a keyboard later, features that depend on that keyboard, such as key braking and key passthrough, may not work for the newly connected device.</p>
+            <p class="lang-block lang-zh">Smooth Scroll 当前只在 daemon 启动时检测键盘设备。如果启动后再接入键盘，后续接入键盘上的相关功能可能不可用，例如按键停止和按键透传。</p>
+            <p class="lang-block lang-en">Restart the service after connecting the keyboard:</p>
+            <p class="lang-block lang-zh">接入键盘后重启服务即可恢复：</p>
+            <pre><code>sudo systemctl restart smooth-scroll.service</code></pre>
+            <p class="lang-block lang-en">The daemon does not monitor keyboard hot-plug events in real time because the design favors a lightweight, predictable input loop.</p>
+            <p class="lang-block lang-zh">daemon 不实时监听设备接入，是为了保持轻量，并让输入处理循环尽可能稳定、实时。</p>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
 
   <script src="js/i18n.js"></script>
-  <script src="js/param-schema.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/content-page.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      Nav.render('nav');
-      document.getElementById('lang-toggle').addEventListener('click', () => {
-        I18n.setLang(I18n.lang() === 'zh' ? 'en' : 'zh');
-        document.getElementById('lang-toggle').textContent = I18n.lang() === 'zh' ? 'EN' : '中文';
-        Nav.updateLang();
-      });
+      ContentPage.init();
     });
   </script>
 </body>

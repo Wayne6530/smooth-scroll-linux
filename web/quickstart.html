@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,23 +7,149 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/content.css">
 </head>
 <body>
   <div id="nav"></div>
-  <div class="page-content">
-  </div>
+  <main class="page-content doc-page">
+    <div class="doc-shell">
+      <section class="doc-section">
+        <h2 class="doc-heading lang-block lang-en">Installation</h2>
+        <h2 class="doc-heading lang-block lang-zh">安装</h2>
+        <ol class="doc-steps">
+          <li>
+            <span class="lang-block lang-en">Download the package matching your distribution from <a href="https://github.com/Wayne6530/smooth-scroll-linux/releases">GitHub Releases</a>.</span>
+            <span class="lang-block lang-zh">从 <a href="https://github.com/Wayne6530/smooth-scroll-linux/releases">GitHub Releases</a> 下载适合你发行版的安装包。</span>
+          </li>
+          <li>
+            <span class="lang-block lang-en">Install the package.</span>
+            <span class="lang-block lang-zh">安装下载好的包。</span>
+            <div class="install-commands">
+              <div class="install-command">
+                <h3>Ubuntu / Linux Mint</h3>
+                <pre><code>cd ~/Downloads
+sudo apt install ./smooth-scroll_*.deb</code></pre>
+              </div>
+              <div class="install-command">
+                <h3>Fedora</h3>
+                <pre><code>cd ~/Downloads
+sudo dnf install ./smooth-scroll-*.rpm</code></pre>
+              </div>
+            </div>
+          </li>
+          <li>
+            <span class="lang-block lang-en">Start using your mouse wheel. <code>smooth-scroll.service</code> starts immediately and is enabled at boot.</span>
+            <span class="lang-block lang-zh">直接开始使用鼠标滚轮。<code>smooth-scroll.service</code> 会立即启动，并随系统开机自启。</span>
+          </li>
+        </ol>
+        <p class="doc-note lang-block lang-en">If you do not see a package for your distribution in Releases, build from source on <a href="https://github.com/Wayne6530/smooth-scroll-linux">GitHub</a> using the repository instructions.</p>
+        <p class="doc-note lang-block lang-zh">如果 Releases 中没有适合你发行版的安装包，请到 <a href="https://github.com/Wayne6530/smooth-scroll-linux">GitHub</a> 按仓库说明从源码编译。</p>
+      </section>
+
+      <section class="doc-section">
+        <h2 class="doc-heading lang-block lang-en">How To Use</h2>
+        <h2 class="doc-heading lang-block lang-zh">如何使用</h2>
+        <p class="doc-copy lang-block lang-en">Start with normal wheel scrolling, then use the following controls when you need to stop inertia, bypass smoothing, or switch into a special mode.</p>
+        <p class="doc-copy lang-block lang-zh">先像平常一样滚动鼠标滚轮。需要停止惯性、绕过平滑处理，或进入特殊模式时，再使用下面这些控制。</p>
+        <ol class="feature-steps">
+          <li>
+            <h3>Smooth Scroll</h3>
+            <p class="doc-copy lang-block lang-en">Use the wheel normally. The daemon converts each wheel burst into a smooth motion curve.</p>
+            <p class="doc-copy lang-block lang-zh">正常使用滚轮即可。daemon 会把每段滚轮输入转换为平滑的运动曲线。</p>
+            <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span></p>
+          </li>
+          <li>
+            <h3 class="lang-block lang-en">Stop Inertia</h3>
+            <h3 class="lang-block lang-zh">停止惯性</h3>
+            <p class="doc-copy lang-block lang-en">Use a small interrupt when you want the current glide to stop. Default keyboard braking uses <code>L_SHIFT</code> and <code>R_SHIFT</code>, and those keys can be customized.</p>
+            <p class="doc-copy lang-block lang-zh">想让当前惯性立刻停下时，使用一个轻量的中断动作。默认键盘停止使用 <code>L_SHIFT</code> 和 <code>R_SHIFT</code>，这些按键可以自定义。</p>
+            <div class="move-table-wrap">
+              <table class="move-table brake-table">
+                <thead>
+                  <tr class="lang-block lang-en"><th>Method</th><th>Action</th><th>Note</th></tr>
+                  <tr class="lang-block lang-zh"><th>方式</th><th>输入顺序</th><th>备注</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="lang-block lang-en">Reverse wheel</span><span class="lang-block lang-zh">反向滚轮</span></td>
+                    <td><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-reverse lang-block lang-en">Reverse wheel</span><span class="move-token token-reverse lang-block lang-zh">反向滚轮</span></td>
+                    <td><span class="lang-block lang-en">Best for quick stops.</span><span class="lang-block lang-zh">适合快速停止。</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="lang-block lang-en">Mouse button</span><span class="lang-block lang-zh">鼠标按键</span></td>
+                    <td><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-left lang-block lang-en">Any button</span><span class="move-token token-left lang-block lang-zh">任意按键</span></td>
+                    <td><span class="lang-block lang-en">Except Free Spin.</span><span class="lang-block lang-zh">不包括 Free Spin。</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="lang-block lang-en">Mouse movement</span><span class="lang-block lang-zh">鼠标移动</span></td>
+                    <td><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-move lang-block lang-en">Mouse move</span><span class="move-token token-move lang-block lang-zh">鼠标移动</span></td>
+                    <td><span class="lang-block lang-en">Useful during pointer moves.</span><span class="lang-block lang-zh">适合移动指针时使用。</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="lang-block lang-en">Keyboard</span><span class="lang-block lang-zh">键盘</span></td>
+                    <td><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-key lang-block lang-en">Key press/release</span><span class="move-token token-key lang-block lang-zh">按键按下/释放</span></td>
+                    <td><span class="lang-block lang-en">Default: Shift keys.</span><span class="lang-block lang-zh">默认：Shift 键。</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </li>
+          <li>
+            <h3>Passthrough</h3>
+            <p class="doc-copy lang-block lang-en">Hold a passthrough key when the application should receive raw wheel events, for example browser zoom or editor shortcuts. Defaults: <code>Ctrl</code> and <code>Super</code>, both customizable.</p>
+            <p class="doc-copy lang-block lang-zh">当应用需要接收原始滚轮事件时，按住透传按键，例如浏览器缩放或编辑器快捷操作。默认按键：<code>Ctrl</code> 和 <code>Super</code>，都可以自定义。</p>
+            <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-key lang-block lang-en">Hold Ctrl / Super</span><span class="move-token token-key lang-block lang-zh">按住 Ctrl / Super</span><span class="move-arrow">&gt;</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span></p>
+          </li>
+          <li>
+            <h3>Free Spin</h3>
+            <p class="doc-copy lang-block lang-en">Use Free Spin for long pages or timelines when you want a steady cruise without automatic deceleration. Default button: right mouse button, customizable.</p>
+            <p class="doc-copy lang-block lang-zh">在长页面或时间线上需要持续巡航滚动时使用 Free Spin，此时不会自动减速。默认按键是鼠标右键，可以自定义。</p>
+            <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-right lang-block lang-en">Right press</span><span class="move-token token-right lang-block lang-zh">右键按下</span><span class="move-arrow">&gt;</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-right lang-block lang-en">Right release</span><span class="move-token token-right lang-block lang-zh">右键释放</span></p>
+          </li>
+          <li>
+            <h3>Drag View</h3>
+            <p class="doc-copy lang-block lang-en">Use Drag View when you want mouse movement to pan content after a wheel gesture, including horizontal movement. Default button: left mouse button, customizable.</p>
+            <p class="doc-copy lang-block lang-zh">滚轮后希望用鼠标移动来平移内容时使用 Drag View，也可以处理横向移动。默认按键是鼠标左键，可以自定义。</p>
+            <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-left lang-block lang-en">Left press</span><span class="move-token token-left lang-block lang-zh">左键按下</span><span class="move-arrow">&gt;</span><span class="move-token token-move lang-block lang-en">Mouse move</span><span class="move-token token-move lang-block lang-zh">鼠标移动</span><span class="move-arrow">&gt;</span><span class="move-token token-left lang-block lang-en">Left release</span><span class="move-token token-left lang-block lang-zh">左键释放</span></p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="doc-section">
+        <h2 class="doc-heading lang-block lang-en">Customization</h2>
+        <h2 class="doc-heading lang-block lang-zh">自定义</h2>
+        <ol class="doc-steps customization-steps">
+          <li>
+            <h3 class="lang-block lang-en">Open the configurator</h3>
+            <h3 class="lang-block lang-zh">打开配置器</h3>
+            <p class="doc-copy lang-block lang-en">Go to the <a href="config.html">Customization</a> page.</p>
+            <p class="doc-copy lang-block lang-zh">进入<a href="config.html">自定义</a>页面。</p>
+          </li>
+          <li>
+            <h3 class="lang-block lang-en">Adjust and export</h3>
+            <h3 class="lang-block lang-zh">调整并导出</h3>
+            <p class="doc-copy lang-block lang-en">Edit the settings, then copy TOML or download <code>smooth-scroll.toml</code>.</p>
+            <p class="doc-copy lang-block lang-zh">调整设置后，复制 TOML 或下载 <code>smooth-scroll.toml</code>。</p>
+          </li>
+          <li>
+            <h3 class="lang-block lang-en">Apply the config</h3>
+            <h3 class="lang-block lang-zh">应用配置</h3>
+            <p class="doc-copy lang-block lang-en">Replace the system config, then restart the service.</p>
+            <p class="doc-copy lang-block lang-zh">替换系统配置文件，然后重启服务。</p>
+            <pre class="standalone-code"><code>sudo cp ~/Downloads/smooth-scroll.toml /etc/smooth-scroll/smooth-scroll.toml
+sudo systemctl restart smooth-scroll.service</code></pre>
+          </li>
+        </ol>
+      </section>
+    </div>
+  </main>
 
   <script src="js/i18n.js"></script>
-  <script src="js/param-schema.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/content-page.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      Nav.render('nav');
-      document.getElementById('lang-toggle').addEventListener('click', () => {
-        I18n.setLang(I18n.lang() === 'zh' ? 'en' : 'zh');
-        document.getElementById('lang-toggle').textContent = I18n.lang() === 'zh' ? 'EN' : '中文';
-        Nav.updateLang();
-      });
+      ContentPage.init();
     });
   </script>
 </body>
