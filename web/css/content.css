@@ -21,6 +21,7 @@
 .feature-steps,
 .qa-answer p,
 .qa-answer li {
+  min-width: 0;
   max-width: 72ch;
   color: var(--text-secondary);
   font-size: 16px;
@@ -28,6 +29,7 @@
 }
 
 .doc-section {
+  min-width: 0;
   padding: 40px 0;
   border-top: 1px solid var(--border-subtle);
 }
@@ -50,6 +52,7 @@
 .doc-steps a,
 .qa-answer a {
   color: var(--accent);
+  overflow-wrap: anywhere;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
@@ -141,6 +144,7 @@
 .install-command {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .install-command h3 {
@@ -153,6 +157,8 @@
 .install-command pre,
 .qa-answer pre,
 .standalone-code {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   margin: 0;
   padding: 14px 72px 14px 15px;
@@ -167,6 +173,8 @@
 
 .code-block {
   position: relative;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
 }
 
@@ -220,6 +228,7 @@
   background: oklch(0.985 0.006 250 / 0.82);
   color: var(--text);
   font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 
 .input-line {
@@ -371,10 +380,12 @@
 .faq-list {
   display: grid;
   gap: 0;
+  min-width: 0;
   max-width: 860px;
 }
 
 .qa-item {
+  min-width: 0;
   padding: 34px 0 36px;
   border-top: 1px solid var(--border-subtle);
 }
@@ -399,6 +410,8 @@
 }
 
 .qa-answer {
+  min-width: 0;
+  width: 100%;
   max-width: 72ch;
 }
 
@@ -441,5 +454,129 @@
 
   .qa-question {
     font-size: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .doc-shell {
+    padding: 26px 16px 58px;
+  }
+
+  .doc-heading {
+    font-size: 23px;
+  }
+
+  .doc-copy,
+  .doc-note,
+  .doc-steps,
+  .feature-steps,
+  .qa-answer p,
+  .qa-answer li {
+    font-size: 15px;
+    line-height: 1.68;
+  }
+
+  .doc-steps,
+  .feature-steps {
+    padding-left: 22px;
+  }
+
+  .doc-steps > li,
+  .feature-steps > li {
+    padding-left: 2px;
+  }
+
+  .install-command pre,
+  .qa-answer pre,
+  .standalone-code {
+    padding: 38px 13px 13px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .code-copy {
+    top: 7px;
+    right: 7px;
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .move-table-wrap {
+    overflow-x: visible;
+  }
+
+  .brake-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .brake-table thead {
+    display: none;
+  }
+
+  .brake-table tbody,
+  .brake-table tr,
+  .brake-table td {
+    display: block;
+    width: auto;
+  }
+
+  .brake-table tr {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .brake-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .brake-table td {
+    padding: 0;
+    border-bottom: none;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .brake-table td:first-child,
+  .brake-table td:nth-child(2),
+  .brake-table td:nth-child(3) {
+    width: auto;
+  }
+
+  .brake-table td:first-child {
+    color: var(--text);
+    font-weight: 680;
+  }
+
+  .brake-table td + td {
+    margin-top: 9px;
+  }
+
+  .brake-table td:nth-child(2)::before,
+  .brake-table td:nth-child(3)::before {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  html[lang="en"] .brake-table td:nth-child(2)::before {
+    content: "Action";
+  }
+
+  html[lang="en"] .brake-table td:nth-child(3)::before {
+    content: "Note";
+  }
+
+  html[lang="zh"] .brake-table td:nth-child(2)::before {
+    content: "输入顺序";
+  }
+
+  html[lang="zh"] .brake-table td:nth-child(3)::before {
+    content: "备注";
   }
 }
