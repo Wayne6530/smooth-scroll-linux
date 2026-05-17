@@ -1,35 +1,18 @@
-# Smooth Scroll for Linux
+# Smooth Scroll Linux
 
-[English](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/README.md) | 中文
+[](https://github.com/user-attachments/assets/9398989b-ec77-4d03-ab3d-4967d37600db)
 
-## 目录
+<p align="center"><strong>Smooth Scroll Linux</strong> 是一个 Linux 系统级平滑滚动守护进程，让普通鼠标滚轮获得带物理惯性的顺滑滚动体验。</p>
 
-1. [介绍](#1-介绍)
-2. [快速上手](#2-快速上手)
-3. [个性化](#3-个性化)
-4. [从源码编译](#4-从源码编译)
-5. [外部集成与工具](#5-外部集成与工具)
-6. [FAQ](#6-faq)
+<p align="center">
+  <a href="https://wayne6530.github.io/smooth-scroll-linux/quickstart.html"><strong>快速开始</strong></a>
+  ·
+  <a href="https://wayne6530.github.io/smooth-scroll-linux/config.html">网页配置工具</a>
+  ·
+  <a href="https://wayne6530.github.io/smooth-scroll-linux/faq.html">FAQ</a>
+</p>
 
-## 1. 介绍
-
-**Smooth Scroll for Linux** 是一款用于 Linux 系统的鼠标滚轮平滑工具，使普通鼠标拥有媲美触摸板或者高精度滚轮鼠标（如Logitech MX Master 3S）的丝滑屏幕滚动体验。
-
-[screencast_smooth_scroll.webm](https://github.com/user-attachments/assets/d0ec740d-df2c-4257-bd15-e7a1d66b0092)
-
-### 特性
-
-- 基于滚轮速度的平滑滚动，彻底告别画面突跳
-- 类似 Android/IOS 的滚动阻尼
-- 高度可自定义的平滑参数
-- 特色的 **Free Spin** 模式，一键释放滚动阻尼，专为长文档浏览设计
-- **Drag View** 模式，通过移动鼠标实现快速的全向（上下左右）平移视角
-- 多种停止滚动的方式
-- 轻量
-
-## 2. 快速上手
-
-### 安装
+## 安装
 
 1. 前往 [Releases](https://github.com/Wayne6530/smooth-scroll-linux/releases) 页面。
 2. 下载适合您发行版的安装包：
@@ -48,84 +31,11 @@ cd ~/Downloads
 sudo dnf install ./smooth-scroll-*.rpm
 ```
 
-> **注意：** 如果没有找到适配您系统的安装包（例如 Arch Linux 或较旧的发行版），请参阅 [从源码编译](#4-从源码编译) 章节。
+> **注意：** 如果没有找到适配您系统的安装包（例如 Arch Linux 或较旧的发行版），请参阅 [从源码编译](#从源码编译) 章节。
 
 安装完成后，**smooth-scroll.service** 会立刻自动启动并且开机自启。
 
-### 使用方法
-
-1. 找个你喜欢的界面，正常使用鼠标滚轮
-   - 屏幕滚动不再是一格一格的，而是平滑的追随鼠标滚轮的速度
-   - 即便停下鼠标滚轮，屏幕滚动也不会立刻停止，而是会像拥有惯性一样缓慢停止
-   - 如果你的现象与上述不符，请先参照 [FAQ](#6-faq) 自行排查
-2. 尝试多种停止滚动的方式
-   1. 使用反向滚轮（推荐）
-      - 在屏幕还在滚动时，向相反方向短暂滚动鼠标滚轮，屏幕会立刻停止滚动
-      - 过长时间或者过多次数的反向滚轮会导致屏幕反向滚动
-      - 参考 [调整停止参数](#调整停止参数) 调节你喜欢的停止手感
-   2. 点击鼠标按键（除了 **Free Spin** 按键）
-   3. 连续移动鼠标
-      - 在屏幕还在滚动时，连续移动鼠标一段距离，屏幕会立刻停止滚动
-      - 这种方式主要用于移动鼠标指针到其他界面时，能够停止屏幕滚动
-   4. 特定键盘按键
-      - 按下/释放 L_SHIFT 或者 R_SHIFT 时（按键可修改），屏幕会立刻停止滚动
-      - 这种方式主要用于切换水平滚动和垂直滚动时，能够停止屏幕滚动
-3. 尝试 **Free Spin** 模式
-   - 打开一个长文档，滚动屏幕，在屏幕还在滚动时，按下并保持 **Free Spin** 键（默认为鼠标右键）
-   - 屏幕将保持连续丝滑的滚动，在这期间，你可以正常使用滚轮加快滚动速度，使用任意停止滚动的方式
-   - 松开 **Free Spin** 按键，屏幕滚动将缓慢停止
-   - 在屏幕滚动缓慢停止期间，你可以再次按下并保持 **Free Spin** 键，通过这种方式获得你想要的滚动速度
-4. 尝试 **Drag View** 模式：
-   - 开始滚动，然后在滚动期间按住 **Drag View** 键（默认为鼠标左键）
-   - 滚动会立即停止，此时移动鼠标即可直观地向任意方向（上下左右）平移视角
-   - 这对于需要临时左右滚动，或在大型文档中四处平移视角的场景非常适用
-   - 松开按键即可恢复正常的鼠标操作
-5. 按住透传键（例如 Ctrl 或 Meta）：按住时，滚轮事件将不经平滑处理直接透传，使 Ctrl+滚轮缩放等快捷键能正常工作
-
-### 管理
-
-你可以像管理任何其他服务一样，使用 `systemctl` 进行管理，或者使用 `journalctl` 查看日志。
-
-```bash
-# 查看服务状态
-systemctl status smooth-scroll.service
-
-# 手动重启服务
-sudo systemctl restart smooth-scroll.service
-
-# 手动停止服务
-sudo systemctl stop smooth-scroll.service
-
-# 手动开启服务
-sudo systemctl start smooth-scroll.service
-
-# 查看最新日志
-journalctl -xe -u smooth-scroll.service
-
-# 实时查看日志
-journalctl -xe -f -u smooth-scroll.service
-```
-
-## 3. 个性化
-
-你可以编辑 `/etc/smooth-scroll/smooth-scroll.toml` 修改参数，然后手动重启服务，从而应用最新的参数。
-
-### Web 配置器
-
-使用 [**Web 配置器**](https://wayne6530.github.io/smooth-scroll-linux/) 可以交互式地调整滚动、停止和 Drag View 参数，并实时预览物理模拟效果。导出生成的 TOML 配置后，将其复制到 `/etc/smooth-scroll/smooth-scroll.toml` 并重启服务即可生效。
-
-### 使用调试模式
-
-开启调试模式可以直观地从数据上观察参数造成的影响。
-
-1. 手动停止服务
-2. 使用 `sudo smooth-scroll -d -c /etc/smooth-scroll/smooth-scroll.toml` 指令开启调试输出
-
-### 高级自定义
-
-以上没有提到的参数，对于绝大多数用户都没有必要。如果你想深入了解内部的工作原理，并解锁非常规的使用方法，请阅读 [Technical Insight](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/technical_insight.md)。
-
-## 4. 从源码编译
+## 从源码编译
 
 ### DEB
 
@@ -150,7 +60,7 @@ journalctl -xe -f -u smooth-scroll.service
 1. 安装依赖
 
    ```bash
-   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build 
+   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build
    ```
 
 2. 下载源码并编译
@@ -180,7 +90,7 @@ journalctl -xe -f -u smooth-scroll.service
    cd build
    make
 
-   # 安装 (将安装至 /usr/bin /usr/lib/systemd/system 和 /etc/smooth-scroll)
+   # 安装至 /usr/bin、/usr/lib/systemd/system 和 /etc/smooth-scroll
    sudo make install
    ```
 
@@ -190,7 +100,7 @@ journalctl -xe -f -u smooth-scroll.service
    sudo systemctl enable --now smooth-scroll
    ```
 
-## 5. 外部集成与工具
+## 外部集成与工具
 
 Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC 协议 (`/dev/shm/smooth_scroll_shm`)。它允许外部应用程序（如托盘图标、自动化脚本或桌面环境扩展）以真正的零延迟监控和控制守护进程。
 
@@ -198,21 +108,21 @@ Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC
 
 安装或编译本项目时，会自动包含以下三个 CLI 实用工具，方便你在终端中使用或通过脚本调用：
 
-- **`ss-status`**: 以 JSONL (JSON Lines) 格式持续监听并输出守护进程的当前状态。非常适合配合 `jq`、Node.js 或 Python 进行数据流解析。
+- **`ss-status`**: 以 JSONL (JSON Lines) 格式持续监听并输出守护进程的当前状态。适合配合 `jq`、Node.js 或 Python 进行数据流解析。
 
   ```bash
   # 示例输出
   {"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"horizontal":false,"direction":"positive","speed":150}
-   ```
+  ```
 
 - **`ss-stop`**: 向守护进程发送异步刹车信号，立即终止当前正在进行的惯性滑动。
 - **`ss-passthrough`**: 切换或设置强制透传（Force Passthrough）状态。在透传状态下，所有滚轮事件将跳过平滑算法直接发往系统。
 
-    ```bash
-    ss-passthrough       # 切换状态 (Toggle)
-    ss-passthrough 1     # 开启透传
-    ss-passthrough off   # 关闭透传
-    ```
+  ```bash
+  ss-passthrough       # 切换状态
+  ss-passthrough 1     # 开启透传
+  ss-passthrough off   # 关闭透传
+  ```
 
 ### 开发者指南
 
@@ -220,32 +130,3 @@ Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC
 
 - 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解详细的 32 字节内存布局。
 - 你也可以直接参考源码中 `tools/ipc_client.h` 的标准 C++ 实现。
-
-## 6. FAQ
-
-### 为什么开始滚动时有死区
-
-这是 `libinput` 中的一个已知问题 [Disable hi-res wheel event initial accumulation for uinput (#1129)](https://gitlab.freedesktop.org/libinput/libinput/-/issues/1129)。该问题已经修复但未必在你的系统中发布，你可以参照以下步骤手动编译并安装。
-
-1. 安装依赖
-
-   ```bash
-   sudo apt install meson ninja-build libmtdev-dev libevdev-dev libudev-dev libwacom-dev
-   ```
-
-2. 下载并编译
-
-   ```bash
-   git clone https://gitlab.freedesktop.org/libinput/libinput.git
-   cd libinput
-   meson setup builddir --prefix=/usr -Ddocumentation=false -Dtests=false -Ddebug-gui=false
-   ninja -C builddir
-   ```
-
-3. 安装
-
-   ```bash
-   sudo ninja -C builddir install
-   ```
-
-4. 重启系统
