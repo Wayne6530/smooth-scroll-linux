@@ -51,16 +51,13 @@ add_executable(smooth-scroll ${SOURCES})
 target_compile_definitions(smooth-scroll PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
 target_include_directories(smooth-scroll
   PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
     ${tomlplusplus_SOURCE_DIR}/include
     ${CMAKE_BINARY_DIR}/generated
 )
 target_link_libraries(smooth-scroll fmt::fmt evdev)
 
-add_executable(ss-status tools/ss_status.cpp)
-add_executable(ss-stop tools/ss_stop.cpp)
-add_executable(ss-passthrough tools/ss_passthrough.cpp)
-
-install(TARGETS smooth-scroll ss-status ss-stop ss-passthrough DESTINATION /usr/bin)
+install(TARGETS smooth-scroll DESTINATION /usr/bin)
 install(FILES debian/smooth-scroll.service DESTINATION /usr/lib/systemd/system)
 install(DIRECTORY config/ DESTINATION /etc/smooth-scroll)
 

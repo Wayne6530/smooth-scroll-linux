@@ -68,7 +68,7 @@ bool IpcServer::initialize()
   mapped_memory_->reserved[2].store(0, std::memory_order_relaxed);
 
   mapped_memory_->daemon_pid.store(getpid(), std::memory_order_relaxed);
-  mapped_memory_->magic_version.store(MAGIC_VERSION_EXPECTED, std::memory_order_release);
+  mapped_memory_->magic_version.store(IPC_MAGIC_VERSION_EXPECTED, std::memory_order_release);
 
   scroll_id_ = 0;
 
@@ -95,7 +95,7 @@ void IpcServer::cleanup() noexcept
 
 void IpcServer::setConnected() noexcept
 {
-  state_ |= (1 << 0);
+  state_ |= IPC_STATE_CONNECTED;
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 
@@ -103,11 +103,11 @@ void IpcServer::setPassthrough(bool passthrough) noexcept
 {
   if (passthrough)
   {
-    state_ |= (1 << 1);
+    state_ |= IPC_STATE_PASSTHROUGH;
   }
   else
   {
-    state_ &= ~(1 << 1);
+    state_ &= ~IPC_STATE_PASSTHROUGH;
   }
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
@@ -116,12 +116,12 @@ void IpcServer::setDragView(bool drag_view) noexcept
 {
   if (drag_view)
   {
-    state_ |= (1 << 2);
+    state_ |= IPC_STATE_DRAG_VIEW;
     state_ &= 0x0000FFFF;
   }
   else
   {
-    state_ &= ~(1 << 2);
+    state_ &= ~IPC_STATE_DRAG_VIEW;
   }
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
@@ -130,11 +130,11 @@ void IpcServer::setFreeSpin(bool free_spin) noexcept
 {
   if (free_spin)
   {
-    state_ |= (1 << 3);
+    state_ |= IPC_STATE_FREE_SPIN;
   }
   else
   {
-    state_ &= ~(1 << 3);
+    state_ &= ~IPC_STATE_FREE_SPIN;
   }
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
@@ -146,12 +146,12 @@ void IpcServer::setSpeed(double speed, bool positive, bool horizontal) noexcept
   state_ &= 0x0000FFCF;
 
   if (horizontal)
-    state_ |= (1 << 4);
+    state_ |= IPC_STATE_HORIZONTAL;
 
   if (positive)
-    state_ |= (1 << 5);
+    state_ |= IPC_STATE_DIRECTION;
 
-  state_ |= (clamped_speed << 16);
+  state_ |= (clamped_speed << IPC_STATE_SPEED_SHIFT);
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 

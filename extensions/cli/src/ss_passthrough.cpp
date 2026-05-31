@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Wayne6530
 
-#include "ipc_client.h"
+#include <smooth_scroll/ipc_client.h>
 
 #include <string>
 

@@ -7,6 +7,7 @@ The `smooth-scroll-linux` daemon communicates with external UI or CLI tools via 
 - **Shared Memory Name:** `/smooth_scroll_shm` (Typically mapped to `/dev/shm/smooth_scroll_shm`)
 - **Total Size:** 32 Bytes
 - **Endianness:** Host Endianness (Typically Little-Endian)
+- **Canonical C++ Header:** `include/smooth_scroll/ipc_protocol.h`
 
 ## 2. Memory Layout
 

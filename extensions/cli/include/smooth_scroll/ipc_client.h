@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <cstdint>
-#include <atomic>
+#include <smooth_scroll/ipc_protocol.h>
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -12,22 +12,9 @@
 namespace smooth_scroll
 {
 
-struct alignas(32) SmoothScrollIPC
-{
-  std::atomic<uint32_t> magic_version;
-  std::atomic<uint32_t> daemon_pid;
-  std::atomic<uint32_t> state_bits;
-  std::atomic<uint32_t> scroll_id;
-  std::atomic<uint32_t> force_passthrough;
-  std::atomic<uint32_t> reserved[3];
-};
-
-static constexpr uint32_t MAGIC_VERSION_EXPECTED = 0x53530001;
-static constexpr const char* SHM_NAME = "/smooth_scroll_shm";
-
 inline SmoothScrollIPC* connect_ipc()
 {
-  int fd = shm_open(SHM_NAME, O_RDWR, 0666);
+  int fd = shm_open(IPC_SHM_NAME, O_RDWR, 0666);
   if (fd == -1)
   {
     return nullptr;
@@ -43,7 +30,7 @@ inline SmoothScrollIPC* connect_ipc()
 
   auto* ipc = static_cast<SmoothScrollIPC*>(addr);
 
-  if (ipc->magic_version.load(std::memory_order_relaxed) != MAGIC_VERSION_EXPECTED)
+  if (ipc->magic_version.load(std::memory_order_relaxed) != IPC_MAGIC_VERSION_EXPECTED)
   {
     munmap(ipc, sizeof(SmoothScrollIPC));
     return nullptr;

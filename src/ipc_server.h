@@ -3,30 +3,19 @@
 
 #pragma once
 
+#include <smooth_scroll/ipc_protocol.h>
+
 #include <cstdint>
-#include <atomic>
 #include <string>
 #include <string_view>
 
 namespace smooth_scroll
 {
 
-struct alignas(32) SmoothScrollIPC
-{
-  std::atomic<uint32_t> magic_version;
-  std::atomic<uint32_t> daemon_pid;
-  std::atomic<uint32_t> state_bits;
-  std::atomic<uint32_t> scroll_id;
-  std::atomic<uint32_t> force_passthrough;
-  std::atomic<uint32_t> reserved[3];
-};
-
-static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size must be exactly 32 bytes");
-
 class IpcServer
 {
 public:
-  explicit IpcServer(std::string_view shm_name = "/smooth_scroll_shm");
+  explicit IpcServer(std::string_view shm_name = IPC_SHM_NAME);
 
   ~IpcServer();
 
@@ -50,8 +39,6 @@ public:
   [[nodiscard]] bool isForcePassthroughEnabled() const noexcept;
 
 private:
-  static constexpr uint32_t MAGIC_VERSION_EXPECTED = 0x53530001;
-
   void cleanup() noexcept;
 
   std::string shm_name_;

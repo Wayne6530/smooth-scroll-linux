@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Wayne6530
 
-#include "ipc_client.h"
+#include <smooth_scroll/ipc_client.h>
 
 #include <thread>
 #include <chrono>
@@ -27,13 +27,13 @@ int main()
 
     if (current_state != last_state)
     {
-      bool connected = current_state & (1 << 0);
-      bool passthrough = current_state & (1 << 1);
-      bool drag_view = current_state & (1 << 2);
-      bool free_spin = current_state & (1 << 3);
-      bool horizontal = current_state & (1 << 4);
-      bool direction = current_state & (1 << 5);
-      uint16_t speed = current_state >> 16;
+      bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
+      bool passthrough = current_state & smooth_scroll::IPC_STATE_PASSTHROUGH;
+      bool drag_view = current_state & smooth_scroll::IPC_STATE_DRAG_VIEW;
+      bool free_spin = current_state & smooth_scroll::IPC_STATE_FREE_SPIN;
+      bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;
+      bool direction = current_state & smooth_scroll::IPC_STATE_DIRECTION;
+      uint16_t speed = current_state >> smooth_scroll::IPC_STATE_SPEED_SHIFT;
 
       std::cout << "{"
                 << "\"pid\":" << pid << ","

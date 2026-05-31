@@ -100,13 +100,43 @@ sudo dnf install ./smooth-scroll-*.rpm
    sudo systemctl enable --now smooth-scroll
    ```
 
-## 外部集成与工具
+## 扩展与外部工具
 
 Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC 协议 (`/dev/shm/smooth_scroll_shm`)。它允许外部应用程序（如托盘图标、自动化脚本或桌面环境扩展）以真正的零延迟监控和控制守护进程。
 
-### 内置 CLI 工具
+守护进程安装包现在只包含核心服务、守护进程二进制文件和默认配置。可选集成都放在 `extensions/` 下独立构建和安装，用户可以按需选择需要的扩展。
 
-安装或编译本项目时，会自动包含以下三个 CLI 实用工具，方便你在终端中使用或通过脚本调用：
+```text
+extensions/
+  cli/      命令行工具
+  gnome/    未来的 GNOME Shell 扩展
+  kde/      未来的 KDE Plasma 集成
+```
+
+### CLI 扩展
+
+CLI 工具作为可选扩展维护在 `extensions/cli`。
+
+编译：
+
+```bash
+cmake -S extensions/cli -B build-cli -DCMAKE_BUILD_TYPE=Release
+cmake --build build-cli --parallel
+```
+
+安装到 `/usr/local`：
+
+```bash
+sudo cmake --install build-cli
+```
+
+也可以安装到 `/usr`：
+
+```bash
+sudo cmake --install build-cli --prefix /usr
+```
+
+该扩展包含：
 
 - **`ss-status`**: 以 JSONL (JSON Lines) 格式持续监听并输出守护进程的当前状态。适合配合 `jq`、Node.js 或 Python 进行数据流解析。
 
@@ -129,4 +159,5 @@ Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC
 如果你想为 Smooth Scroll Linux 开发自己的 GUI 前端或状态栏插件，可以通过读取系统的共享内存直接与守护进程通信，无需经过任何 Socket 或网络协议。
 
 - 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解详细的 32 字节内存布局。
-- 你也可以直接参考源码中 `tools/ipc_client.h` 的标准 C++ 实现。
+- 标准 C++ 协议契约位于 `include/smooth_scroll/ipc_protocol.h`。
+- 你也可以直接参考源码中 `extensions/cli/include/smooth_scroll/ipc_client.h` 的标准 C++ 实现。

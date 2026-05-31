@@ -102,13 +102,43 @@ After installation, **smooth-scroll.service** will start automatically and enabl
    sudo systemctl enable --now smooth-scroll
    ```
 
-## Integration & External Tools
+## Extensions & External Tools
 
 Smooth Scroll Linux provides a lock-free shared memory IPC protocol (`/dev/shm/smooth_scroll_shm`). This allows external applications, such as system tray icons, automation scripts, or desktop environment extensions, to monitor and control the daemon with true zero latency.
 
-### Included CLI Utilities
+The daemon package is intentionally limited to the core service, daemon binary, and default configuration. Optional integrations live under `extensions/` and are built separately, so users can install only the pieces they need.
 
-When you install or build the project, three CLI utilities are automatically included for terminal use or script integration:
+```text
+extensions/
+  cli/      Terminal utilities
+  gnome/    Future GNOME Shell extension
+  kde/      Future KDE Plasma integration
+```
+
+### CLI Extension
+
+The CLI tools are maintained as an optional extension in `extensions/cli`.
+
+Build:
+
+```bash
+cmake -S extensions/cli -B build-cli -DCMAKE_BUILD_TYPE=Release
+cmake --build build-cli --parallel
+```
+
+Install to `/usr/local`:
+
+```bash
+sudo cmake --install build-cli
+```
+
+Install to `/usr` instead:
+
+```bash
+sudo cmake --install build-cli --prefix /usr
+```
+
+The extension includes:
 
 - **`ss-status`**: Continuously listens to and outputs the daemon's state in JSONL (JSON Lines) format. This is suitable for streaming and parsing with `jq`, Node.js, or Python.
 
@@ -131,4 +161,5 @@ When you install or build the project, three CLI utilities are automatically inc
 If you want to build your own GUI frontend or status bar widget for Smooth Scroll Linux, you can communicate directly with the daemon by reading the system's shared memory, avoiding socket or network overhead.
 
 - Read the [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) for details on the 32-byte memory layout.
-- You can also reference the standard C++ implementation in the source code at `tools/ipc_client.h`.
+- The canonical C++ protocol contract lives at `include/smooth_scroll/ipc_protocol.h`.
+- You can also reference the standard C++ implementation in the source code at `extensions/cli/include/smooth_scroll/ipc_client.h`.
