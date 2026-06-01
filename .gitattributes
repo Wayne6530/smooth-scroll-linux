@@ -1,2 +1,3 @@
-# Exclude web configurator from GitHub language statistics so C++ is detected as the primary language.
+# Exclude non-core components from GitHub language statistics so C++ is detected as the primary language.
 web/** linguist-vendored
+extensions/** linguist-vendored
