@@ -100,64 +100,22 @@ sudo dnf install ./smooth-scroll-*.rpm
    sudo systemctl enable --now smooth-scroll
    ```
 
-## 扩展与外部工具
+## 扩展
 
-Smooth Scroll Linux 提供了一个基于共享内存的无锁（Lock-free）IPC 协议 (`/dev/shm/smooth_scroll_shm`)。它允许外部应用程序（如托盘图标、自动化脚本或桌面环境扩展）以真正的零延迟监控和控制守护进程。
+可选扩展为核心守护进程提供命令行工具和桌面环境集成。
 
-守护进程安装包现在只包含核心服务、守护进程二进制文件和默认配置。可选集成都放在 `extensions/` 下独立构建和安装，用户可以按需选择需要的扩展。
+当前扩展：
 
-```text
-extensions/
-  cli/      命令行工具
-  gnome/    未来的 GNOME Shell 扩展
-  kde/      未来的 KDE Plasma 集成
-```
+- **CLI 工具**（`extensions/cli`）：用于读取守护进程状态、停止当前惯性滚动、切换强制透传的终端命令。
+- **GNOME Shell 扩展**（`extensions/gnome`）：为 GNOME 提供指针旁状态指示、离开窗口刹车，以及按窗口规则设置强制透传。
 
-### CLI 扩展
-
-CLI 工具作为可选扩展维护在 `extensions/cli`。
-
-编译：
-
-```bash
-cmake -S extensions/cli -B build-cli -DCMAKE_BUILD_TYPE=Release
-cmake --build build-cli --parallel
-```
-
-安装到 `/usr/local`：
-
-```bash
-sudo cmake --install build-cli
-```
-
-也可以安装到 `/usr`：
-
-```bash
-sudo cmake --install build-cli --prefix /usr
-```
-
-该扩展包含：
-
-- **`ss-status`**: 以 JSONL (JSON Lines) 格式持续监听并输出守护进程的当前状态。适合配合 `jq`、Node.js 或 Python 进行数据流解析。
-
-  ```bash
-  # 示例输出
-  {"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"horizontal":false,"direction":"positive","speed":150}
-  ```
-
-- **`ss-stop`**: 向守护进程发送异步刹车信号，立即终止当前正在进行的惯性滑动。
-- **`ss-passthrough`**: 切换或设置强制透传（Force Passthrough）状态。在透传状态下，所有滚轮事件将跳过平滑算法直接发往系统。
-
-  ```bash
-  ss-passthrough       # 切换状态
-  ss-passthrough 1     # 开启透传
-  ss-passthrough off   # 关闭透传
-  ```
+每个扩展都有自己的 README，详细说明构建、安装和使用方式。
 
 ### 开发者指南
 
-如果你想为 Smooth Scroll Linux 开发自己的 GUI 前端或状态栏插件，可以通过读取系统的共享内存直接与守护进程通信，无需经过任何 Socket 或网络协议。
+如果你想为 Smooth Scroll Linux 开发自己的扩展、GUI 前端或状态栏插件，
+可以通过 `/dev/shm/smooth_scroll_shm` 这个共享内存 IPC 文件与守护进程通信。
 
-- 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解详细的 32 字节内存布局。
+- 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解 32 字节内存布局。
 - 标准 C++ 协议契约位于 `include/smooth_scroll/ipc_protocol.h`。
-- 你也可以直接参考源码中 `extensions/cli/include/smooth_scroll/ipc_client.h` 的标准 C++ 实现。
+- CLI 扩展提供了一个小型 C++ IPC 客户端：`extensions/cli/include/smooth_scroll/ipc_client.h`。

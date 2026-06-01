@@ -1,0 +1,7 @@
+{
+  "uuid": "smooth-scroll@wayne6530",
+  "name": "Smooth Scroll IPC Companion",
+  "description": "GNOME Shell companion for Smooth Scroll Linux using only the shared-memory IPC protocol.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/Wayne6530/smooth-scroll-linux"
+}

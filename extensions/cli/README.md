@@ -4,25 +4,33 @@ The CLI extension provides small terminal utilities for monitoring and controlli
 
 ## Build
 
-Build it separately from the daemon:
+Before building, change to this extension directory:
 
 ```bash
-cmake -S extensions/cli -B build-cli -DCMAKE_BUILD_TYPE=Release
-cmake --build build-cli --parallel
+cd extensions/cli
+```
+
+Then build the tools:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
 ## Install
 
+Run the install command from this same directory after the build finishes.
+
 Install to `/usr/local`:
 
 ```bash
-sudo cmake --install build-cli
+sudo cmake --install build
 ```
 
 Install to `/usr` instead:
 
 ```bash
-sudo cmake --install build-cli --prefix /usr
+sudo cmake --install build --prefix /usr
 ```
 
 ## Usage

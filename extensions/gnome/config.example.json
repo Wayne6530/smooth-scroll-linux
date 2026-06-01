@@ -1,0 +1,55 @@
+{
+  "dot": {
+    "enabled": true,
+    "offset_x": 12,
+    "offset_y": 0,
+    "size": 8,
+    "color": "#4ea1ff",
+    "min_alpha": 0.16,
+    "min_alpha_speed": 100,
+    "max_alpha": 0.9,
+    "max_alpha_speed": 3200
+  },
+  "arrow": {
+    "enabled": true,
+    "offset_x": 12,
+    "offset_y": 0,
+    "size": 22,
+    "color": "#4ea1ff",
+    "alpha": 0.9,
+    "padding_scale": 0.12,
+    "min_padding": 2,
+    "head_size_scale": 0.18,
+    "min_head_size": 3,
+    "line_width_scale": 0.08,
+    "min_line_width": 1,
+    "head_width_scale": 0.5
+  },
+  "passthrough": {
+    "enabled": true,
+    "offset_x": 12,
+    "offset_y": 0,
+    "size": 12,
+    "padding_scale": 0.22,
+    "min_padding": 3,
+    "line_width_scale": 0.12,
+    "min_line_width": 2,
+    "color": "#ff5c5c",
+    "alpha": 0.9
+  },
+  "scroll": {
+    "stop_on_pointer_leave_window": true,
+    "poll_interval_ms": 8
+  },
+  "pointer_fallback": {
+    "enabled": true,
+    "interval_ms": 4,
+    "event_fresh_ms": 6
+  },
+  "force_passthrough": {
+    "enabled": true,
+    "gnome_dock": true,
+    "gnome_overview": true,
+    "rules": []
+  }
+}

@@ -102,64 +102,27 @@ After installation, **smooth-scroll.service** will start automatically and enabl
    sudo systemctl enable --now smooth-scroll
    ```
 
-## Extensions & External Tools
+## Extensions
 
-Smooth Scroll Linux provides a lock-free shared memory IPC protocol (`/dev/shm/smooth_scroll_shm`). This allows external applications, such as system tray icons, automation scripts, or desktop environment extensions, to monitor and control the daemon with true zero latency.
+Optional extensions add command-line tools and desktop-environment integration
+on top of the core daemon.
 
-The daemon package is intentionally limited to the core service, daemon binary, and default configuration. Optional integrations live under `extensions/` and are built separately, so users can install only the pieces they need.
+Current extensions:
 
-```text
-extensions/
-  cli/      Terminal utilities
-  gnome/    Future GNOME Shell extension
-  kde/      Future KDE Plasma integration
-```
+- **CLI tools** (`extensions/cli`): terminal commands for reading daemon status,
+  stopping active inertial scrolling, and toggling force passthrough.
+- **GNOME Shell extension** (`extensions/gnome`): pointer-side indicators,
+  pointer-leave braking, and per-window force passthrough rules for GNOME.
 
-### CLI Extension
-
-The CLI tools are maintained as an optional extension in `extensions/cli`.
-
-Build:
-
-```bash
-cmake -S extensions/cli -B build-cli -DCMAKE_BUILD_TYPE=Release
-cmake --build build-cli --parallel
-```
-
-Install to `/usr/local`:
-
-```bash
-sudo cmake --install build-cli
-```
-
-Install to `/usr` instead:
-
-```bash
-sudo cmake --install build-cli --prefix /usr
-```
-
-The extension includes:
-
-- **`ss-status`**: Continuously listens to and outputs the daemon's state in JSONL (JSON Lines) format. This is suitable for streaming and parsing with `jq`, Node.js, or Python.
-
-  ```bash
-  # Example output
-  {"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"horizontal":false,"direction":"positive","speed":150}
-  ```
-
-- **`ss-stop`**: Sends an asynchronous brake signal to the daemon, immediately halting any ongoing inertial scrolling.
-- **`ss-passthrough`**: Toggles or sets the "Force Passthrough" state. When passthrough is active, all wheel events bypass the smoothing algorithm and are sent directly to the system.
-
-  ```bash
-  ss-passthrough       # Toggle state
-  ss-passthrough 1     # Enable passthrough
-  ss-passthrough off   # Disable passthrough
-  ```
+Each extension has its own README with detailed build, install, and usage
+instructions.
 
 ### For Developers
 
-If you want to build your own GUI frontend or status bar widget for Smooth Scroll Linux, you can communicate directly with the daemon by reading the system's shared memory, avoiding socket or network overhead.
+If you want to build your own extension, GUI frontend, or status bar widget for
+Smooth Scroll Linux, communicate with the daemon through the shared-memory IPC
+file at `/dev/shm/smooth_scroll_shm`.
 
-- Read the [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) for details on the 32-byte memory layout.
+- Read the [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) for the 32-byte memory layout.
 - The canonical C++ protocol contract lives at `include/smooth_scroll/ipc_protocol.h`.
-- You can also reference the standard C++ implementation in the source code at `extensions/cli/include/smooth_scroll/ipc_client.h`.
+- The CLI extension includes a small C++ IPC client at `extensions/cli/include/smooth_scroll/ipc_client.h`.
