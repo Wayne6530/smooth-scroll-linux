@@ -86,14 +86,13 @@ windows. The defaults, `interval_ms = 4` and `event_fresh_ms = 6`, are tuned for
 
 ## Window Rules
 
-When `force_passthrough.enabled` is true, the extension enables passthrough by
-default while the pointer is on GNOME Dock / Ubuntu Dock / Dash to Dock, and
-while the GNOME overview or workspace switcher is visible. Set
-`gnome_dock` or `gnome_overview` to `false` under `force_passthrough` to disable
-those built-in defaults.
+Smooth scrolling is only applied inside regular application windows. When the
+pointer is on GNOME Desktop, GNOME Dock / Ubuntu Dock / Dash to Dock, the GNOME
+overview, workspace switcher, menus, or other Shell UI, wheel events pass
+through normally and the passthrough X indicator is shown.
 
-Rules under `force_passthrough.rules` match the current pointer window by
-GNOME Shell app id. Each app rule must include:
+Use `force_passthrough_rules` when a specific application window should also
+receive normal wheel events. Each app rule must include:
 
 - `app`: exact app id from Looking Glass, for example
   `firefox_firefox.desktop`.
@@ -107,7 +106,8 @@ Each item under `titles` uses:
 
 The first app rule whose `app` matches is used. Inside that rule, title rules
 are checked in order; the first matching title rule overrides the app default.
-If no app rule matches, the extension writes `0` to IPC `force_passthrough`.
+If no app rule matches the current window, smooth scrolling stays enabled for
+that window.
 
 ### Finding Window Values
 
@@ -158,25 +158,19 @@ window title instead of the whole title:
 This means Edge normally does not use forced passthrough, but Edge windows whose
 title contains `Google Docs` do.
 
-Put app rules inside `force_passthrough.rules`:
+Put app rules inside `force_passthrough_rules`:
 
 ```json
 {
-  "force_passthrough": {
-    "enabled": true,
-    "gnome_dock": true,
-    "gnome_overview": true,
-    "rules": [
-      {
-        "app": "firefox_firefox.desktop",
-        "force_passthrough": true
-      }
-    ]
-  }
+  "force_passthrough_rules": [
+    {
+      "app": "firefox_firefox.desktop",
+      "force_passthrough": true
+    }
+  ]
 }
 ```
 
 After adding or editing rules, save `config.json`. The extension reloads it
-automatically. Move the pointer over the target window; if the effective
-`force_passthrough` result is `true`, the passthrough X indicator appears near
-the pointer.
+automatically. Move the pointer over the target window; if passthrough is active,
+the passthrough X indicator appears near the pointer.

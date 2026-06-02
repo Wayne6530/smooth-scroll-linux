@@ -68,12 +68,7 @@ const DEFAULT_CONFIG = {
         interval_ms: 4,
         event_fresh_ms: 6,
     },
-    force_passthrough: {
-        enabled: true,
-        gnome_dock: true,
-        gnome_overview: true,
-        rules: [],
-    },
+    force_passthrough_rules: [],
 };
 
 function clamp(value, min, max) {
@@ -197,9 +192,6 @@ function normalizeConfig(config) {
         config.scroll = {};
     if (!isPlainObject(config.pointer_fallback))
         config.pointer_fallback = {};
-    if (!isPlainObject(config.force_passthrough))
-        config.force_passthrough = {};
-
     config.dot.enabled = boolValue(config.dot.enabled, fallback.dot.enabled);
     config.dot.offset_x = numberValue(config.dot.offset_x, fallback.dot.offset_x, -256, 256);
     config.dot.offset_y = numberValue(config.dot.offset_y, fallback.dot.offset_y, -256, 256);
@@ -264,20 +256,10 @@ function normalizeConfig(config) {
         0,
         1000));
 
-    config.force_passthrough.enabled = boolValue(
-        config.force_passthrough.enabled,
-        fallback.force_passthrough.enabled);
-    config.force_passthrough.gnome_dock = boolValue(
-        config.force_passthrough.gnome_dock,
-        fallback.force_passthrough.gnome_dock);
-    config.force_passthrough.gnome_overview = boolValue(
-        config.force_passthrough.gnome_overview,
-        fallback.force_passthrough.gnome_overview);
+    if (!Array.isArray(config.force_passthrough_rules))
+        config.force_passthrough_rules = fallback.force_passthrough_rules;
 
-    if (!Array.isArray(config.force_passthrough.rules))
-        config.force_passthrough.rules = [];
-
-    config.force_passthrough.rules = config.force_passthrough.rules
+    config.force_passthrough_rules = config.force_passthrough_rules
         .filter(rule => isPlainObject(rule) && typeof rule.app === 'string' && rule.app !== '')
         .map(rule => {
             rule.enabled = rule.enabled !== false;
@@ -574,28 +556,43 @@ class PointerWindowResolver {
         return sorted[sorted.length - 1] || null;
     }
 
-    dockAt(x, y) {
-        if (Meta.WindowType.DOCK === undefined)
-            return null;
+    shellInteractionActive(x, y) {
+        return this._overviewActive() || this._shellActorOnTop(x, y);
+    }
 
-        const windows = [];
+    _overviewActive() {
+        return Boolean(
+            Main.overview?.visible ||
+            Main.overview?.visibleTarget ||
+            Main.overview?.animationInProgress
+        );
+    }
 
-        for (const actor of global.get_window_actors()) {
-            const window = actor.meta_window || actor.get_meta_window?.();
-            if (!window || window.get_window_type?.() !== Meta.WindowType.DOCK)
-                continue;
+    _shellActorOnTop(x, y) {
+        let actor = null;
 
-            if (!this._isVisibleWindow(window) || !this._containsPointer(window, x, y))
-                continue;
-
-            windows.push(window);
+        try {
+            actor = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+        } catch (error) {
+            return false;
         }
 
-        if (windows.length === 0)
-            return null;
+        for (let current = actor; current; current = current.get_parent?.()) {
+            const window = current.meta_window || current.get_meta_window?.();
+            if (!window) {
+                if (current === global.window_group)
+                    return false;
 
-        const sorted = global.display.sort_windows_by_stacking(windows);
-        return sorted[sorted.length - 1] || null;
+                if (current === Main.layoutManager?.uiGroup)
+                    return true;
+
+                continue;
+            }
+
+            return this._isExcludedWindowType(window.get_window_type?.());
+        }
+
+        return false;
     }
 
     keyForWindow(window) {
@@ -641,8 +638,13 @@ class PointerWindowResolver {
         if (!this._isVisibleWindow(window))
             return false;
 
+        if (this._isExcludedWindowType(window.get_window_type?.()))
+            return false;
 
-        const type = window.get_window_type?.();
+        return this._containsPointer(window, x, y);
+    }
+
+    _isExcludedWindowType(type) {
         const excludedTypes = [
             Meta.WindowType.DESKTOP,
             Meta.WindowType.DOCK,
@@ -656,10 +658,7 @@ class PointerWindowResolver {
             Meta.WindowType.OVERRIDE_OTHER,
         ].filter(value => value !== undefined);
 
-        if (excludedTypes.includes(type))
-            return false;
-
-        return this._containsPointer(window, x, y);
+        return excludedTypes.includes(type);
     }
 
     _isVisibleWindow(window) {
@@ -747,6 +746,7 @@ class DotOverlay {
 
         this._actor.opacity = Math.round(alpha * 255);
         this._setPointerPosition(x, y);
+        this._raiseTop();
 
         if (needsRepaint)
             this._actor.queue_repaint();
@@ -760,6 +760,7 @@ class DotOverlay {
             return false;
 
         this._setPointerPosition(x, y);
+        this._raiseTop();
         return true;
     }
 
@@ -772,6 +773,22 @@ class DotOverlay {
             this._actor.hide();
             this._lastX = null;
             this._lastY = null;
+        }
+    }
+
+    _raiseTop() {
+        if (!this._actor)
+            return;
+
+        const parent = this._actor.get_parent?.();
+        try {
+            if (parent?.set_child_above_sibling)
+                parent.set_child_above_sibling(this._actor, null);
+            else if (this._actor.raise_top)
+                this._actor.raise_top();
+        } catch (error) {
+            // Layering is best-effort; the indicator still works if a Shell
+            // version does not expose a supported raise API.
         }
     }
 
@@ -1187,11 +1204,14 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         const pointerWindow = this._resolver.windowAt(x, y);
         const pointerWindowInfo = this._resolver.infoForWindow(pointerWindow);
         const wasForcePassthroughActive = this._isForcePassthroughActive(snapshot);
-        const forcePassthroughActive = this._updateForcePassthrough(pointerWindowInfo, x, y);
-        this._updatePointerLeaveBrake(snapshot, pointerWindow);
+        const forcePassthroughActive = this._updateForcePassthrough(pointerWindow, pointerWindowInfo, x, y);
+        if (forcePassthroughActive)
+            this._resetScrollAnchor();
+        else
+            this._updatePointerLeaveBrake(snapshot, pointerWindow);
 
         if ((!this._stopRequestedForAnchor || forcePassthroughActive) &&
-            (!dotAlreadyUpdated || wasForcePassthroughActive !== forcePassthroughActive))
+            (!dotAlreadyUpdated || wasForcePassthroughActive !== forcePassthroughActive || !this._dot?.isVisible()))
             this._updateDot(snapshot, x, y, forcePassthroughActive);
     }
 
@@ -1329,73 +1349,25 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._stopRequestedForAnchor = false;
     }
 
-    _updateForcePassthrough(pointerWindowInfo, x, y) {
-        if (!this._config.force_passthrough.enabled) {
-            return this._setForcePassthrough(false);
-        }
+    _shouldForcePassthrough(pointerWindow, pointerWindowInfo, x, y) {
+        if (this._resolver.shellInteractionActive(x, y))
+            return true;
 
-        if (this._shouldForcePassthroughForShellUi(x, y)) {
-            return this._setForcePassthrough(true);
-        }
+        if (!pointerWindow)
+            return true;
 
+        return forcePassthroughForWindow(this._config.force_passthrough_rules, pointerWindowInfo);
+    }
+
+    _updateForcePassthrough(pointerWindow, pointerWindowInfo, x, y) {
         return this._setForcePassthrough(
-            forcePassthroughForWindow(this._config.force_passthrough.rules, pointerWindowInfo)
+            this._shouldForcePassthrough(pointerWindow, pointerWindowInfo, x, y)
         );
     }
 
     _isForcePassthroughActive(snapshot) {
         return Boolean(
-            this._config?.force_passthrough?.enabled &&
             (this._lastForcePassthrough === true || snapshot.forcePassthrough !== 0)
-        );
-    }
-
-    _shouldForcePassthroughForShellUi(x, y) {
-        const forcePassthrough = this._config.force_passthrough;
-
-        if (forcePassthrough.gnome_overview && this._isOverviewVisible())
-            return true;
-
-        if (!forcePassthrough.gnome_dock)
-            return false;
-
-        return Boolean(this._resolver.dockAt(x, y) || this._isPointerOverDockActor(x, y));
-    }
-
-    _isOverviewVisible() {
-        return Boolean(
-            Main.overview?.visible ||
-            Main.overview?.visibleTarget ||
-            Main.overview?.animationInProgress
-        );
-    }
-
-    _isPointerOverDockActor(x, y) {
-        let actor = null;
-
-        try {
-            actor = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
-        } catch (error) {
-            return false;
-        }
-
-        for (let current = actor; current; current = current.get_parent?.()) {
-            if (this._isDockActor(current))
-                return true;
-        }
-
-        return false;
-    }
-
-    _isDockActor(actor) {
-        const name = actor.get_name?.() || '';
-        const styleClass = actor.get_style_class_name?.() || '';
-        const marker = `${name} ${styleClass}`.toLowerCase();
-
-        return (
-            marker.includes('dashtodock') ||
-            marker.includes('dash-to-dock') ||
-            marker.includes('ubuntu-dock')
         );
     }
 

@@ -46,10 +46,5 @@
     "interval_ms": 4,
     "event_fresh_ms": 6
   },
-  "force_passthrough": {
-    "enabled": true,
-    "gnome_dock": true,
-    "gnome_overview": true,
-    "rules": []
-  }
+  "force_passthrough_rules": []
 }
