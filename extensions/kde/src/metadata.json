@@ -1,0 +1,15 @@
+{
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "759858299@qq.com",
+        "Name": "Wayne"
+      }
+    ],
+    "Category": "Accessibility",
+    "Description": "KWin companion for Smooth Scroll Linux shared-memory IPC.",
+    "EnabledByDefault": false,
+    "License": "MIT",
+    "Name": "Smooth Scroll Linux"
+  }
+}

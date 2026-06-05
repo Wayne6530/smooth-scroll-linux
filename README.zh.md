@@ -108,6 +108,7 @@ sudo dnf install ./smooth-scroll-*.rpm
 
 - **CLI 工具**（`extensions/cli`）：用于读取守护进程状态、停止当前惯性滚动、切换强制透传的终端命令。
 - **GNOME Shell 扩展**（`extensions/gnome`）：为 GNOME 提供指针旁状态指示、离开窗口刹车，以及按窗口规则设置强制透传。
+- **KDE Plasma KWin effect**（`extensions/kde`）：为 KDE Plasma 提供指针旁状态指示、离开窗口刹车、按应用规则设置强制透传，以及基于窗口拾取的规则配置工具。
 
 每个扩展都有自己的 README，详细说明构建、安装和使用方式。
 

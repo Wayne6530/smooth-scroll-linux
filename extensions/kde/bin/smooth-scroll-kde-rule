@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SERVICE="org.smooth_scroll.KWinEffect"
+OBJECT="/SmoothScrollKWinEffect"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  smooth-scroll-kde-rule pick [--disable] [--title] [--delay SECONDS]
+  smooth-scroll-kde-rule preview [--disable] [--title] [--delay SECONDS]
+  smooth-scroll-kde-rule info [--delay SECONDS]
+
+Examples:
+  smooth-scroll-kde-rule pick
+  smooth-scroll-kde-rule pick --disable
+  smooth-scroll-kde-rule preview --title --delay 5
+
+Commands:
+  pick      Add or update a rule for the window under the pointer.
+  preview   Print the rule that would be written.
+  info      Print KWin window ids for the window under the pointer.
+
+Options:
+  --disable      Write force_passthrough=false instead of true.
+  --title        Add/update a title-specific override inside the app rule.
+  --delay N      Wait N seconds before reading the pointer window. Default: 3.
+EOF
+}
+
+require_qdbus() {
+  if ! command -v qdbus6 >/dev/null 2>&1; then
+    echo "ERROR: qdbus6 is required" >&2
+    exit 127
+  fi
+}
+
+wait_for_pointer() {
+  local delay="$1"
+  if [[ "$delay" != "0" ]]; then
+    echo "Move the pointer over the target window. Capturing in ${delay}s..." >&2
+    sleep "$delay"
+  fi
+}
+
+call_effect() {
+  qdbus6 "$SERVICE" "$OBJECT" "$@"
+}
+
+command="${1:-pick}"
+if [[ "$command" == "-h" || "$command" == "--help" ]]; then
+  usage
+  exit 0
+fi
+shift || true
+
+force="true"
+include_title="false"
+delay="3"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --disable)
+      force="false"
+      ;;
+    --title)
+      include_title="true"
+      ;;
+    --delay)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "ERROR: --delay requires a value" >&2
+        exit 2
+      fi
+      delay="$1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+require_qdbus
+
+case "$command" in
+  pick|add|enable)
+    wait_for_pointer "$delay"
+    call_effect setForcePassthroughRuleForCurrentWindow "$force" "$include_title"
+    ;;
+  disable)
+    wait_for_pointer "$delay"
+    call_effect setForcePassthroughRuleForCurrentWindow false "$include_title"
+    ;;
+  preview)
+    wait_for_pointer "$delay"
+    call_effect suggestedRuleForCurrentWindow "$force" "$include_title"
+    ;;
+  info)
+    wait_for_pointer "$delay"
+    call_effect currentWindowInfo
+    ;;
+  *)
+    echo "ERROR: unknown command: $command" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

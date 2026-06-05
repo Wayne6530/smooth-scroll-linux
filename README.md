@@ -113,6 +113,9 @@ Current extensions:
   stopping active inertial scrolling, and toggling force passthrough.
 - **GNOME Shell extension** (`extensions/gnome`): pointer-side indicators,
   pointer-leave braking, and per-window force passthrough rules for GNOME.
+- **KDE Plasma KWin effect** (`extensions/kde`): pointer-side indicators,
+  pointer-leave braking, per-application force passthrough rules, and a
+  window-based rule picker for KDE Plasma.
 
 Each extension has its own README with detailed build, install, and usage
 instructions.
