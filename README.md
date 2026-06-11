@@ -117,6 +117,8 @@ Current extensions:
   pointer-leave braking, per-application force passthrough rules, and a
   window-based rule picker for KDE Plasma.
 
+![GNOME pointer-side indicators](extensions/gnome/assets/pointer-side-indicators.svg)
+
 Each extension has its own README with detailed build, install, and usage
 instructions.
 

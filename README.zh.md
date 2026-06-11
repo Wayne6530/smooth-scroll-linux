@@ -110,6 +110,8 @@ sudo dnf install ./smooth-scroll-*.rpm
 - **GNOME Shell 扩展**（`extensions/gnome`）：为 GNOME 提供指针旁状态指示、离开窗口刹车，以及按窗口规则设置强制透传。
 - **KDE Plasma KWin effect**（`extensions/kde`）：为 KDE Plasma 提供指针旁状态指示、离开窗口刹车、按应用规则设置强制透传，以及基于窗口拾取的规则配置工具。
 
+![GNOME 指针旁状态指示](extensions/gnome/assets/pointer-side-indicators.svg)
+
 每个扩展都有自己的 README，详细说明构建、安装和使用方式。
 
 ### 开发者指南

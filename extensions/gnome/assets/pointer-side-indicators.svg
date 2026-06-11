@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="130" viewBox="0 0 960 260" role="img" aria-labelledby="title desc">
+  <title id="title">GNOME pointer-side indicators</title>
+  <desc id="desc">Three pointer-side indicator states: scrolling dot, Drag View four-way arrow, and passthrough X.</desc>
+  <defs>
+    <style>
+      .label { fill: #1f2937; font: 700 20px sans-serif; letter-spacing: 0; }
+    </style>
+    <filter id="blue-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#4ea1ff" flood-opacity="0.35"/>
+    </filter>
+    <filter id="red-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#ff5c5c" flood-opacity="0.35"/>
+    </filter>
+    <g id="cursor">
+      <path d="M0 0 L0 72 L19 52 L35 84 L52 76 L36 46 L64 46 Z" fill="#ffffff" stroke="#111827" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M6 12 L6 58 L19 44 L39 78" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    <g id="arrow-indicator">
+      <path d="M-16 0 L16 0 M0 -16 L0 16" stroke="#4ea1ff" stroke-width="4" stroke-linecap="round"/>
+      <path d="M0 -28 L-8 -16 L8 -16 Z M0 28 L-8 16 L8 16 Z M-28 0 L-16 -8 L-16 8 Z M28 0 L16 -8 L16 8 Z" fill="#4ea1ff"/>
+    </g>
+  </defs>
+
+  <rect width="960" height="260" fill="#f5f7fb"/>
+
+  <g transform="translate(108 52)">
+    <use href="#cursor" x="0" y="42"/>
+    <circle cx="82" cy="44" r="12" fill="#000000" opacity="0.24"/>
+    <circle cx="80" cy="42" r="12" fill="#4ea1ff" filter="url(#blue-glow)"/>
+    <text x="-28" y="186" class="label">SCROLLING</text>
+  </g>
+
+  <g transform="translate(432 52)">
+    <use href="#cursor" x="0" y="42"/>
+    <g transform="translate(92 42)" filter="url(#blue-glow)">
+      <g transform="translate(2 2)" opacity="0.24">
+        <path d="M-16 0 L16 0 M0 -16 L0 16" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+        <path d="M0 -28 L-8 -16 L8 -16 Z M0 28 L-8 16 L8 16 Z M-28 0 L-16 -8 L-16 8 Z M28 0 L16 -8 L16 8 Z" fill="#000000"/>
+      </g>
+      <use href="#arrow-indicator"/>
+    </g>
+    <text x="-28" y="186" class="label">DRAG VIEW</text>
+  </g>
+
+  <g transform="translate(756 52)">
+    <use href="#cursor" x="0" y="42"/>
+    <g transform="translate(92 42)" filter="url(#red-glow)">
+      <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#000000" stroke-width="7" stroke-linecap="round" opacity="0.24"/>
+      <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#ff5c5c" stroke-width="7" stroke-linecap="round"/>
+    </g>
+    <text x="-42" y="186" class="label">PASSTHROUGH</text>
+  </g>
+</svg>

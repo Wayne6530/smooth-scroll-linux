@@ -23,6 +23,8 @@ behavior unpredictable.
 - Applies `force_passthrough` from per-window rules based on the window under
   the pointer.
 
+![GNOME pointer-side indicators](assets/pointer-side-indicators.svg)
+
 ## Install
 
 Before installing, change to this extension directory:
