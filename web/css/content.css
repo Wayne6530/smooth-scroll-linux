@@ -134,6 +134,81 @@
   margin-bottom: 10px;
 }
 
+.extensions-section > .doc-copy {
+  max-width: 76ch;
+}
+
+.extension-figure {
+  display: grid;
+  place-items: center;
+  width: min(100%, 560px);
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: oklch(0.96 0.008 250);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.extension-indicators {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.extension-features {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+  margin-top: 16px;
+  padding-left: 21px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.extension-features li::marker {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.extension-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 520px;
+  margin-top: 17px;
+}
+
+.extension-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 13px;
+  border: 1px solid oklch(0.82 0.07 255);
+  border-radius: var(--radius);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.extension-link:hover {
+  color: var(--accent-hover);
+  background: oklch(0.935 0.055 255);
+  border-color: oklch(0.75 0.09 255);
+}
+
 .install-commands {
   display: grid;
   gap: 16px;
@@ -447,6 +522,10 @@
     font-size: 24px;
   }
 
+  .extension-actions {
+    grid-template-columns: 1fr;
+  }
+
   .move-table th,
   .move-table td {
     padding: 11px 12px;
@@ -464,6 +543,10 @@
 
   .doc-heading {
     font-size: 23px;
+  }
+
+  .extension-link {
+    width: 100%;
   }
 
   .doc-copy,
