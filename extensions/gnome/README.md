@@ -41,6 +41,13 @@ mkdir -p ~/.local/share/gnome-shell/extensions ~/.config/smooth-scroll-gnome-ext
   && cp config.example.json ~/.config/smooth-scroll-gnome-extension/config.json
 ```
 
+Make sure GNOME's global user-extension switch allows locally installed
+extensions:
+
+```bash
+gsettings set org.gnome.shell disable-user-extensions false
+```
+
 On Wayland, log out and log back in after copying the extension so GNOME Shell
 can discover it. Then enable the extension:
 
@@ -49,6 +56,16 @@ gnome-extensions enable smooth-scroll@wayne6530
 ```
 
 On X11, `Alt+F2`, then `r`, then Enter is usually enough before enabling.
+
+If the extension still does not start, check both switches:
+
+```bash
+gsettings get org.gnome.shell disable-user-extensions
+gnome-extensions info smooth-scroll@wayne6530
+```
+
+`disable-user-extensions` must be `false`, and the extension must be listed as
+enabled.
 
 ## Configure
 
