@@ -138,7 +138,7 @@ const ConfigEditor = (() => {
     row.appendChild(labelEl);
     row.appendChild(controlWrap);
 
-    updateDependsState(row, param);
+    updateParamState(row, param);
     return row;
   }
 
@@ -188,7 +188,6 @@ const ConfigEditor = (() => {
     checkbox.addEventListener('change', () => {
       currentValues[param.key] = checkbox.checked;
       fireChange(param.key);
-      updateAllDepends();
     });
 
     const slider = document.createElement('span');
@@ -255,7 +254,10 @@ const ConfigEditor = (() => {
     for (const val of param.enum) {
       const opt = document.createElement('option');
       opt.value = val;
-      if (codeMap && codeMap[val]) {
+      const localizedEnumLabel = getEnumLabel(param, val);
+      if (localizedEnumLabel) {
+        opt.textContent = localizedEnumLabel;
+      } else if (codeMap && codeMap[val]) {
         opt.textContent = `${codeMap[val]} (${val})`;
       } else {
         opt.textContent = val;
@@ -270,6 +272,12 @@ const ConfigEditor = (() => {
     });
 
     return select;
+  }
+
+  function getEnumLabel(param, value) {
+    if (!param.enumLabels) return '';
+    const labels = param.enumLabels[I18n.lang()] || param.enumLabels.en || {};
+    return labels[value] || labels[String(value)] || '';
   }
 
   function createStringControl(param) {
@@ -458,26 +466,43 @@ const ConfigEditor = (() => {
     return container;
   }
 
-  function updateDependsState(row, param) {
+  function currentModeName() {
+    return Number(currentValues.smooth_mode ?? 0) === 1 ? 'distance' : 'speed';
+  }
+
+  function isModeActive(param) {
+    if (!param || !param.modes || param.modes.length === 0) return true;
+    return param.modes.includes(currentModeName());
+  }
+
+  function isParamActive(param) {
+    if (!isModeActive(param)) return false;
     const dependsOn = param['depends-on'];
-    if (!dependsOn) return;
-    const parentValue = currentValues[dependsOn];
-    const disabled = !parentValue;
+    if (!dependsOn) return true;
+    return !!currentValues[dependsOn];
+  }
+
+  function updateParamState(row, param) {
+    const dependsOn = param['depends-on'];
+    const modeDisabled = !isModeActive(param);
+    const dependencyDisabled = dependsOn ? !currentValues[dependsOn] : false;
+    const disabled = modeDisabled || dependencyDisabled;
     row.classList.toggle('disabled', disabled);
     const inputs = row.querySelectorAll('input, select');
     inputs.forEach(el => { el.disabled = disabled; });
   }
 
-  function updateAllDepends() {
-    const rows = document.querySelectorAll('.param-row[data-depends-on]');
+  function updateAllParamStates() {
+    const rows = document.querySelectorAll('.param-row');
     rows.forEach(row => {
       const key = row.dataset.key;
       const param = params.find(p => p.key === key);
-      if (param) updateDependsState(row, param);
+      if (param) updateParamState(row, param);
     });
   }
 
   function fireChange(key) {
+    updateAllParamStates();
     validateConstraints();
     if (onParamChange) onParamChange(currentValues, key);
   }
@@ -488,6 +513,11 @@ const ConfigEditor = (() => {
     document.querySelectorAll('.param-row.has-warning').forEach(el => el.classList.remove('has-warning'));
 
     for (const constraint of CONSTRAINTS) {
+      const constraintParams = constraint.keys.map(key => params.find(p => p.key === key));
+      if (!constraintParams.every(param => param && isParamActive(param))) {
+        continue;
+      }
+
       if (!constraint.check(currentValues)) {
         for (const key of constraint.keys) {
           const row = document.querySelector(`.param-row[data-key="${key}"]`);
@@ -513,7 +543,7 @@ const ConfigEditor = (() => {
       currentValues[param.key] = param.commented ? undefined : (Array.isArray(param.defaultValue) ? [...param.defaultValue] : param.defaultValue);
     }
     render();
-    updateAllDepends();
+    updateAllParamStates();
     validateConstraints();
     if (onParamChange) onParamChange(currentValues, null);
   }

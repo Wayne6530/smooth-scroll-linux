@@ -727,6 +727,8 @@ function escapeHtml(str) {
 function buildDefaultOptions() {
   const d = ParamSchema.getDefaultValues();
   return {
+    smooth_mode: d.smooth_mode ?? 0,
+    wheel_tick_distance: d.wheel_tick_distance ?? 120,
     tick_interval_microseconds: d.tick_interval_microseconds ?? 2000,
     min_deceleration: d.min_deceleration ?? 1420,
     max_deceleration: d.max_deceleration ?? 6000,

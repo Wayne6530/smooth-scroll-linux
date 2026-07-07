@@ -172,7 +172,7 @@ const ChartRenderer = (() => {
 
     // Legend
     if (overlayData && overlayData.length > 0) {
-      drawLegend(ctx, width, padding, colors);
+      drawLegend(ctx, width, padding, colors, options);
     }
   }
 
@@ -259,12 +259,15 @@ const ChartRenderer = (() => {
 
     // Legend
     if (overlayData && overlayData.length > 0) {
-      drawLegend(ctx, width, padding, colors);
+      drawLegend(ctx, width, padding, colors, options);
     }
   }
 
-  function drawLegend(ctx, width, padding, colors) {
-    const legendX = width - padding.right - 80;
+  function drawLegend(ctx, width, padding, colors, options) {
+    const defaultLabel = options.defaultLabel || I18n.t('chart.legend.default');
+    const currentLabel = options.currentLabel || I18n.t('chart.legend.current');
+    const legendWidth = Math.max(80, defaultLabel.length * 6 + 24, currentLabel.length * 6 + 24);
+    const legendX = width - padding.right - legendWidth;
     const legendY = padding.top + 4;
     ctx.font = '10px sans-serif';
 
@@ -279,7 +282,7 @@ const ChartRenderer = (() => {
     ctx.setLineDash([]);
     ctx.fillStyle = '#666';
     ctx.textAlign = 'left';
-    ctx.fillText(I18n.t('chart.legend.default'), legendX + 20, legendY + 9);
+    ctx.fillText(defaultLabel, legendX + 20, legendY + 9);
 
     // Current line sample
     ctx.beginPath();
@@ -288,7 +291,7 @@ const ChartRenderer = (() => {
     ctx.strokeStyle = colors.line;
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillText(I18n.t('chart.legend.current'), legendX + 20, legendY + 22);
+    ctx.fillText(currentLabel, legendX + 20, legendY + 22);
   }
 
   function niceTicks(min, max, count) {

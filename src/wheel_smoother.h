@@ -17,8 +17,16 @@ namespace smooth_scroll
 class WheelSmoother
 {
 public:
+  enum class SmoothMode
+  {
+    Speed = 0,
+    Distance = 1,
+  };
+
   struct Options
   {
+    SmoothMode smooth_mode = SmoothMode::Speed;
+    int wheel_tick_distance = 120;
     int tick_interval_microseconds = 2000;
 
     double min_deceleration = 1420;
@@ -98,6 +106,20 @@ public:
   }
 
 private:
+  std::optional<struct input_event> handleSpeedEvent(const struct timeval& time, bool positive, bool horizontal,
+                                                     std::chrono::microseconds event_time);
+
+  std::optional<struct input_event> handleDistanceEvent(const struct timeval& time, bool positive, bool horizontal,
+                                                        std::chrono::microseconds event_time);
+
+  std::optional<struct input_event> tickSpeed() noexcept;
+
+  std::optional<struct input_event> tickDistance() noexcept;
+
+  void stopScroll() noexcept;
+
+  double speedForDistance(double distance) const noexcept;
+
   double smoothSpeed(const std::chrono::microseconds event_interval);
 
   Options options_;
@@ -110,6 +132,10 @@ private:
   double alpha_;
   double max_delta_change_lowerbound_;
   double min_delta_change_upperbound_;
+  double distance_curve_low_speed_;
+  double distance_curve_high_speed_squared_;
+  double distance_curve_low_distance_;
+  double distance_curve_high_distance_;
   int squared_max_mouse_movement_distance_;
   MouseMovementBuffer mouse_movement_buffer_;
   std::vector<double> max_delta_braking_times_;

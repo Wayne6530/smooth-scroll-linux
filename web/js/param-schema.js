@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 1;
+  const CONFIG_VERSION = 2;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -208,6 +208,42 @@ const ParamSchema = (() => {
     },
     // --- Scroll ---
     {
+      key: 'smooth_mode',
+      value: 0,
+      defaultValue: 0,
+      'label-en': 'Smooth Mode',
+      'label-zh': '平滑模式',
+      'desc-en': 'Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event.',
+      'desc-zh': '选择平滑模型。速度模式会根据滚轮速度改变行程；距离模式会为每次有效滚轮事件保留 wheel_tick_distance 指定的距离。',
+      type: 'int',
+      min: 0,
+      max: 1,
+      step: 1,
+      group: 'scroll',
+      enum: [0, 1],
+      'enum-labels-en': '0=Speed mode|1=Distance mode',
+      'enum-labels-zh': '0=速度模式|1=距离模式',
+      enumLabels: {
+        en: { 0: 'Speed mode', 1: 'Distance mode' },
+        zh: { 0: '速度模式', 1: '距离模式' },
+      },
+    },
+    {
+      key: 'wheel_tick_distance',
+      value: 120,
+      defaultValue: 120,
+      'label-en': 'Wheel Tick Distance',
+      'label-zh': '单次滚轮距离',
+      'desc-en': 'Distance budget added by each accepted wheel event in Distance mode. Native high-resolution wheel distance is usually 120.',
+      'desc-zh': '距离模式下每次有效滚轮事件增加的距离预算。原生高分辨率滚轮距离通常为 120。',
+      type: 'int',
+      min: 40,
+      max: 240,
+      step: 1,
+      group: 'scroll',
+      modes: ['distance'],
+    },
+    {
       key: 'damping',
       value: 3.1,
       defaultValue: 3.1,
@@ -262,6 +298,7 @@ const ParamSchema = (() => {
       max: 1200,
       step: 10,
       group: 'scroll',
+      modes: ['speed'],
     },
     {
       key: 'speed_factor',
@@ -276,6 +313,7 @@ const ParamSchema = (() => {
       max: 120,
       step: 1,
       group: 'scroll',
+      modes: ['speed'],
     },
     // --- Braking ---
     {
@@ -295,8 +333,8 @@ const ParamSchema = (() => {
       defaultValue: 100000,
       'label-en': 'Max Reverse Brake Time',
       'label-zh': '反向制动时间窗口',
-      'desc-en': 'Time window (in microseconds) after a reverse brake during which subsequent opposite-direction events are treated as jitter and ignored.',
-      'desc-zh': '反向制动后的时间窗口（微秒）。在此窗口内的后续反向事件将被视为抖动而忽略。',
+      'desc-en': 'Time window (in microseconds) after a reverse brake. Opposite-direction events in this window are absorbed by reverse braking instead of emitting scroll immediately.',
+      'desc-zh': '反向制动后的时间窗口（微秒）。此窗口内的反向事件会被反向制动吸收，不会立即输出滚动。',
       type: 'int',
       min: 0,
       max: 200000,
@@ -449,6 +487,7 @@ const ParamSchema = (() => {
       step: 10000,
       group: 'advanced',
       unit: 'us',
+      modes: ['speed'],
     },
     {
       key: 'max_speed_change_lowerbound',
@@ -463,6 +502,7 @@ const ParamSchema = (() => {
       max: 5000,
       step: 10,
       group: 'advanced',
+      modes: ['speed'],
     },
     {
       key: 'min_speed_change_upperbound',
@@ -477,6 +517,7 @@ const ParamSchema = (() => {
       max: 5000,
       step: 10,
       group: 'advanced',
+      modes: ['speed'],
     },
     {
       key: 'min_speed_change_ratio',
@@ -491,6 +532,7 @@ const ParamSchema = (() => {
       max: 0.25,
       step: 0.01,
       group: 'advanced',
+      modes: ['speed'],
     },
     {
       key: 'max_speed_change_ratio',
@@ -505,6 +547,7 @@ const ParamSchema = (() => {
       max: 1,
       step: 0.01,
       group: 'advanced',
+      modes: ['speed'],
     },
   ];
 

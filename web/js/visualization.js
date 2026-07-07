@@ -34,18 +34,20 @@ const Visualization = (() => {
     if (!scenario) return;
 
     const currentOptions = buildOptions(currentValues);
-    const defaultOptions = buildDefaultOptions();
+    const defaultOptions = buildDefaultOptions(currentOptions.smooth_mode);
 
     const currentResult = PhysicsEngine.simulate(currentOptions, scenario);
     const defaultResult = PhysicsEngine.simulate(defaultOptions, scenario);
 
-    renderCharts(currentResult.timeline, defaultResult.timeline);
+    renderCharts(currentResult.timeline, defaultResult.timeline, currentOptions.smooth_mode);
     renderSummary(currentResult.timeline, defaultResult.timeline, currentResult.truncated);
     renderTips();
   }
 
   function buildOptions(values) {
     return {
+      smooth_mode: values.smooth_mode ?? 0,
+      wheel_tick_distance: values.wheel_tick_distance ?? 120,
       tick_interval_microseconds: values.tick_interval_microseconds ?? 2000,
       min_deceleration: values.min_deceleration ?? 1420,
       max_deceleration: values.max_deceleration ?? 6000,
@@ -68,15 +70,17 @@ const Visualization = (() => {
     };
   }
 
-  function buildDefaultOptions() {
+  function buildDefaultOptions(mode) {
     const defaults = ParamSchema.getDefaultValues();
+    defaults.smooth_mode = mode;
     return buildOptions(defaults);
   }
 
-  function renderCharts(currentTimeline, defaultTimeline) {
+  function renderCharts(currentTimeline, defaultTimeline, smoothMode) {
     if (currentTimeline.length === 0) return;
 
     const xLabel = I18n.lang() === 'zh' ? '时间 (ms)' : 'Time (ms)';
+    const defaultLabel = smoothMode === 1 ? I18n.t('chart.legend.default-distance') : I18n.t('chart.legend.default-speed');
 
     // Speed chart
     const speedData = currentTimeline.map(d => ({ x: d.timeMs, y: d.speed }));
@@ -84,7 +88,7 @@ const Visualization = (() => {
     ChartRenderer.drawChart(
       document.getElementById('chart-speed'),
       speedData,
-      { colorKey: 'speed', xLabel },
+      { colorKey: 'speed', xLabel, defaultLabel },
       defaultSpeedData
     );
 
@@ -94,7 +98,7 @@ const Visualization = (() => {
     ChartRenderer.drawChart(
       document.getElementById('chart-displacement'),
       dispData,
-      { colorKey: 'displacement', xLabel },
+      { colorKey: 'displacement', xLabel, defaultLabel },
       defaultDispData
     );
   }
@@ -116,10 +120,12 @@ const Visualization = (() => {
     document.getElementById('summary-distance').textContent = formatComparison(totalDistance, defaultDistance);
     document.getElementById('summary-duration').textContent = formatComparison(duration.toFixed(0) + ' ms', defaultDuration !== null ? defaultDuration.toFixed(0) + ' ms' : null);
 
-    // Native distance hint, only for single-tick scenario.
+    // Distance hint, only for single-tick scenario.
     const hintEl = document.getElementById('summary-distance-hint');
-    if (currentScenario === 'single' && Math.abs(totalDistance - 120) > 0.5) {
-      hintEl.textContent = I18n.t('validation.native-distance');
+    const smoothMode = Number(currentValues.smooth_mode ?? 0);
+    const expectedDistance = smoothMode === 1 ? (currentValues.wheel_tick_distance ?? 120) : 120;
+    if (currentScenario === 'single' && Math.abs(totalDistance - expectedDistance) > 0.5) {
+      hintEl.textContent = smoothMode === 1 ? I18n.t('validation.configured-distance') : I18n.t('validation.native-distance');
       hintEl.style.display = 'block';
     } else {
       hintEl.style.display = 'none';
@@ -149,7 +155,9 @@ const Visualization = (() => {
       return;
     }
     const lang = I18n.lang();
-    const tipText = lang === 'zh' ? (scenario.tips.zh || scenario.tips.en) : (scenario.tips.en || scenario.tips.zh);
+    const modeKey = Number(currentValues.smooth_mode ?? 0) === 1 ? 'distance' : 'speed';
+    const modeTips = scenario.tips[modeKey] || scenario.tips;
+    const tipText = lang === 'zh' ? (modeTips.zh || modeTips.en) : (modeTips.en || modeTips.zh);
     if (!tipText) {
       tipsEl.innerHTML = '';
       return;
