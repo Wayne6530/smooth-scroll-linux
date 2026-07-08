@@ -263,10 +263,10 @@ keyboard_passthrough_keys = [29, 97, 125, 126]
 
 # @label-en: Drag View Speed
 # @label-zh: Drag View 速度
-# @desc-en: Speed multiplier for panning in Drag View mode. Higher values make panning faster relative to mouse movement.
-# @desc-zh: Drag View 模式下的平移速度倍数。值越大相对于鼠标移动的平移越快。
+# @desc-en: Speed multiplier for Drag View mode. Positive values move the view with mouse movement; negative values move the page content in the opposite direction. The absolute value controls speed.
+# @desc-zh: Drag View 模式下的速度倍数。正值表示随鼠标移动视角；负值表示向相反方向移动页面内容。绝对值控制速度。
 # @type: int
-# @min: 1
+# @min: -10
 # @max: 10
 # @step: 1
 # @group: drag-view

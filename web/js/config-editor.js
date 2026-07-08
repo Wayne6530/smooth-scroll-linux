@@ -15,6 +15,11 @@ const ConfigEditor = (() => {
     return current !== undefined ? current : param.value;
   }
 
+  function getControlValue(param) {
+    const value = getEffectiveValue(param);
+    return param.uiAbs ? Math.abs(Number(value)) : value;
+  }
+
   const CONSTRAINTS = [
     {
       keys: ['min_deceleration', 'max_deceleration'],
@@ -206,35 +211,37 @@ const ConfigEditor = (() => {
     slider.type = 'range';
     slider.id = 'param-' + param.key;
     slider.className = 'param-slider';
-    slider.min = param.min ?? 0;
-    slider.max = param.max ?? 100;
+    const controlMin = param.uiMin ?? param.min ?? 0;
+    const controlMax = param.uiMax ?? param.max ?? 100;
+    slider.min = controlMin;
+    slider.max = controlMax;
     slider.step = param.step ?? 1;
-    slider.value = getEffectiveValue(param);
+    slider.value = getControlValue(param);
     slider.dataset.key = param.key;
 
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'param-input number';
-    input.min = param.min ?? 0;
-    input.max = param.max ?? 10000;
+    input.min = controlMin;
+    input.max = controlMax;
     input.step = param.step ?? 1;
-    input.value = getEffectiveValue(param);
+    input.value = getControlValue(param);
     input.dataset.key = param.key;
 
     slider.addEventListener('input', () => {
       const val = Number(slider.value);
       input.value = val;
-      currentValues[param.key] = val;
+      currentValues[param.key] = param.uiAbs ? Math.abs(val) : val;
       fireChange(param.key);
     });
 
     input.addEventListener('input', () => {
       let val = Number(input.value);
       if (isNaN(val)) return;
-      if (param.min !== undefined) val = Math.max(param.min, val);
-      if (param.max !== undefined) val = Math.min(param.max, val);
+      val = Math.max(controlMin, val);
+      val = Math.min(controlMax, val);
       slider.value = val;
-      currentValues[param.key] = val;
+      currentValues[param.key] = param.uiAbs ? Math.abs(val) : val;
       fireChange(param.key);
     });
 
@@ -504,7 +511,7 @@ const ConfigEditor = (() => {
   function fireChange(key) {
     updateAllParamStates();
     validateConstraints();
-    if (onParamChange) onParamChange(currentValues, key);
+    if (onParamChange) onParamChange(getValues(), key);
   }
 
   function validateConstraints() {
@@ -535,7 +542,12 @@ const ConfigEditor = (() => {
   }
 
   function getValues() {
-    return { ...currentValues };
+    const values = { ...currentValues };
+    if (values.drag_view_speed !== undefined) {
+      const speed = Math.abs(Number(values.drag_view_speed));
+      values.drag_view_speed = Number(values.drag_view_mode ?? 0) === 1 ? -speed : speed;
+    }
+    return values;
   }
 
   function resetToDefaults() {
@@ -545,7 +557,7 @@ const ConfigEditor = (() => {
     render();
     updateAllParamStates();
     validateConstraints();
-    if (onParamChange) onParamChange(currentValues, null);
+    if (onParamChange) onParamChange(getValues(), null);
   }
 
   return { init, render, getValues, resetToDefaults };

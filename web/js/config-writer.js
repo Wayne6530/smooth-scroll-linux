@@ -35,6 +35,8 @@ const ConfigWriter = (() => {
 
       const groupParams = groups.get(groupName);
       for (const param of groupParams) {
+        if (param.uiOnly) continue;
+
         // Write metadata comments
         const metaKeys = ['label-en', 'label-zh', 'desc-en', 'desc-zh', 'type', 'min', 'max', 'step', 'group', 'unit', 'enum', 'enum-labels-en', 'enum-labels-zh', 'depends-on'];
         for (const mk of metaKeys) {
