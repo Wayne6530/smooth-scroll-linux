@@ -7,6 +7,7 @@ const PhysicsEngine = (() => {
 
   const SMOOTH_MODE_SPEED = 0;
   const SMOOTH_MODE_DISTANCE = 1;
+  const DRAG_VIEW_ACTIVATION_ALWAYS = 1;
 
   class WheelSmootherJS {
     constructor(options) {
@@ -50,6 +51,7 @@ const PhysicsEngine = (() => {
       this.lastEventTime = 0;  // in microseconds
       this.nextTickTime = 0;
       this.lastBrakeStopTime = 0;
+      this.dragViewPressTime = 0;
       this.positive_ = false;
       this.horizontal_ = false;
       this.delta_ = 0;
@@ -85,19 +87,26 @@ const PhysicsEngine = (() => {
     }
 
     // handleDragViewButton (wheel_smoother.cpp:70-90)
-    handleDragViewButton(value) {
-      if (this.delta_ !== 0 && value === 1) {
+    handleDragViewButton(eventTimeUs, value) {
+      if (!this.dragView_ && value === 1 &&
+          (this.delta_ !== 0 || Number(this.options.drag_view_activation_mode ?? 0) === DRAG_VIEW_ACTIVATION_ALWAYS)) {
         this.dragView_ = true;
+        this.dragViewPressTime = eventTimeUs;
         this.stopScroll();
-        return true;
+        return 'handled';
       }
       if (this.dragView_) {
         if (value === 0) {
           this.dragView_ = false;
+          const clickTimeoutUs = (this.options.drag_view_click_timeout_milliseconds ?? 200) * 1000;
+          const pressDurationUs = eventTimeUs - this.dragViewPressTime;
+          if (pressDurationUs >= 0 && pressDurationUs < clickTimeoutUs) {
+            return 'replay-click';
+          }
         }
-        return true;
+        return 'handled';
       }
-      return false;
+      return 'passthrough';
     }
 
     // handleRelXEvent (wheel_smoother.cpp:317-327)
@@ -458,7 +467,7 @@ const PhysicsEngine = (() => {
             smoother.handleFreeSpinButton(evt.value);
             break;
           case 'drag-view':
-            smoother.handleDragViewButton(evt.value);
+            smoother.handleDragViewButton(evt.timeUs, evt.value);
             timeline.push({
               timeMs: (currentTime - startTimeUs) / 1000,
               delta: smoother.delta_,

@@ -66,6 +66,8 @@ const Visualization = (() => {
       max_mouse_movement_distance: values.max_mouse_movement_distance ?? 30,
       mouse_movement_window_milliseconds: values.mouse_movement_window_milliseconds ?? 20,
       mouse_movement_delay_microseconds: values.mouse_movement_delay_microseconds ?? 100000,
+      drag_view_activation_mode: values.drag_view_activation_mode ?? 0,
+      drag_view_click_timeout_milliseconds: values.drag_view_click_timeout_milliseconds ?? 200,
       drag_view_speed: values.drag_view_speed ?? 3,
     };
   }

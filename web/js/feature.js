@@ -743,6 +743,8 @@ function buildDefaultOptions() {
     use_reverse_scroll_braking: d.use_reverse_scroll_braking ?? true,
     max_reverse_scroll_braking_microseconds: d.max_reverse_scroll_braking_microseconds ?? 100000,
     max_reverse_scroll_braking_times: d.max_reverse_scroll_braking_times ?? 3,
+    drag_view_activation_mode: d.drag_view_activation_mode ?? 0,
+    drag_view_click_timeout_milliseconds: d.drag_view_click_timeout_milliseconds ?? 200,
     drag_view_speed: d.drag_view_speed ?? 3,
   };
 }

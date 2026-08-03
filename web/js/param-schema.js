@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 2;
+  const CONFIG_VERSION = 3;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -192,12 +192,12 @@ const ParamSchema = (() => {
     },
     {
       key: 'drag_view_button',
-      value: 272,
-      defaultValue: 272,
+      value: 274,
+      defaultValue: 274,
       'label-en': 'Drag View Button',
       'label-zh': 'Drag View 按键',
-      'desc-en': 'Mouse button code for Drag View mode. Set to 0 to disable. When held during scrolling, stops scroll and remaps mouse movement to panning.',
-      'desc-zh': 'Drag View 模式的鼠标按键代码。设为 0 以禁用。滚动时按住此键，将停止滚动并将鼠标移动映射为平移。',
+      'desc-en': 'Mouse button code for Drag View mode. Set to 0 to disable. Availability is controlled by drag_view_activation_mode.',
+      'desc-zh': 'Drag View 模式的鼠标按键代码。设为 0 以禁用。是否可进入该模式由 drag_view_activation_mode 控制。',
       type: 'int',
       min: 0,
       max: 276,
@@ -443,6 +443,42 @@ const ParamSchema = (() => {
       presets: KEY_PRESETS,
     },
     // --- Drag View ---
+    {
+      key: 'drag_view_activation_mode',
+      value: 0,
+      defaultValue: 0,
+      'label-en': 'Drag View Activation',
+      'label-zh': 'Drag View 激活方式',
+      'desc-en': 'Controls when Drag View can be activated. Scrolling only requires an active scroll; Always allows activation without first scrolling.',
+      'desc-zh': '控制何时可以激活 Drag View。仅滚动时要求当前正在滚动；始终可用则无需先滚动即可激活。',
+      type: 'int',
+      min: 0,
+      max: 1,
+      step: 1,
+      group: 'drag-view',
+      enum: [0, 1],
+      'enum-labels-en': '0=Scrolling only|1=Always',
+      'enum-labels-zh': '0=仅滚动时|1=始终可用',
+      enumLabels: {
+        en: { 0: 'Scrolling only', 1: 'Always' },
+        zh: { 0: '仅滚动时', 1: '始终可用' },
+      },
+    },
+    {
+      key: 'drag_view_click_timeout_milliseconds',
+      value: 200,
+      defaultValue: 200,
+      'label-en': 'Drag View Click Timeout',
+      'label-zh': 'Drag View 单击时限',
+      'desc-en': 'A Drag View press released sooner than this time is replayed as a normal click. Set to 0 to disable click replay.',
+      'desc-zh': '进入 Drag View 后在此时间内松开，会补发为普通单击。设为 0 可禁用单击补发。',
+      type: 'int',
+      min: 0,
+      max: 400,
+      step: 10,
+      group: 'drag-view',
+      unit: 'ms',
+    },
     {
       key: 'drag_view_mode',
       value: 0,

@@ -450,7 +450,7 @@ int main(int argc, char* argv[])
     SPDLOG_WARN("Use default free spin button {}", free_spin_button);
   }
 
-  int drag_view_button = BTN_LEFT;
+  int drag_view_button = BTN_MIDDLE;
   if (auto opt = table["drag_view_button"].value<int>())
   {
     drag_view_button = *opt;
@@ -544,6 +544,30 @@ int main(int argc, char* argv[])
   read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
   read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);
   read_option("mouse_movement_delay_microseconds", options.mouse_movement_delay_microseconds);
+  if (auto opt = table["drag_view_activation_mode"].value<int>())
+  {
+    if (*opt == static_cast<int>(WheelSmoother::DragViewActivationMode::Scrolling))
+    {
+      options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Scrolling;
+      SPDLOG_INFO("Config loaded: drag_view_activation_mode = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::DragViewActivationMode::Always))
+    {
+      options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Always;
+      SPDLOG_INFO("Config loaded: drag_view_activation_mode = {}", *opt);
+    }
+    else
+    {
+      SPDLOG_WARN("Config 'drag_view_activation_mode' invalid, using default: {}",
+                  static_cast<int>(options.drag_view_activation_mode));
+    }
+  }
+  else
+  {
+    SPDLOG_WARN("Config 'drag_view_activation_mode' not found or invalid, using default: {}",
+                static_cast<int>(options.drag_view_activation_mode));
+  }
+  read_option("drag_view_click_timeout_milliseconds", options.drag_view_click_timeout_milliseconds);
   read_option("drag_view_speed", options.drag_view_speed);
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)
@@ -941,9 +965,19 @@ int main(int argc, char* argv[])
 
             if (ev.code == drag_view_button)
             {
-              if ((handled = wheel_smoother.handleDragViewButton(ev.value)))
+              const auto result = wheel_smoother.handleDragViewButton(ev.time, ev.value);
+              handled = result != WheelSmoother::DragViewButtonResult::Passthrough;
+              if (handled)
               {
                 ipc.setDragView(wheel_smoother.drag_view());
+
+                if (result == WheelSmoother::DragViewButtonResult::ReplayClick)
+                {
+                  struct input_event press_event = ev;
+                  press_event.value = 1;
+                  events.push_back(press_event);
+                  events.push_back(ev);
+                }
               }
             }
             else if (ev.code == free_spin_button)

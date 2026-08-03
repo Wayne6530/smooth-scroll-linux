@@ -426,6 +426,7 @@
 }
 
 .token-left,
+.token-middle,
 .token-right {
   color: var(--feature-ink-soft, oklch(0.36 0.017 250));
   border-color: var(--border);

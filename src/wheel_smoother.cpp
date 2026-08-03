@@ -77,13 +77,16 @@ bool WheelSmoother::handleFreeSpinButton(int value) noexcept
   return false;
 }
 
-bool WheelSmoother::handleDragViewButton(int value) noexcept
+WheelSmoother::DragViewButtonResult WheelSmoother::handleDragViewButton(const struct timeval& time, int value) noexcept
 {
-  if (delta_ != 0 && value == 1)
+  if (!drag_view_ && value == 1 &&
+      (delta_ != 0 || options_.drag_view_activation_mode == DragViewActivationMode::Always))
   {
     drag_view_ = true;
+    drag_view_press_time_ =
+        std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
     stopScroll();
-    return true;
+    return DragViewButtonResult::Handled;
   }
 
   if (drag_view_)
@@ -91,11 +94,22 @@ bool WheelSmoother::handleDragViewButton(int value) noexcept
     if (value == 0)
     {
       drag_view_ = false;
+
+      const std::chrono::microseconds release_time =
+          std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
+      const std::chrono::microseconds click_timeout =
+          std::chrono::milliseconds{ options_.drag_view_click_timeout_milliseconds };
+      const std::chrono::microseconds press_duration = release_time - drag_view_press_time_;
+
+      if (press_duration >= std::chrono::microseconds::zero() && press_duration < click_timeout)
+      {
+        return DragViewButtonResult::ReplayClick;
+      }
     }
-    return true;
+    return DragViewButtonResult::Handled;
   }
 
-  return false;
+  return DragViewButtonResult::Passthrough;
 }
 
 std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive, bool horizontal)

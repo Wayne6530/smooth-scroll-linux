@@ -23,6 +23,19 @@ public:
     Distance = 1,
   };
 
+  enum class DragViewActivationMode
+  {
+    Scrolling = 0,
+    Always = 1,
+  };
+
+  enum class DragViewButtonResult
+  {
+    Passthrough,
+    Handled,
+    ReplayClick,
+  };
+
   struct Options
   {
     SmoothMode smooth_mode = SmoothMode::Speed;
@@ -49,6 +62,8 @@ public:
     int mouse_movement_window_milliseconds = 20;
     int mouse_movement_delay_microseconds = 100000;
 
+    DragViewActivationMode drag_view_activation_mode = DragViewActivationMode::Scrolling;
+    int drag_view_click_timeout_milliseconds = 200;
     int drag_view_speed = 3;
   };
 
@@ -64,7 +79,7 @@ public:
 
   bool handleFreeSpinButton(int value) noexcept;
 
-  bool handleDragViewButton(int value) noexcept;
+  DragViewButtonResult handleDragViewButton(const struct timeval& time, int value) noexcept;
 
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive, bool horizontal);
 
@@ -144,6 +159,7 @@ private:
   std::chrono::microseconds last_event_time_{ 0 };
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };
+  std::chrono::microseconds drag_view_press_time_{ 0 };
   bool positive_ = false;
   bool horizontal_ = false;
   double delta_ = 0;
