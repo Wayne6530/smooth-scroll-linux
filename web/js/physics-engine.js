@@ -184,6 +184,9 @@ const PhysicsEngine = (() => {
             return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
           }
         }
+      } else if (this.delta_ !== 0 && positive !== this.positive_) {
+        this.stopScroll();
+        this.brakingTimes_ = 0;
       }
 
       // Initial startup (delta_ == 0)

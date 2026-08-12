@@ -201,6 +201,11 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
       }
     }
   }
+  else if (delta_ != 0 && positive != positive_)
+  {
+    stopScroll();
+    braking_times_ = 0;
+  }
 
   if (delta_ == 0)
   {
