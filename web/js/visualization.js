@@ -83,7 +83,11 @@ const Visualization = (() => {
     if (currentTimeline.length === 0) return;
 
     const xLabel = I18n.lang() === 'zh' ? '时间 (ms)' : 'Time (ms)';
-    const defaultLabel = smoothMode === 1 ? I18n.t('chart.legend.default-distance') : I18n.t('chart.legend.default-speed');
+    const defaultLabel = smoothMode === 1
+      ? I18n.t('chart.legend.default-distance')
+      : smoothMode === 2
+        ? I18n.t('chart.legend.default-hybrid')
+        : I18n.t('chart.legend.default-speed');
 
     // Speed chart
     const speedData = currentTimeline.map(d => ({ x: d.timeMs, y: d.speed }));
@@ -126,9 +130,16 @@ const Visualization = (() => {
     // Distance hint, only for single-tick scenario.
     const hintEl = document.getElementById('summary-distance-hint');
     const smoothMode = Number(currentValues.smooth_mode ?? 0);
-    const expectedDistance = smoothMode === 1 ? (currentValues.wheel_tick_distance ?? 120) : 120;
-    if (currentScenario === 'single' && Math.abs(totalDistance - expectedDistance) > 0.5) {
-      hintEl.textContent = smoothMode === 1 ? I18n.t('validation.configured-distance') : I18n.t('validation.native-distance');
+    const expectedDistance = smoothMode === 1 || smoothMode === 2
+      ? (currentValues.wheel_tick_distance ?? 120)
+      : 120;
+    const distanceMismatch = smoothMode === 2
+      ? totalDistance < expectedDistance
+      : Math.abs(totalDistance - expectedDistance) > 0.5;
+    if (currentScenario === 'single' && distanceMismatch) {
+      hintEl.textContent = smoothMode === 1 || smoothMode === 2
+        ? I18n.t('validation.configured-distance')
+        : I18n.t('validation.native-distance');
       hintEl.style.display = 'block';
     } else {
       hintEl.style.display = 'none';
@@ -158,7 +169,8 @@ const Visualization = (() => {
       return;
     }
     const lang = I18n.lang();
-    const modeKey = Number(currentValues.smooth_mode ?? 0) === 1 ? 'distance' : 'speed';
+    const smoothMode = Number(currentValues.smooth_mode ?? 0);
+    const modeKey = smoothMode === 1 ? 'distance' : smoothMode === 2 ? 'hybrid' : 'speed';
     const modeTips = scenario.tips[modeKey] || scenario.tips;
     const tipText = lang === 'zh' ? (modeTips.zh || modeTips.en) : (modeTips.en || modeTips.zh);
     if (!tipText) {

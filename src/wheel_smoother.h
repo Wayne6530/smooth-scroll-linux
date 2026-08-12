@@ -21,6 +21,7 @@ public:
   {
     Speed = 0,
     Distance = 1,
+    Hybrid = 2,
   };
 
   enum class DragViewActivationMode
@@ -130,9 +131,14 @@ private:
   std::optional<struct input_event> handleDistanceEvent(const struct timeval& time, bool positive, bool horizontal,
                                                         std::chrono::microseconds event_time);
 
+  std::optional<struct input_event> handleHybridEvent(const struct timeval& time, bool positive, bool horizontal,
+                                                      std::chrono::microseconds event_time);
+
   std::optional<struct input_event> tickSpeed() noexcept;
 
   std::optional<struct input_event> tickDistance() noexcept;
+
+  std::optional<struct input_event> tickHybrid() noexcept;
 
   void stopScroll() noexcept;
 

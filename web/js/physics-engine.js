@@ -7,6 +7,7 @@ const PhysicsEngine = (() => {
 
   const SMOOTH_MODE_SPEED = 0;
   const SMOOTH_MODE_DISTANCE = 1;
+  const SMOOTH_MODE_HYBRID = 2;
   const DRAG_VIEW_ACTIVATION_ALWAYS = 1;
 
   class WheelSmootherJS {
@@ -142,6 +143,10 @@ const PhysicsEngine = (() => {
         return this.handleDistanceEvent(eventTimeUs, positive, horizontal);
       }
 
+      if (this.smoothMode === SMOOTH_MODE_HYBRID) {
+        return this.handleHybridEvent(eventTimeUs, positive, horizontal);
+      }
+
       return this.handleSpeedEvent(eventTimeUs, positive, horizontal);
     }
 
@@ -228,6 +233,215 @@ const PhysicsEngine = (() => {
       this.delta_ = rawDelta < this.initialDelta ? this.initialDelta : rawDelta;
       this.speed_ = this.delta_ * this.invTickInterval;
       return null;
+    }
+
+    handleHybridEvent(eventTimeUs, positive, horizontal) {
+      if (this.horizontal_ !== horizontal) {
+        this.stopScroll();
+        this.brakingTimes_ = 0;
+      } else if (this.options.use_reverse_scroll_braking) {
+        if (positive === this.positive_) {
+          this.brakingTimes_ = 0;
+        } else if (this.scrollActive()) {
+          this.eventIntervals = [];
+          this.lastEventTime = eventTimeUs;
+          this.lastBrakeStopTime = eventTimeUs;
+          this.stopScroll();
+          this.brakingTimes_ = 1;
+          return null;
+        } else if (this.brakingTimes_) {
+          if (eventTimeUs < this.lastBrakeStopTime + this.options.max_reverse_scroll_braking_microseconds &&
+              this.brakingTimes_ < this.options.max_reverse_scroll_braking_times) {
+            this.eventIntervals.push(eventTimeUs - this.lastEventTime);
+            this.lastEventTime = eventTimeUs;
+            this.brakingTimes_++;
+            return null;
+          }
+
+          let distanceTicks = 1;
+          let startDelta = this.initialDelta;
+          if (eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow) {
+            const speed = this.smoothSpeed(eventTimeUs - this.lastEventTime);
+            const rawDelta = speed * this.tickInterval;
+            startDelta = Math.max(this.initialDelta,
+              Math.min(rawDelta, this.maxDeltaBrakingTimes[this.brakingTimes_] || this.initialDelta));
+            distanceTicks = this.brakingTimes_ + 1;
+          } else {
+            this.eventIntervals = [];
+          }
+
+          this.brakingTimes_ = 0;
+
+          this.lastEventTime = eventTimeUs;
+          this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
+          this.positive_ = positive;
+          this.horizontal_ = horizontal;
+          this.delta_ = startDelta;
+          this.speed_ = this.delta_ * this.invTickInterval;
+
+          this.distanceRemaining_ = this.wheelTickDistance * distanceTicks;
+          const distanceSpeed = this.speedForDistance(this.distanceRemaining_);
+          const speedDelta = this.delta_;
+
+          if (this.freeSpin_) {
+            const distanceDelta = distanceSpeed * this.tickInterval;
+            const desiredDelta = Math.max(speedDelta, distanceDelta);
+            const roundDelta = Math.round(desiredDelta);
+
+            this.deviation_ = desiredDelta - roundDelta;
+            this.speed_ = desiredDelta * this.invTickInterval;
+            this.totalDelta_ = roundDelta;
+
+            if (roundDelta <= 0) return null;
+            return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+          }
+
+          const distanceDelta = Math.min(
+            distanceSpeed * this.tickInterval,
+            this.distanceRemaining_
+          );
+          const desiredDelta = Math.max(speedDelta, distanceDelta);
+          let roundDelta = Math.round(desiredDelta);
+
+          if (distanceDelta >= speedDelta) {
+            roundDelta = Math.max(0,
+              Math.min(roundDelta, Math.round(this.distanceRemaining_)));
+          }
+
+          this.deviation_ = desiredDelta - roundDelta;
+          this.distanceRemaining_ = Math.max(0,
+            this.distanceRemaining_ - desiredDelta);
+
+          this.speed_ = this.scrollActive() ? desiredDelta * this.invTickInterval : 0;
+          this.totalDelta_ = roundDelta;
+
+          if (roundDelta <= 0) return null;
+          return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+        }
+      } else if (this.scrollActive() && positive !== this.positive_) {
+        this.stopScroll();
+        this.brakingTimes_ = 0;
+      }
+
+      if (this.delta_ !== 0) {
+        const speed = this.smoothSpeed(eventTimeUs - this.lastEventTime);
+        const minDeltaChange = Math.min(
+          this.delta_ * this.options.min_speed_change_ratio,
+          this.maxDeltaChangeLowerbound
+        );
+        const maxDeltaChange = Math.max(
+          this.delta_ * this.options.max_speed_change_ratio,
+          this.minDeltaChangeUpperbound
+        );
+        const rawDelta = Math.max(
+          this.delta_ + minDeltaChange,
+          Math.min(speed * this.tickInterval, this.delta_ + maxDeltaChange)
+        );
+
+        this.lastEventTime = eventTimeUs;
+        this.delta_ = rawDelta < this.initialDelta ? this.initialDelta : rawDelta;
+        this.speed_ = this.delta_ * this.invTickInterval;
+
+        this.distanceRemaining_ += this.wheelTickDistance;
+        return null;
+      }
+
+      if (this.distanceRemaining_ > 0) {
+        this.eventIntervals = [];
+        this.lastEventTime = eventTimeUs;
+        this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
+        this.positive_ = positive;
+        this.horizontal_ = horizontal;
+        this.delta_ = this.initialDelta;
+        this.speed_ = this.delta_ * this.invTickInterval;
+
+        this.distanceRemaining_ += this.wheelTickDistance;
+
+        const speedDelta = this.delta_;
+        if (this.freeSpin_) {
+          const distanceDelta =
+            this.speedForDistance(this.distanceRemaining_) * this.tickInterval;
+          const desiredDelta = Math.max(speedDelta, distanceDelta);
+          const roundDelta = Math.round(desiredDelta + this.deviation_);
+
+          this.deviation_ += desiredDelta - roundDelta;
+          this.speed_ = desiredDelta * this.invTickInterval;
+          this.totalDelta_ += roundDelta;
+
+          if (roundDelta <= 0) return null;
+          return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+        }
+
+        const distanceDelta = Math.min(
+          this.speedForDistance(this.distanceRemaining_) * this.tickInterval,
+          this.distanceRemaining_
+        );
+        const desiredDelta = Math.max(speedDelta, distanceDelta);
+        let roundDelta = Math.round(desiredDelta + this.deviation_);
+
+        if (distanceDelta >= speedDelta) {
+          const remainingDelta = Math.max(0,
+            Math.round(this.distanceRemaining_ + this.deviation_));
+          roundDelta = Math.max(0, Math.min(roundDelta, remainingDelta));
+        }
+
+        this.deviation_ += desiredDelta - roundDelta;
+        this.distanceRemaining_ = Math.max(0,
+          this.distanceRemaining_ - desiredDelta);
+
+        this.speed_ = this.scrollActive() ? desiredDelta * this.invTickInterval : 0;
+        this.totalDelta_ += roundDelta;
+
+        if (roundDelta <= 0) return null;
+        return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+      }
+
+      this.eventIntervals = [];
+      this.lastEventTime = eventTimeUs;
+      this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
+      this.positive_ = positive;
+      this.horizontal_ = horizontal;
+      this.delta_ = this.initialDelta;
+      this.speed_ = this.delta_ * this.invTickInterval;
+
+      this.distanceRemaining_ = this.wheelTickDistance;
+
+      const speedDelta = this.delta_;
+      if (this.freeSpin_) {
+        const distanceDelta =
+          this.speedForDistance(this.distanceRemaining_) * this.tickInterval;
+        const desiredDelta = Math.max(speedDelta, distanceDelta);
+        const roundDelta = Math.round(desiredDelta);
+
+        this.deviation_ = desiredDelta - roundDelta;
+        this.speed_ = desiredDelta * this.invTickInterval;
+        this.totalDelta_ = roundDelta;
+
+        if (roundDelta <= 0) return null;
+        return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+      }
+
+      const distanceDelta = Math.min(
+        this.speedForDistance(this.distanceRemaining_) * this.tickInterval,
+        this.distanceRemaining_
+      );
+      const desiredDelta = Math.max(speedDelta, distanceDelta);
+      let roundDelta = Math.round(desiredDelta);
+
+      if (distanceDelta >= speedDelta) {
+        const remainingDelta = Math.max(0, Math.round(this.distanceRemaining_));
+        roundDelta = Math.max(0, Math.min(roundDelta, remainingDelta));
+      }
+
+      this.deviation_ = desiredDelta - roundDelta;
+      this.distanceRemaining_ = Math.max(0,
+        this.distanceRemaining_ - desiredDelta);
+
+      this.speed_ = this.scrollActive() ? desiredDelta * this.invTickInterval : 0;
+      this.totalDelta_ = roundDelta;
+
+      if (roundDelta <= 0) return null;
+      return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
     }
 
     handleDistanceEvent(eventTimeUs, positive, horizontal) {
@@ -327,6 +541,10 @@ const PhysicsEngine = (() => {
         return this.tickDistance();
       }
 
+      if (this.smoothMode === SMOOTH_MODE_HYBRID) {
+        return this.tickHybrid();
+      }
+
       return this.tickSpeed();
     }
 
@@ -400,6 +618,78 @@ const PhysicsEngine = (() => {
         }
         return null;
       }
+
+      this.totalDelta_ += roundDelta;
+      return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+    }
+
+    tickHybrid() {
+      if (!this.scrollActive()) return null;
+
+      if (this.freeSpin_) {
+        const speedDelta = this.delta_;
+        const distanceDelta = this.distanceRemaining_ > 0
+          ? this.speedForDistance(this.distanceRemaining_) * this.tickInterval
+          : 0;
+        const desiredDelta = Math.max(speedDelta, distanceDelta);
+        if (desiredDelta <= 0) {
+          this.speed_ = 0;
+          return null;
+        }
+
+        this.nextTickTime += this.options.tick_interval_microseconds;
+
+        const roundDelta = Math.round(desiredDelta + this.deviation_);
+        this.deviation_ += desiredDelta - roundDelta;
+        this.speed_ = desiredDelta * this.invTickInterval;
+
+        if (roundDelta <= 0) return null;
+
+        this.totalDelta_ += roundDelta;
+        return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+      }
+
+      let speedDelta = 0;
+      if (this.delta_ !== 0) {
+        const maxDelta = this.delta_ - this.minDeltaDecreasePerTick;
+        const minDelta = this.delta_ - this.maxDeltaDecreasePerTick;
+        this.delta_ *= this.alpha;
+
+        if (this.delta_ > maxDelta) this.delta_ = maxDelta;
+        if (this.delta_ < minDelta) this.delta_ = minDelta;
+        if (this.delta_ < 0) this.delta_ = 0;
+        speedDelta = this.delta_;
+      }
+
+      let distanceDelta = 0;
+      if (this.distanceRemaining_ > 0) {
+        distanceDelta = Math.min(
+          this.speedForDistance(this.distanceRemaining_) * this.tickInterval,
+          this.distanceRemaining_
+        );
+      }
+
+      const desiredDelta = Math.max(speedDelta, distanceDelta);
+      if (desiredDelta <= 0) {
+        this.speed_ = 0;
+        return null;
+      }
+
+      this.nextTickTime += this.options.tick_interval_microseconds;
+
+      let roundDelta = Math.round(desiredDelta + this.deviation_);
+      if (distanceDelta >= speedDelta) {
+        const remainingDelta = Math.max(0,
+          Math.round(this.distanceRemaining_ + this.deviation_));
+        roundDelta = Math.max(0, Math.min(roundDelta, remainingDelta));
+      }
+
+      this.deviation_ += desiredDelta - roundDelta;
+      this.distanceRemaining_ = Math.max(0,
+        this.distanceRemaining_ - desiredDelta);
+      this.speed_ = this.scrollActive() ? desiredDelta * this.invTickInterval : 0;
+
+      if (roundDelta <= 0) return null;
 
       this.totalDelta_ += roundDelta;
       return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };

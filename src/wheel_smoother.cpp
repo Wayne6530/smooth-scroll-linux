@@ -126,6 +126,11 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
     return handleDistanceEvent(time, positive, horizontal, event_time);
   }
 
+  if (options_.smooth_mode == SmoothMode::Hybrid)
+  {
+    return handleHybridEvent(time, positive, horizontal, event_time);
+  }
+
   return handleSpeedEvent(time, positive, horizontal, event_time);
 }
 
@@ -242,6 +247,252 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
   return makeWheelEvent(time, round_delta);
 }
 
+std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct timeval& time, bool positive,
+                                                                   bool horizontal,
+                                                                   std::chrono::microseconds event_time)
+{
+  if (horizontal_ != horizontal)
+  {
+    stopScroll();
+    braking_times_ = 0;
+  }
+  else if (options_.use_reverse_scroll_braking)
+  {
+    if (positive == positive_)
+    {
+      braking_times_ = 0;
+    }
+    else if (scrollActive())
+    {
+      SPDLOG_DEBUG("hybrid reverse scroll stop");
+      event_intervals_.clear();
+      last_event_time_ = event_time;
+      last_brake_stop_time_ = event_time;
+      stopScroll();
+      braking_times_ = 1;
+      return std::nullopt;
+    }
+    else if (braking_times_)
+    {
+      if (event_time <
+              last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
+          braking_times_ < options_.max_reverse_scroll_braking_times)
+      {
+        SPDLOG_DEBUG("hybrid braking dejitter");
+        event_intervals_.push_back(event_time - last_event_time_);
+        last_event_time_ = event_time;
+        ++braking_times_;
+        return std::nullopt;
+      }
+
+      int distance_ticks = 1;
+      double start_delta = initial_delta_;
+      if (event_time <=
+          last_brake_stop_time_ + std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds })
+      {
+        const double speed = smoothSpeed(event_time - last_event_time_);
+        start_delta = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
+        distance_ticks = braking_times_ + 1;
+      }
+      else
+      {
+        event_intervals_.clear();
+      }
+
+      braking_times_ = 0;
+
+      delta_ = start_delta;
+      last_event_time_ = event_time;
+      next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+      positive_ = positive;
+      horizontal_ = horizontal;
+      speed_ = delta_ * inv_tick_interval_;
+
+      distance_remaining_ = options_.wheel_tick_distance * distance_ticks;
+      const double distance_speed = speedForDistance(distance_remaining_);
+      SPDLOG_DEBUG("hybrid mode target speed {:.2f}, remaining {:.2f}", std::max(speed_, distance_speed),
+                   distance_remaining_);
+
+      const double speed_delta = delta_;
+      if (free_spin_)
+      {
+        const double distance_delta = distance_speed * tick_interval_;
+        const double desired_delta = std::max(speed_delta, distance_delta);
+        const int round_delta = static_cast<int>(std::round(desired_delta));
+
+        deviation_ = desired_delta - round_delta;
+        speed_ = desired_delta * inv_tick_interval_;
+        total_delta_ = round_delta;
+
+        if (round_delta <= 0)
+        {
+          return std::nullopt;
+        }
+
+        return makeWheelEvent(time, round_delta);
+      }
+
+      const double distance_delta = std::min(distance_speed * tick_interval_, distance_remaining_);
+      const double desired_delta = std::max(speed_delta, distance_delta);
+      int round_delta = static_cast<int>(std::round(desired_delta));
+
+      if (distance_delta >= speed_delta)
+      {
+        round_delta = std::clamp(round_delta, 0, static_cast<int>(std::round(distance_remaining_)));
+      }
+
+      deviation_ = desired_delta - round_delta;
+      distance_remaining_ = std::max(0.0, distance_remaining_ - desired_delta);
+
+      speed_ = scrollActive() ? desired_delta * inv_tick_interval_ : 0.0;
+      total_delta_ = round_delta;
+
+      if (round_delta <= 0)
+      {
+        return std::nullopt;
+      }
+
+      return makeWheelEvent(time, round_delta);
+    }
+  }
+  else if (scrollActive() && positive != positive_)
+  {
+    stopScroll();
+    braking_times_ = 0;
+  }
+
+  if (delta_ != 0)
+  {
+    const double speed = smoothSpeed(event_time - last_event_time_);
+    const double min_delta_change = std::min(delta_ * options_.min_speed_change_ratio, max_delta_change_lowerbound_);
+    const double max_delta_change = std::max(delta_ * options_.max_speed_change_ratio, min_delta_change_upperbound_);
+    const double delta = std::clamp(speed * tick_interval_, delta_ + min_delta_change, delta_ + max_delta_change);
+
+    last_event_time_ = event_time;
+    delta_ = delta < initial_delta_ ? initial_delta_ : delta;
+    speed_ = delta_ * inv_tick_interval_;
+
+    distance_remaining_ += options_.wheel_tick_distance;
+    const double distance_speed = speedForDistance(distance_remaining_);
+    SPDLOG_DEBUG("hybrid mode target speed {:.2f}, remaining {:.2f}", std::max(speed_, distance_speed),
+                 distance_remaining_);
+    return std::nullopt;
+  }
+
+  if (distance_remaining_ > 0)
+  {
+    event_intervals_.clear();
+    delta_ = initial_delta_;
+    last_event_time_ = event_time;
+    next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+    positive_ = positive;
+    horizontal_ = horizontal;
+    speed_ = delta_ * inv_tick_interval_;
+
+    distance_remaining_ += options_.wheel_tick_distance;
+    const double distance_speed = speedForDistance(distance_remaining_);
+    SPDLOG_DEBUG("hybrid mode target speed {:.2f}, remaining {:.2f}", std::max(speed_, distance_speed),
+                 distance_remaining_);
+
+    const double speed_delta = delta_;
+    if (free_spin_)
+    {
+      const double distance_delta = distance_speed * tick_interval_;
+      const double desired_delta = std::max(speed_delta, distance_delta);
+      const int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
+
+      deviation_ += desired_delta - round_delta;
+      speed_ = desired_delta * inv_tick_interval_;
+      total_delta_ += round_delta;
+
+      if (round_delta <= 0)
+      {
+        return std::nullopt;
+      }
+
+      return makeWheelEvent(time, round_delta);
+    }
+
+    const double distance_delta = std::min(distance_speed * tick_interval_, distance_remaining_);
+    const double desired_delta = std::max(speed_delta, distance_delta);
+    int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
+
+    if (distance_delta >= speed_delta)
+    {
+      const int remaining_delta = std::max(0, static_cast<int>(std::round(distance_remaining_ + deviation_)));
+      round_delta = std::clamp(round_delta, 0, remaining_delta);
+    }
+
+    deviation_ += desired_delta - round_delta;
+    distance_remaining_ = std::max(0.0, distance_remaining_ - desired_delta);
+
+    speed_ = scrollActive() ? desired_delta * inv_tick_interval_ : 0.0;
+    total_delta_ += round_delta;
+
+    if (round_delta <= 0)
+    {
+      return std::nullopt;
+    }
+
+    return makeWheelEvent(time, round_delta);
+  }
+
+  event_intervals_.clear();
+  delta_ = initial_delta_;
+  last_event_time_ = event_time;
+  next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+  positive_ = positive;
+  horizontal_ = horizontal;
+  speed_ = delta_ * inv_tick_interval_;
+
+  distance_remaining_ = options_.wheel_tick_distance;
+  const double distance_speed = speedForDistance(distance_remaining_);
+  SPDLOG_DEBUG("hybrid mode target speed {:.2f}, remaining {:.2f}", std::max(speed_, distance_speed),
+               distance_remaining_);
+
+  const double speed_delta = delta_;
+  if (free_spin_)
+  {
+    const double distance_delta = distance_speed * tick_interval_;
+    const double desired_delta = std::max(speed_delta, distance_delta);
+    const int round_delta = static_cast<int>(std::round(desired_delta));
+
+    deviation_ = desired_delta - round_delta;
+    speed_ = desired_delta * inv_tick_interval_;
+    total_delta_ = round_delta;
+
+    if (round_delta <= 0)
+    {
+      return std::nullopt;
+    }
+
+    return makeWheelEvent(time, round_delta);
+  }
+
+  const double distance_delta = std::min(distance_speed * tick_interval_, distance_remaining_);
+  const double desired_delta = std::max(speed_delta, distance_delta);
+  int round_delta = static_cast<int>(std::round(desired_delta));
+
+  if (distance_delta >= speed_delta)
+  {
+    const int remaining_delta = std::max(0, static_cast<int>(std::round(distance_remaining_)));
+    round_delta = std::clamp(round_delta, 0, remaining_delta);
+  }
+
+  deviation_ = desired_delta - round_delta;
+  distance_remaining_ = std::max(0.0, distance_remaining_ - desired_delta);
+
+  speed_ = scrollActive() ? desired_delta * inv_tick_interval_ : 0.0;
+  total_delta_ = round_delta;
+
+  if (round_delta <= 0)
+  {
+    return std::nullopt;
+  }
+
+  return makeWheelEvent(time, round_delta);
+}
+
 std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struct timeval& time, bool positive,
                                                                      bool horizontal,
                                                                      std::chrono::microseconds event_time)
@@ -350,6 +601,11 @@ std::optional<struct input_event> WheelSmoother::tick() noexcept
   if (options_.smooth_mode == SmoothMode::Distance)
   {
     return tickDistance();
+  }
+
+  if (options_.smooth_mode == SmoothMode::Hybrid)
+  {
+    return tickHybrid();
   }
 
   return tickSpeed();
@@ -477,6 +733,129 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
   ev.value = positive_ ? round_delta : -round_delta;
 
   total_delta_ += round_delta;
+
+  return ev;
+}
+
+std::optional<struct input_event> WheelSmoother::tickHybrid() noexcept
+{
+  if (!scrollActive())
+  {
+    return std::nullopt;
+  }
+
+  if (free_spin_)
+  {
+    const double speed_delta = delta_;
+    const double distance_delta =
+        distance_remaining_ > 0 ? speedForDistance(distance_remaining_) * tick_interval_ : 0.0;
+    const double desired_delta = std::max(speed_delta, distance_delta);
+    if (desired_delta <= 0)
+    {
+      speed_ = 0;
+      return std::nullopt;
+    }
+
+    const std::chrono::microseconds current_tick_time = next_tick_time_;
+    next_tick_time_ += std::chrono::microseconds{ options_.tick_interval_microseconds };
+
+    const int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
+    deviation_ += desired_delta - round_delta;
+    speed_ = desired_delta * inv_tick_interval_;
+
+    if (round_delta <= 0)
+    {
+      return std::nullopt;
+    }
+
+    total_delta_ += round_delta;
+
+    struct input_event ev;
+    ev.time.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(current_tick_time).count();
+    ev.time.tv_usec = (current_tick_time - std::chrono::seconds{ ev.time.tv_sec }).count();
+    ev.type = EV_REL;
+    ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
+    ev.value = positive_ ? round_delta : -round_delta;
+    return ev;
+  }
+
+  double speed_delta = 0;
+  if (delta_ != 0)
+  {
+    const double max_delta = delta_ - min_delta_decrease_per_tick_;
+    const double min_delta = delta_ - max_delta_decrease_per_tick_;
+
+    delta_ *= alpha_;
+
+    if (delta_ > max_delta)
+    {
+      delta_ = max_delta;
+    }
+
+    if (delta_ < min_delta)
+    {
+      delta_ = min_delta;
+    }
+
+    if (delta_ < 0)
+    {
+      delta_ = 0;
+    }
+
+    speed_delta = delta_;
+  }
+
+  double distance_delta = 0;
+  if (distance_remaining_ > 0)
+  {
+    distance_delta = std::min(speedForDistance(distance_remaining_) * tick_interval_, distance_remaining_);
+  }
+
+  const double desired_delta = std::max(speed_delta, distance_delta);
+  if (desired_delta <= 0)
+  {
+    SPDLOG_DEBUG("hybrid damping stop, total {}", total_delta_);
+    speed_ = 0;
+    return std::nullopt;
+  }
+
+  const std::chrono::microseconds current_tick_time = next_tick_time_;
+  next_tick_time_ += std::chrono::microseconds{ options_.tick_interval_microseconds };
+
+  int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
+  if (distance_delta >= speed_delta)
+  {
+    const int remaining_delta = std::max(0, static_cast<int>(std::round(distance_remaining_ + deviation_)));
+    round_delta = std::clamp(round_delta, 0, remaining_delta);
+  }
+
+  deviation_ += desired_delta - round_delta;
+  distance_remaining_ = std::max(0.0, distance_remaining_ - desired_delta);
+
+  const bool stopped = !scrollActive();
+  speed_ = stopped ? 0.0 : desired_delta * inv_tick_interval_;
+
+  if (round_delta <= 0)
+  {
+    if (stopped)
+    {
+      SPDLOG_DEBUG("hybrid damping stop, total {}", total_delta_);
+    }
+    return std::nullopt;
+  }
+
+  total_delta_ += round_delta;
+  if (stopped)
+  {
+    SPDLOG_DEBUG("hybrid damping stop, total {}", total_delta_);
+  }
+
+  struct input_event ev;
+  ev.time.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(current_tick_time).count();
+  ev.time.tv_usec = (current_tick_time - std::chrono::seconds{ ev.time.tv_sec }).count();
+  ev.type = EV_REL;
+  ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
+  ev.value = positive_ ? round_delta : -round_delta;
 
   return ev;
 }

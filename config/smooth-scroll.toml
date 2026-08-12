@@ -1,7 +1,7 @@
 # Smooth Scroll for Linux - Configuration File
 # https://github.com/Wayne6530/smooth-scroll-linux
 
-# @config_version: 4
+# @config_version: 5
 
 ## Reference: Button Codes
 # DISABLED    0
@@ -84,22 +84,22 @@ drag_view_button = 274
 
 # @label-en: Smooth Mode
 # @label-zh: 平滑模式
-# @desc-en: Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event.
-# @desc-zh: 选择平滑模型。速度模式会根据滚轮速度改变行程；距离模式会为每次有效滚轮事件保留 wheel_tick_distance 指定的距离。
+# @desc-en: Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event. Hybrid mode follows Speed mode while using Distance mode as a minimum travel distance.
+# @desc-zh: 选择平滑模型。速度模式会根据滚轮速度改变行程；距离模式会为每次有效滚轮事件保留 wheel_tick_distance 指定的距离；混合模式跟随速度模式，并用距离模式提供最小行程兜底。
 # @type: int
 # @min: 0
-# @max: 1
+# @max: 2
 # @step: 1
 # @group: scroll
-# @enum: 0|1
-# @enum-labels-en: 0=Speed mode|1=Distance mode
-# @enum-labels-zh: 0=速度模式|1=距离模式
+# @enum: 0|1|2
+# @enum-labels-en: 0=Speed mode|1=Distance mode|2=Hybrid mode
+# @enum-labels-zh: 0=速度模式|1=距离模式|2=混合模式
 smooth_mode = 0
 
 # @label-en: Wheel Tick Distance
 # @label-zh: 单次滚轮距离
-# @desc-en: Distance budget added by each accepted wheel event in Distance mode. Native high-resolution wheel distance is usually 120.
-# @desc-zh: 距离模式下每次有效滚轮事件增加的距离预算。原生高分辨率滚轮距离通常为 120。
+# @desc-en: Distance budget added by each accepted wheel event in Distance and Hybrid modes. In Hybrid mode, it is the minimum distance per event. Native high-resolution wheel distance is usually 120.
+# @desc-zh: 距离和混合模式下每次有效滚轮事件增加的距离预算。在混合模式中，它是每次事件的最小距离。原生高分辨率滚轮距离通常为 120。
 # @type: int
 # @min: 40
 # @max: 240
@@ -199,8 +199,8 @@ max_reverse_scroll_braking_times = 3
 
 # @label-en: Reverse Scroll Intent Window
 # @label-zh: 反向滚动意图窗口
-# @desc-en: Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. After it expires, the current event starts a new scroll without reusing absorbed speed or distance input.
-# @desc-zh: 从首次反向制动事件开始计算的意图窗口（微秒）。超过窗口后，当前事件将开始一次新的滚动，不再复用制动期间吸收的速度或距离输入。
+# @desc-en: Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. It controls both reverse speed estimation and restored distance; after it expires, the current event starts a new scroll.
+# @desc-zh: 从首次反向制动事件开始计算的意图窗口（微秒）。它同时控制反向初速度估计与距离恢复；超过窗口后，当前事件将开始一次新的滚动。
 # @type: int
 # @min: 0
 # @max: 500000

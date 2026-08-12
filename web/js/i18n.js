@@ -50,6 +50,7 @@ const I18n = (() => {
       'chart.legend.default': { en: 'Default', zh: '默认' },
       'chart.legend.default-speed': { en: 'Default speed', zh: '默认速度模式' },
       'chart.legend.default-distance': { en: 'Default distance', zh: '默认距离模式' },
+      'chart.legend.default-hybrid': { en: 'Default hybrid', zh: '默认混合模式' },
       'chart.legend.current': { en: 'Current', zh: '当前' },
       'unit.ms': { en: 'ms', zh: 'ms' },
       'validation.native-distance': { en: 'Single-tick distance differs from the native 120-unit wheel tick.', zh: '单次滚动距离不等于原生 120 单位滚轮距离。' },

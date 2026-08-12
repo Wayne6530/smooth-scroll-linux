@@ -16,6 +16,10 @@ const Scenarios = {
         en: 'Adjust "Min Deceleration", "Max Deceleration", and "Damping" to change distance-mode duration.',
         zh: '调节“最小减速度”、“最大减速度”和“滚动阻尼”可改变距离模式的持续时间。',
       },
+      hybrid: {
+        en: 'Hybrid mode follows the faster speed curve while keeping "Wheel Tick Distance" as the single-tick minimum.',
+        zh: '混合模式跟随更快的速度曲线，同时以“单次滚轮距离”作为单次滚动下限。',
+      },
     },
   },
   slow: {
@@ -30,6 +34,10 @@ const Scenarios = {
         en: 'Try adjusting "Min Deceleration", "Max Deceleration", and "Damping".',
         zh: '建议调节“最小减速度”、“最大减速度”和“滚动阻尼”。',
       },
+      hybrid: {
+        en: 'Adjust "Initial Speed" and "Wheel Tick Distance" to balance speed response and the distance floor.',
+        zh: '调节“初始速度”和“单次滚轮距离”，平衡速度响应与距离下限。',
+      },
     },
   },
   fast: {
@@ -43,6 +51,10 @@ const Scenarios = {
       distance: {
         en: 'Try adjusting "Damping" and "Max Deceleration".',
         zh: '建议调节“滚动阻尼”和“最大减速度”。',
+      },
+      hybrid: {
+        en: 'Fast bursts usually follow Speed mode; adjust "Speed Factor" and "Max Deceleration" to tune them.',
+        zh: '快速连滚通常跟随速度模式；可调节“速度因子”和“最大减速度”。',
       },
     },
   },
@@ -63,6 +75,10 @@ const Scenarios = {
       distance: {
         en: 'Try adjusting "Damping", "Min Deceleration", and "Max Deceleration".',
         zh: '建议调节“滚动阻尼”、“最小减速度”和“最大减速度”。',
+      },
+      hybrid: {
+        en: 'Tune the speed-change controls for bursts and "Wheel Tick Distance" for the cumulative minimum.',
+        zh: '用速度变化参数调节连滚响应，用“单次滚轮距离”设置累计距离下限。',
       },
     },
   },

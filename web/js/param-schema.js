@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 4;
+  const CONFIG_VERSION = 5;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -213,19 +213,19 @@ const ParamSchema = (() => {
       defaultValue: 0,
       'label-en': 'Smooth Mode',
       'label-zh': '平滑模式',
-      'desc-en': 'Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event.',
-      'desc-zh': '选择平滑模型。速度模式会根据滚轮速度改变行程；距离模式会为每次有效滚轮事件保留 wheel_tick_distance 指定的距离。',
+      'desc-en': 'Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event. Hybrid mode follows Speed mode while using Distance mode as a minimum travel distance.',
+      'desc-zh': '选择平滑模型。速度模式会根据滚轮速度改变行程；距离模式会为每次有效滚轮事件保留 wheel_tick_distance 指定的距离；混合模式跟随速度模式，并用距离模式提供最小行程兜底。',
       type: 'int',
       min: 0,
-      max: 1,
+      max: 2,
       step: 1,
       group: 'scroll',
-      enum: [0, 1],
-      'enum-labels-en': '0=Speed mode|1=Distance mode',
-      'enum-labels-zh': '0=速度模式|1=距离模式',
+      enum: [0, 1, 2],
+      'enum-labels-en': '0=Speed mode|1=Distance mode|2=Hybrid mode',
+      'enum-labels-zh': '0=速度模式|1=距离模式|2=混合模式',
       enumLabels: {
-        en: { 0: 'Speed mode', 1: 'Distance mode' },
-        zh: { 0: '速度模式', 1: '距离模式' },
+        en: { 0: 'Speed mode', 1: 'Distance mode', 2: 'Hybrid mode' },
+        zh: { 0: '速度模式', 1: '距离模式', 2: '混合模式' },
       },
     },
     {
@@ -234,14 +234,14 @@ const ParamSchema = (() => {
       defaultValue: 120,
       'label-en': 'Wheel Tick Distance',
       'label-zh': '单次滚轮距离',
-      'desc-en': 'Distance budget added by each accepted wheel event in Distance mode. Native high-resolution wheel distance is usually 120.',
-      'desc-zh': '距离模式下每次有效滚轮事件增加的距离预算。原生高分辨率滚轮距离通常为 120。',
+      'desc-en': 'Distance budget added by each accepted wheel event in Distance and Hybrid modes. In Hybrid mode, it is the minimum distance per event. Native high-resolution wheel distance is usually 120.',
+      'desc-zh': '距离和混合模式下每次有效滚轮事件增加的距离预算。在混合模式中，它是每次事件的最小距离。原生高分辨率滚轮距离通常为 120。',
       type: 'int',
       min: 40,
       max: 240,
       step: 1,
       group: 'scroll',
-      modes: ['distance'],
+      modes: ['distance', 'hybrid'],
     },
     {
       key: 'damping',
@@ -298,7 +298,7 @@ const ParamSchema = (() => {
       max: 1200,
       step: 10,
       group: 'scroll',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     {
       key: 'speed_factor',
@@ -313,7 +313,7 @@ const ParamSchema = (() => {
       max: 120,
       step: 1,
       group: 'scroll',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     // --- Braking ---
     {
@@ -364,8 +364,8 @@ const ParamSchema = (() => {
       defaultValue: 200000,
       'label-en': 'Reverse Scroll Intent Window',
       'label-zh': '反向滚动意图窗口',
-      'desc-en': 'Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. After it expires, the current event starts a new scroll without reusing absorbed speed or distance input.',
-      'desc-zh': '从首次反向制动事件开始计算的意图窗口（微秒）。超过窗口后，当前事件将开始一次新的滚动，不再复用制动期间吸收的速度或距离输入。',
+      'desc-en': 'Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. It controls both reverse speed estimation and restored distance; after it expires, the current event starts a new scroll.',
+      'desc-zh': '从首次反向制动事件开始计算的意图窗口（微秒）。它同时控制反向初速度估计与距离恢复；超过窗口后，当前事件将开始一次新的滚动。',
       type: 'int',
       min: 0,
       max: 500000,
@@ -564,7 +564,7 @@ const ParamSchema = (() => {
       step: 10000,
       group: 'advanced',
       unit: 'us',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     {
       key: 'max_speed_change_lowerbound',
@@ -579,7 +579,7 @@ const ParamSchema = (() => {
       max: 5000,
       step: 10,
       group: 'advanced',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     {
       key: 'min_speed_change_upperbound',
@@ -594,7 +594,7 @@ const ParamSchema = (() => {
       max: 5000,
       step: 10,
       group: 'advanced',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     {
       key: 'min_speed_change_ratio',
@@ -609,7 +609,7 @@ const ParamSchema = (() => {
       max: 0.25,
       step: 0.01,
       group: 'advanced',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
     {
       key: 'max_speed_change_ratio',
@@ -624,7 +624,7 @@ const ParamSchema = (() => {
       max: 1,
       step: 0.01,
       group: 'advanced',
-      modes: ['speed'],
+      modes: ['speed', 'hybrid'],
     },
   ];
 

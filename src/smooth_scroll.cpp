@@ -514,16 +514,19 @@ int main(int argc, char* argv[])
       options.smooth_mode = WheelSmoother::SmoothMode::Distance;
       SPDLOG_INFO("Config loaded: smooth_mode = {}", *opt);
     }
+    else if (*opt == static_cast<int>(WheelSmoother::SmoothMode::Hybrid))
+    {
+      options.smooth_mode = WheelSmoother::SmoothMode::Hybrid;
+      SPDLOG_INFO("Config loaded: smooth_mode = {}", *opt);
+    }
     else
     {
-      SPDLOG_WARN("Config 'smooth_mode' invalid, using default: {}",
-                  static_cast<int>(options.smooth_mode));
+      SPDLOG_WARN("Config 'smooth_mode' invalid, using default: {}", static_cast<int>(options.smooth_mode));
     }
   }
   else
   {
-    SPDLOG_WARN("Config 'smooth_mode' not found or invalid, using default: {}",
-                static_cast<int>(options.smooth_mode));
+    SPDLOG_WARN("Config 'smooth_mode' not found or invalid, using default: {}", static_cast<int>(options.smooth_mode));
   }
   read_option("wheel_tick_distance", options.wheel_tick_distance);
   read_option("tick_interval_microseconds", options.tick_interval_microseconds);

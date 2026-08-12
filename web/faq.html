@@ -15,8 +15,8 @@
     <div class="doc-shell">
       <section class="faq-list">
         <article class="qa-item">
-          <h2 class="qa-question lang-block lang-en">Should I use Speed mode or Distance mode?</h2>
-          <h2 class="qa-question lang-block lang-zh">应该选择速度模式还是距离模式？</h2>
+          <h2 class="qa-question lang-block lang-en">Should I use Speed, Distance, or Hybrid mode?</h2>
+          <h2 class="qa-question lang-block lang-zh">应该选择速度、距离还是混合模式？</h2>
           <div class="qa-answer">
             <p class="lang-block lang-en">Use <strong>Speed mode</strong> if you want faster, more flexible scrolling after a short adjustment period. It estimates scroll speed from wheel event timing, so a quick flick can replace many small wheel steps. This is useful for long pages, code, and document lists.</p>
             <p class="lang-block lang-zh">如果你愿意适应一种更灵活、更省力的滚动方式，建议使用<strong>速度模式</strong>。它会根据滚轮事件的时间间隔估算速度，快速拨动滚轮时会明显加速，一次快速滚动可以替代过去很多次连续滚动。它适合长页面、代码和文档列表。</p>
@@ -24,6 +24,8 @@
             <p class="lang-block lang-zh">部分鼠标或接收器的滚轮事件时间不够稳定，速度模式可能会误判为快速滚动，出现突然加速。如果遇到这种情况，通常更适合改用距离模式。</p>
             <p class="lang-block lang-en">Use <strong>Distance mode</strong> if you want predictable scrolling closer to a traditional mouse wheel. Each wheel event contributes a fixed distance, and the smoother only changes how that distance is released over time.</p>
             <p class="lang-block lang-zh">如果你希望滚动距离稳定、可预测，更接近传统鼠标滚轮，建议使用<strong>距离模式</strong>。每次滚轮事件都会贡献固定距离，平滑器只改变这段距离释放出来的节奏。</p>
+            <p class="lang-block lang-en">Use <strong>Hybrid mode</strong> if you want Speed mode's acceleration without short scrolls falling below a predictable minimum. It follows the speed-based output and uses Wheel Tick Distance as the per-event distance floor.</p>
+            <p class="lang-block lang-zh">如果你希望保留速度模式的加速效果，同时避免短滚动距离过小，建议使用<strong>混合模式</strong>。它跟随速度模式的输出，并以“单次滚轮距离”作为每次事件的距离下限。</p>
           </div>
         </article>
 
