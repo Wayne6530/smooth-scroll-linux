@@ -59,7 +59,7 @@ void WheelSmoother::stop() noexcept
 
 bool WheelSmoother::handleFreeSpinButton(int value) noexcept
 {
-  if (delta_ != 0 && value == 1)
+  if (scrollActive() && value == 1)
   {
     free_spin_ = true;
     return true;
@@ -80,11 +80,10 @@ bool WheelSmoother::handleFreeSpinButton(int value) noexcept
 WheelSmoother::DragViewButtonResult WheelSmoother::handleDragViewButton(const struct timeval& time, int value) noexcept
 {
   if (!drag_view_ && value == 1 &&
-      (delta_ != 0 || options_.drag_view_activation_mode == DragViewActivationMode::Always))
+      (scrollActive() || options_.drag_view_activation_mode == DragViewActivationMode::Always))
   {
     drag_view_ = true;
-    drag_view_press_time_ =
-        std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
+    drag_view_press_time_ = std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
     stopScroll();
     return DragViewButtonResult::Handled;
   }
@@ -130,6 +129,16 @@ std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeva
   return handleSpeedEvent(time, positive, horizontal, event_time);
 }
 
+struct input_event WheelSmoother::makeWheelEvent(const struct timeval& time, int round_delta) const noexcept
+{
+  struct input_event ev;
+  ev.time = time;
+  ev.type = EV_REL;
+  ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
+  ev.value = positive_ ? round_delta : -round_delta;
+  return ev;
+}
+
 std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct timeval& time, bool positive,
                                                                   bool horizontal, std::chrono::microseconds event_time)
 {
@@ -138,254 +147,202 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
     stopScroll();
     braking_times_ = 0;
   }
-
-  if (options_.use_reverse_scroll_braking)
+  else if (options_.use_reverse_scroll_braking)
   {
     if (positive == positive_)
     {
       braking_times_ = 0;
     }
-    else
+    else if (scrollActive())
     {
-      if (delta_ != 0)
+      SPDLOG_DEBUG("speed reverse scroll stop");
+      event_intervals_.clear();
+      last_event_time_ = event_time;
+      last_brake_stop_time_ = event_time;
+      stopScroll();
+      braking_times_ = 1;
+      return std::nullopt;
+    }
+    else if (braking_times_)
+    {
+      if (event_time <
+              last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
+          braking_times_ < options_.max_reverse_scroll_braking_times)
       {
-        SPDLOG_DEBUG("reverse scroll stop");
-        event_intervals_.clear();
+        SPDLOG_DEBUG("speed braking dejitter");
+        event_intervals_.push_back(event_time - last_event_time_);
         last_event_time_ = event_time;
-        last_brake_stop_time_ = event_time;
-        stopScroll();
-        braking_times_ = 1;
-
+        ++braking_times_;
         return std::nullopt;
       }
 
-      // delta_ == 0
-      if (braking_times_)
+      double start_delta = initial_delta_;
+      if (event_time <=
+          last_brake_stop_time_ + std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds })
       {
-        if (event_time <
-                last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
-            braking_times_ < options_.max_reverse_scroll_braking_times)
-        {
-          SPDLOG_DEBUG("braking dejitter");
-          event_intervals_.push_back(event_time - last_event_time_);
-          last_event_time_ = event_time;
-          ++braking_times_;
-          return std::nullopt;
-        }
-
-        const bool continuous_reverse_scroll =
-            event_time <= last_brake_stop_time_ +
-                              std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds };
-
-        double delta = initial_delta_;
-        if (continuous_reverse_scroll)
-        {
-          const double speed = smoothSpeed(event_time - last_event_time_);
-          delta = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
-        }
-        else
-        {
-          event_intervals_.clear();
-        }
-
-        last_event_time_ = event_time;
-        next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
-
-        positive_ = positive;
-
-        delta_ = delta;
-        speed_ = delta_ * inv_tick_interval_;
-        braking_times_ = 0;
-
-        SPDLOG_DEBUG("initial speed {:.2f}", speed_);
-
-        int round_delta = std::round(delta_);
-        deviation_ = delta_ - round_delta;
-
-        total_delta_ = round_delta;
-
-        struct input_event ev;
-        ev.time = time;
-        ev.type = EV_REL;
-        ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
-        ev.value = positive_ ? round_delta : -round_delta;
-
-        return ev;
+        const double speed = smoothSpeed(event_time - last_event_time_);
+        start_delta = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
       }
+      else
+      {
+        event_intervals_.clear();
+      }
+
+      braking_times_ = 0;
+
+      delta_ = start_delta;
+      last_event_time_ = event_time;
+      next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+      positive_ = positive;
+      horizontal_ = horizontal;
+      speed_ = delta_ * inv_tick_interval_;
+
+      SPDLOG_DEBUG("initial speed {:.2f}", speed_);
+
+      const int round_delta = static_cast<int>(std::round(delta_));
+      deviation_ = delta_ - round_delta;
+      total_delta_ = round_delta;
+      return makeWheelEvent(time, round_delta);
     }
   }
-  else if (delta_ != 0 && positive != positive_)
+  else if (scrollActive() && positive != positive_)
   {
     stopScroll();
     braking_times_ = 0;
   }
 
-  if (delta_ == 0)
+  if (delta_ != 0)
   {
-    event_intervals_.clear();
-    last_event_time_ = event_time;
-    next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+    const double speed = smoothSpeed(event_time - last_event_time_);
+    const double min_delta_change = std::min(delta_ * options_.min_speed_change_ratio, max_delta_change_lowerbound_);
+    const double max_delta_change = std::max(delta_ * options_.max_speed_change_ratio, min_delta_change_upperbound_);
+    const double delta = std::clamp(speed * tick_interval_, delta_ + min_delta_change, delta_ + max_delta_change);
 
-    positive_ = positive;
-    horizontal_ = horizontal;
-    delta_ = initial_delta_;
+    last_event_time_ = event_time;
+    delta_ = delta < initial_delta_ ? initial_delta_ : delta;
     speed_ = delta_ * inv_tick_interval_;
 
-    SPDLOG_DEBUG("initial speed {:.2f}", speed_);
-
-    int round_delta = std::round(delta_);
-    deviation_ = delta_ - round_delta;
-
-    total_delta_ = round_delta;
-
-    struct input_event ev;
-    ev.time = time;
-    ev.type = EV_REL;
-    ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
-    ev.value = positive_ ? round_delta : -round_delta;
-
-    return ev;
+    SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", speed_, speed);
+    return std::nullopt;
   }
 
-  const double speed = smoothSpeed(event_time - last_event_time_);
-  const double min_delta_change = std::min(delta_ * options_.min_speed_change_ratio, max_delta_change_lowerbound_);
-  const double max_delta_change = std::max(delta_ * options_.max_speed_change_ratio, min_delta_change_upperbound_);
-
-  double delta = std::clamp(speed * tick_interval_, delta_ + min_delta_change, delta_ + max_delta_change);
-
+  event_intervals_.clear();
+  delta_ = initial_delta_;
   last_event_time_ = event_time;
-  delta_ = delta < initial_delta_ ? initial_delta_ : delta;
+  next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+  positive_ = positive;
+  horizontal_ = horizontal;
   speed_ = delta_ * inv_tick_interval_;
 
-  SPDLOG_DEBUG("set speed: actual {:.2f} target {:.2f}", speed_, speed);
+  SPDLOG_DEBUG("initial speed {:.2f}", speed_);
 
-  return std::nullopt;
+  const int round_delta = static_cast<int>(std::round(delta_));
+  deviation_ = delta_ - round_delta;
+  total_delta_ = round_delta;
+  return makeWheelEvent(time, round_delta);
 }
 
 std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struct timeval& time, bool positive,
                                                                      bool horizontal,
                                                                      std::chrono::microseconds event_time)
 {
+  int distance_ticks = 1;
+
   if (horizontal_ != horizontal)
   {
     stopScroll();
     braking_times_ = 0;
   }
-
-  auto start_distance_scroll = [&](int distance_ticks) -> std::optional<struct input_event> {
-    last_event_time_ = event_time;
-    next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
-
-    positive_ = positive;
-    horizontal_ = horizontal;
-    deviation_ = 0;
-    total_delta_ = 0;
-
-    const int initial_distance = options_.wheel_tick_distance * distance_ticks;
-    delta_ = initial_distance;
-    speed_ = speedForDistance(delta_);
-
-    SPDLOG_DEBUG("distance mode target speed {:.2f}, remaining {:.2f}", speed_, delta_);
-
-    double desired_delta = speed_ * tick_interval_;
-    if (free_spin_)
+  else if (options_.use_reverse_scroll_braking)
+  {
+    if (positive == positive_)
     {
-      int round_delta = static_cast<int>(std::round(desired_delta));
-      if (round_delta <= 0)
+      braking_times_ = 0;
+    }
+    else if (scrollActive())
+    {
+      SPDLOG_DEBUG("distance reverse scroll stop");
+      event_intervals_.clear();
+      last_event_time_ = event_time;
+      last_brake_stop_time_ = event_time;
+      stopScroll();
+      braking_times_ = 1;
+      return std::nullopt;
+    }
+    else if (braking_times_)
+    {
+      if (event_time <
+              last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
+          braking_times_ < options_.max_reverse_scroll_braking_times)
       {
+        SPDLOG_DEBUG("distance braking dejitter");
+        last_event_time_ = event_time;
+        ++braking_times_;
         return std::nullopt;
       }
 
-      total_delta_ = round_delta;
-
-      struct input_event ev;
-      ev.time = time;
-      ev.type = EV_REL;
-      ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
-      ev.value = positive_ ? round_delta : -round_delta;
-
-      return ev;
+      if (event_time <=
+          last_brake_stop_time_ + std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds })
+      {
+        distance_ticks = braking_times_ + 1;
+      }
+      braking_times_ = 0;
     }
+  }
+  else if (scrollActive() && positive != positive_)
+  {
+    stopScroll();
+    braking_times_ = 0;
+  }
 
-    desired_delta = std::min(desired_delta, delta_);
-    int round_delta = std::min(static_cast<int>(std::round(desired_delta)), initial_distance);
+  if (scrollActive())
+  {
+    distance_remaining_ += options_.wheel_tick_distance;
+    speed_ = speedForDistance(distance_remaining_);
+    SPDLOG_DEBUG("distance mode target speed {:.2f}, remaining {:.2f}", speed_, distance_remaining_);
+    last_event_time_ = event_time;
+    return std::nullopt;
+  }
 
-    deviation_ = desired_delta - round_delta;
-    delta_ -= desired_delta;
+  last_event_time_ = event_time;
+  next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+  positive_ = positive;
+  horizontal_ = horizontal;
+  deviation_ = 0;
+  total_delta_ = 0;
 
+  const int initial_distance = options_.wheel_tick_distance * distance_ticks;
+  distance_remaining_ = initial_distance;
+  speed_ = speedForDistance(distance_remaining_);
+  SPDLOG_DEBUG("distance mode target speed {:.2f}, remaining {:.2f}", speed_, distance_remaining_);
+
+  double desired_delta = speed_ * tick_interval_;
+  if (free_spin_)
+  {
+    const int round_delta = static_cast<int>(std::round(desired_delta));
     if (round_delta <= 0)
     {
       return std::nullopt;
     }
 
     total_delta_ = round_delta;
-
-    struct input_event ev;
-    ev.time = time;
-    ev.type = EV_REL;
-    ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
-    ev.value = positive_ ? round_delta : -round_delta;
-
-    return ev;
-  };
-
-  if (options_.use_reverse_scroll_braking)
-  {
-    if (positive == positive_)
-    {
-      braking_times_ = 0;
-    }
-    else
-    {
-      if (delta_ != 0)
-      {
-        SPDLOG_DEBUG("distance reverse scroll stop");
-        last_event_time_ = event_time;
-        last_brake_stop_time_ = event_time;
-        stopScroll();
-        braking_times_ = 1;
-
-        return std::nullopt;
-      }
-
-      if (braking_times_)
-      {
-        if (event_time <
-                last_brake_stop_time_ + std::chrono::microseconds{ options_.max_reverse_scroll_braking_microseconds } &&
-            braking_times_ < options_.max_reverse_scroll_braking_times)
-        {
-          SPDLOG_DEBUG("distance braking dejitter");
-          last_event_time_ = event_time;
-          ++braking_times_;
-          return std::nullopt;
-        }
-
-        const bool continuous_reverse_scroll =
-            event_time <= last_brake_stop_time_ +
-                              std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds };
-        const int distance_ticks = continuous_reverse_scroll ? braking_times_ + 1 : 1;
-        braking_times_ = 0;
-        return start_distance_scroll(distance_ticks);
-      }
-    }
-  }
-  else if (delta_ != 0 && positive != positive_)
-  {
-    stopScroll();
+    return makeWheelEvent(time, round_delta);
   }
 
-  if (delta_ == 0)
+  desired_delta = std::min(desired_delta, distance_remaining_);
+  const int round_delta = std::min(static_cast<int>(std::round(desired_delta)), initial_distance);
+
+  deviation_ = desired_delta - round_delta;
+  distance_remaining_ -= desired_delta;
+  speed_ = scrollActive() ? speed_ : 0.0;
+
+  if (round_delta <= 0)
   {
-    return start_distance_scroll(1);
+    return std::nullopt;
   }
 
-  delta_ += options_.wheel_tick_distance;
-  speed_ = speedForDistance(delta_);
-
-  SPDLOG_DEBUG("distance mode target speed {:.2f}, remaining {:.2f}", speed_, delta_);
-
-  last_event_time_ = event_time;
-  return std::nullopt;
+  total_delta_ = round_delta;
+  return makeWheelEvent(time, round_delta);
 }
 
 std::optional<struct input_event> WheelSmoother::tick() noexcept
@@ -460,7 +417,7 @@ std::optional<struct input_event> WheelSmoother::tickSpeed() noexcept
 
 std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
 {
-  if (delta_ == 0)
+  if (!scrollActive())
   {
     stopScroll();
     return std::nullopt;
@@ -469,7 +426,7 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
   std::chrono::microseconds current_tick_time = next_tick_time_;
   next_tick_time_ += std::chrono::microseconds{ options_.tick_interval_microseconds };
 
-  speed_ = speedForDistance(delta_);
+  speed_ = speedForDistance(distance_remaining_);
   double desired_delta = speed_ * tick_interval_;
   if (free_spin_)
   {
@@ -490,22 +447,21 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
     return ev;
   }
 
-  desired_delta = std::min(desired_delta, delta_);
+  desired_delta = std::min(desired_delta, distance_remaining_);
 
-  const int remaining_delta = static_cast<int>(std::round(delta_ + deviation_));
+  const int remaining_delta = static_cast<int>(std::round(distance_remaining_ + deviation_));
   int round_delta = std::clamp(static_cast<int>(std::round(desired_delta + deviation_)), 0, remaining_delta);
 
   deviation_ += desired_delta - round_delta;
-  delta_ -= desired_delta;
-
-  if (delta_ <= 0)
+  distance_remaining_ -= desired_delta;
+  if (!scrollActive())
   {
     speed_ = 0;
   }
 
   if (round_delta <= 0)
   {
-    if (delta_ <= 0)
+    if (distance_remaining_ <= 0)
     {
       SPDLOG_DEBUG("distance damping stop, total {}", total_delta_);
       stopScroll();
@@ -527,7 +483,7 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
 
 std::optional<struct timeval> WheelSmoother::timeout() const noexcept
 {
-  if (delta_ == 0)
+  if (!scrollActive())
   {
     return std::nullopt;
   }
@@ -558,7 +514,7 @@ std::optional<struct timeval> WheelSmoother::timeout() const noexcept
 
 std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time() const noexcept
 {
-  if (delta_ == 0)
+  if (!scrollActive())
   {
     return std::nullopt;
   }
@@ -597,7 +553,7 @@ bool WheelSmoother::handleReportEvent(const struct timeval& time) noexcept
     return false;
   }
 
-  if (delta_ != 0 && options_.use_mouse_movement_braking && !free_spin_)
+  if (scrollActive() && options_.use_mouse_movement_braking && !free_spin_)
   {
     std::chrono::microseconds event_time =
         std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
@@ -628,7 +584,13 @@ bool WheelSmoother::handleReportEvent(const struct timeval& time) noexcept
 void WheelSmoother::stopScroll() noexcept
 {
   delta_ = 0;
+  distance_remaining_ = 0;
   speed_ = 0;
+}
+
+bool WheelSmoother::scrollActive() const noexcept
+{
+  return delta_ != 0 || distance_remaining_ > 0;
 }
 
 double WheelSmoother::speedForDistance(double distance) const noexcept

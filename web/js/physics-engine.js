@@ -56,6 +56,7 @@ const PhysicsEngine = (() => {
       this.positive_ = false;
       this.horizontal_ = false;
       this.delta_ = 0;
+      this.distanceRemaining_ = 0;
       this.speed_ = 0;
       this.deviation_ = 0;
       this.totalDelta_ = 0;
@@ -69,12 +70,17 @@ const PhysicsEngine = (() => {
 
     stopScroll() {
       this.delta_ = 0;
+      this.distanceRemaining_ = 0;
       this.speed_ = 0;
+    }
+
+    scrollActive() {
+      return this.delta_ !== 0 || this.distanceRemaining_ > 0;
     }
 
     // handleFreeSpinButton (wheel_smoother.cpp:50-68)
     handleFreeSpinButton(value) {
-      if (this.delta_ !== 0 && value === 1) {
+      if (this.scrollActive() && value === 1) {
         this.freeSpin_ = true;
         return true;
       }
@@ -90,7 +96,7 @@ const PhysicsEngine = (() => {
     // handleDragViewButton (wheel_smoother.cpp:70-90)
     handleDragViewButton(eventTimeUs, value) {
       if (!this.dragView_ && value === 1 &&
-          (this.delta_ !== 0 || Number(this.options.drag_view_activation_mode ?? 0) === DRAG_VIEW_ACTIVATION_ALWAYS)) {
+          (this.scrollActive() || Number(this.options.drag_view_activation_mode ?? 0) === DRAG_VIEW_ACTIVATION_ALWAYS)) {
         this.dragView_ = true;
         this.dragViewPressTime = eventTimeUs;
         this.stopScroll();
@@ -149,7 +155,7 @@ const PhysicsEngine = (() => {
         if (positive === this.positive_) {
           this.brakingTimes_ = 0;
         } else {
-          if (this.delta_ !== 0) {
+          if (this.scrollActive()) {
             // Reverse scroll stop
             this.eventIntervals = [];
             this.lastEventTime = eventTimeUs;
@@ -171,10 +177,8 @@ const PhysicsEngine = (() => {
             }
 
             // Resume after braking
-            const continuousReverseScroll =
-              eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow;
             let delta = this.initialDelta;
-            if (continuousReverseScroll) {
+            if (eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow) {
               const speed = this.smoothSpeed(eventTimeUs - this.lastEventTime);
               const rawDelta = speed * this.tickInterval;
               delta = Math.max(this.initialDelta,
@@ -194,7 +198,7 @@ const PhysicsEngine = (() => {
             return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
           }
         }
-      } else if (this.delta_ !== 0 && positive !== this.positive_) {
+      } else if (this.scrollActive() && positive !== this.positive_) {
         this.stopScroll();
         this.brakingTimes_ = 0;
       }
@@ -242,8 +246,8 @@ const PhysicsEngine = (() => {
         this.totalDelta_ = 0;
 
         const initialDistance = this.wheelTickDistance * distanceTicks;
-        this.delta_ = initialDistance;
-        this.speed_ = this.speedForDistance(this.delta_);
+        this.distanceRemaining_ = initialDistance;
+        this.speed_ = this.speedForDistance(this.distanceRemaining_);
 
         let desiredDelta = this.speed_ * this.tickInterval;
         if (this.freeSpin_) {
@@ -256,11 +260,14 @@ const PhysicsEngine = (() => {
           return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
         }
 
-        desiredDelta = Math.min(desiredDelta, this.delta_);
+        desiredDelta = Math.min(desiredDelta, this.distanceRemaining_);
         const roundDelta = Math.min(Math.round(desiredDelta), initialDistance);
 
         this.deviation_ = desiredDelta - roundDelta;
-        this.delta_ -= desiredDelta;
+        this.distanceRemaining_ -= desiredDelta;
+        if (!this.scrollActive()) {
+          this.speed_ = 0;
+        }
 
         if (roundDelta <= 0) {
           return null;
@@ -274,7 +281,8 @@ const PhysicsEngine = (() => {
         if (positive === this.positive_) {
           this.brakingTimes_ = 0;
         } else {
-          if (this.delta_ !== 0) {
+          if (this.scrollActive()) {
+            this.eventIntervals = [];
             this.lastEventTime = eventTimeUs;
             this.lastBrakeStopTime = eventTimeUs;
             this.stopScroll();
@@ -290,23 +298,24 @@ const PhysicsEngine = (() => {
               return null;
             }
 
-            const continuousReverseScroll =
-              eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow;
-            const distanceTicks = continuousReverseScroll ? this.brakingTimes_ + 1 : 1;
+            let distanceTicks = 1;
+            if (eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow) {
+              distanceTicks = this.brakingTimes_ + 1;
+            }
             this.brakingTimes_ = 0;
             return startDistanceScroll(distanceTicks);
           }
         }
-      } else if (this.delta_ !== 0 && positive !== this.positive_) {
+      } else if (this.scrollActive() && positive !== this.positive_) {
         this.stopScroll();
       }
 
-      if (this.delta_ === 0) {
+      if (!this.scrollActive()) {
         return startDistanceScroll(1);
       }
 
-      this.delta_ += this.wheelTickDistance;
-      this.speed_ = this.speedForDistance(this.delta_);
+      this.distanceRemaining_ += this.wheelTickDistance;
+      this.speed_ = this.speedForDistance(this.distanceRemaining_);
 
       this.lastEventTime = eventTimeUs;
       return null;
@@ -352,14 +361,14 @@ const PhysicsEngine = (() => {
     }
 
     tickDistance() {
-      if (this.delta_ === 0) {
+      if (!this.scrollActive()) {
         this.stopScroll();
         return null;
       }
 
       this.nextTickTime += this.options.tick_interval_microseconds;
 
-      this.speed_ = this.speedForDistance(this.delta_);
+      this.speed_ = this.speedForDistance(this.distanceRemaining_);
       let desiredDelta = this.speed_ * this.tickInterval;
       if (this.freeSpin_) {
         const roundDelta = Math.round(desiredDelta);
@@ -371,23 +380,22 @@ const PhysicsEngine = (() => {
         return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
       }
 
-      desiredDelta = Math.min(desiredDelta, this.delta_);
+      desiredDelta = Math.min(desiredDelta, this.distanceRemaining_);
 
-      const remainingDelta = Math.round(this.delta_ + this.deviation_);
+      const remainingDelta = Math.round(this.distanceRemaining_ + this.deviation_);
       const roundDelta = Math.max(
         0,
         Math.min(Math.round(desiredDelta + this.deviation_), remainingDelta)
       );
 
       this.deviation_ += desiredDelta - roundDelta;
-      this.delta_ -= desiredDelta;
-
-      if (this.delta_ <= 0) {
+      this.distanceRemaining_ -= desiredDelta;
+      if (!this.scrollActive()) {
         this.speed_ = 0;
       }
 
       if (roundDelta <= 0) {
-        if (this.delta_ <= 0) {
+        if (this.distanceRemaining_ <= 0) {
           this.stopScroll();
         }
         return null;
@@ -550,7 +558,7 @@ const PhysicsEngine = (() => {
       }
 
       // Process tick if it's time
-      if (smoother.delta_ !== 0 && currentTime >= smoother.nextTickTime) {
+      if (smoother.scrollActive() && currentTime >= smoother.nextTickTime) {
         const result = smoother.tick();
         if (result) {
           timeline.push({
@@ -561,16 +569,16 @@ const PhysicsEngine = (() => {
             totalDelta: result.totalDelta,
             totalDeltaH: smoother.totalDeltaH_,
           });
-        } else if (smoother.delta_ === 0) {
+        } else if (!smoother.scrollActive()) {
           break;
         }
       }
 
       // Determine next wake-up time: min of next event time and next tick time
       const nextEventTime = eventIdx < events.length ? events[eventIdx].timeUs : Infinity;
-      const nextTickTime = smoother.delta_ !== 0 ? smoother.nextTickTime : Infinity;
+      const nextTickTime = smoother.scrollActive() ? smoother.nextTickTime : Infinity;
 
-      if (smoother.delta_ === 0 && eventIdx >= events.length) break;
+      if (!smoother.scrollActive() && eventIdx >= events.length) break;
 
       const nextTime = Math.min(nextEventTime, nextTickTime);
       if (nextTime === Infinity || nextTime <= currentTime) {
@@ -580,7 +588,7 @@ const PhysicsEngine = (() => {
       }
     }
 
-    const truncated = smoother.delta_ !== 0;
+    const truncated = smoother.scrollActive();
     return { timeline, truncated };
   }
 

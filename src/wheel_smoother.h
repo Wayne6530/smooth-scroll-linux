@@ -122,6 +122,8 @@ public:
   }
 
 private:
+  struct input_event makeWheelEvent(const struct timeval& time, int round_delta) const noexcept;
+
   std::optional<struct input_event> handleSpeedEvent(const struct timeval& time, bool positive, bool horizontal,
                                                      std::chrono::microseconds event_time);
 
@@ -133,6 +135,8 @@ private:
   std::optional<struct input_event> tickDistance() noexcept;
 
   void stopScroll() noexcept;
+
+  [[nodiscard]] bool scrollActive() const noexcept;
 
   double speedForDistance(double distance) const noexcept;
 
@@ -164,6 +168,7 @@ private:
   bool positive_ = false;
   bool horizontal_ = false;
   double delta_ = 0;
+  double distance_remaining_ = 0;
   double speed_ = 0;
   double deviation_ = 0;
   int total_delta_ = 0;
