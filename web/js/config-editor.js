@@ -474,7 +474,7 @@ const ConfigEditor = (() => {
   }
 
   function currentModeName() {
-    const mode = Number(currentValues.smooth_mode ?? 0);
+    const mode = Number(currentValues.smooth_mode ?? 2);
     if (mode === 1) return 'distance';
     if (mode === 2) return 'hybrid';
     return 'speed';

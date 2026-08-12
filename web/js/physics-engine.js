@@ -5,7 +5,6 @@
 // eslint-disable-next-line no-unused-vars
 const PhysicsEngine = (() => {
 
-  const SMOOTH_MODE_SPEED = 0;
   const SMOOTH_MODE_DISTANCE = 1;
   const SMOOTH_MODE_HYBRID = 2;
   const DRAG_VIEW_ACTIVATION_ALWAYS = 1;
@@ -13,7 +12,7 @@ const PhysicsEngine = (() => {
   class WheelSmootherJS {
     constructor(options) {
       this.options = options;
-      this.smoothMode = options.smooth_mode ?? SMOOTH_MODE_SPEED;
+      this.smoothMode = options.smooth_mode ?? SMOOTH_MODE_HYBRID;
       this.wheelTickDistance = options.wheel_tick_distance ?? 120;
       this.reverseScrollIntentWindow = options.reverse_scroll_intent_window_microseconds ?? 200000;
 

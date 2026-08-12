@@ -39,7 +39,7 @@ public:
 
   struct Options
   {
-    SmoothMode smooth_mode = SmoothMode::Speed;
+    SmoothMode smooth_mode = SmoothMode::Hybrid;
     int wheel_tick_distance = 120;
     int tick_interval_microseconds = 2000;
 

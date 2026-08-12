@@ -46,7 +46,7 @@ const Visualization = (() => {
 
   function buildOptions(values) {
     return {
-      smooth_mode: values.smooth_mode ?? 0,
+      smooth_mode: values.smooth_mode ?? 2,
       wheel_tick_distance: values.wheel_tick_distance ?? 120,
       tick_interval_microseconds: values.tick_interval_microseconds ?? 2000,
       min_deceleration: values.min_deceleration ?? 1420,
@@ -129,7 +129,7 @@ const Visualization = (() => {
 
     // Distance hint, only for single-tick scenario.
     const hintEl = document.getElementById('summary-distance-hint');
-    const smoothMode = Number(currentValues.smooth_mode ?? 0);
+    const smoothMode = Number(currentValues.smooth_mode ?? 2);
     const expectedDistance = smoothMode === 1 || smoothMode === 2
       ? (currentValues.wheel_tick_distance ?? 120)
       : 120;
@@ -169,7 +169,7 @@ const Visualization = (() => {
       return;
     }
     const lang = I18n.lang();
-    const smoothMode = Number(currentValues.smooth_mode ?? 0);
+    const smoothMode = Number(currentValues.smooth_mode ?? 2);
     const modeKey = smoothMode === 1 ? 'distance' : smoothMode === 2 ? 'hybrid' : 'speed';
     const modeTips = scenario.tips[modeKey] || scenario.tips;
     const tipText = lang === 'zh' ? (modeTips.zh || modeTips.en) : (modeTips.en || modeTips.zh);

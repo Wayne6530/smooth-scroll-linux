@@ -209,8 +209,8 @@ const ParamSchema = (() => {
     // --- Scroll ---
     {
       key: 'smooth_mode',
-      value: 0,
-      defaultValue: 0,
+      value: 2,
+      defaultValue: 2,
       'label-en': 'Smooth Mode',
       'label-zh': '平滑模式',
       'desc-en': 'Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event. Hybrid mode follows Speed mode while using Distance mode as a minimum travel distance.',

@@ -33,7 +33,7 @@ The `smooth_mode` option selects one of three models:
 | ----- | ---- | -------- |
 | `0` | Speed | Adapts speed and total travel distance to the timing of incoming wheel events. |
 | `1` | Distance | Adds a fixed `wheel_tick_distance` budget for every accepted wheel event and releases that budget smoothly. |
-| `2` | Hybrid | Runs the Speed model while using the Distance model as a minimum travel-distance budget. |
+| `2` | Hybrid (default) | Runs the Speed model while using the Distance model as a minimum travel-distance budget. |
 
 The smoother keeps the two model states separate:
 

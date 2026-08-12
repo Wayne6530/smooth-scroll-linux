@@ -94,7 +94,7 @@ drag_view_button = 274
 # @enum: 0|1|2
 # @enum-labels-en: 0=Speed mode|1=Distance mode|2=Hybrid mode
 # @enum-labels-zh: 0=速度模式|1=距离模式|2=混合模式
-smooth_mode = 0
+smooth_mode = 2
 
 # @label-en: Wheel Tick Distance
 # @label-zh: 单次滚轮距离
