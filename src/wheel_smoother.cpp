@@ -173,14 +173,27 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
           return std::nullopt;
         }
 
-        double speed = smoothSpeed(event_time - last_event_time_);
+        const bool continuous_reverse_scroll =
+            event_time <= last_brake_stop_time_ +
+                              std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds };
+
+        double delta = initial_delta_;
+        if (continuous_reverse_scroll)
+        {
+          const double speed = smoothSpeed(event_time - last_event_time_);
+          delta = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
+        }
+        else
+        {
+          event_intervals_.clear();
+        }
 
         last_event_time_ = event_time;
         next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
 
         positive_ = positive;
 
-        delta_ = std::clamp(speed * tick_interval_, initial_delta_, max_delta_braking_times_[braking_times_]);
+        delta_ = delta;
         speed_ = delta_ * inv_tick_interval_;
         braking_times_ = 0;
 
@@ -327,7 +340,10 @@ std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struc
           return std::nullopt;
         }
 
-        int distance_ticks = braking_times_ + 1;
+        const bool continuous_reverse_scroll =
+            event_time <= last_brake_stop_time_ +
+                              std::chrono::microseconds{ options_.reverse_scroll_intent_window_microseconds };
+        const int distance_ticks = continuous_reverse_scroll ? braking_times_ + 1 : 1;
         braking_times_ = 0;
         return start_distance_scroll(distance_ticks);
       }

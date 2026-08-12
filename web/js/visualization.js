@@ -62,6 +62,7 @@ const Visualization = (() => {
       use_reverse_scroll_braking: values.use_reverse_scroll_braking ?? true,
       max_reverse_scroll_braking_microseconds: values.max_reverse_scroll_braking_microseconds ?? 100000,
       max_reverse_scroll_braking_times: values.max_reverse_scroll_braking_times ?? 3,
+      reverse_scroll_intent_window_microseconds: values.reverse_scroll_intent_window_microseconds ?? 200000,
       use_mouse_movement_braking: values.use_mouse_movement_braking ?? true,
       max_mouse_movement_distance: values.max_mouse_movement_distance ?? 30,
       mouse_movement_window_milliseconds: values.mouse_movement_window_milliseconds ?? 20,

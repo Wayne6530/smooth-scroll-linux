@@ -66,6 +66,8 @@ Two methods can stop the scrolling:
 2. **Reverse-Scroll Braking**:  
    - A wheel event in the **opposite direction** sets the speed to 0.  
    - To prevent accidental reverse-scroll jitter, opposite direction events within `max_reverse_scroll_braking_microseconds` and less than `max_reverse_scroll_braking_times - 1` after braking are ignored.  
+   - Speed and Distance modes use `reverse_scroll_intent_window_microseconds` to distinguish continuous reverse scrolling from braking followed by a new scroll. The window starts at `last_brake_stop_time_`, the first reverse-braking event.
+   - If scrolling resumes inside the intent window, Speed mode uses the absorbed event intervals for its reverse initial-speed estimate, while Distance mode restores the absorbed events as distance ticks. After the window expires, the current event starts a new scroll without either carry-over.
 
 3. **Mouse Movement Braking**  
    - Mouse movement only begins accumulating after `mouse_movement_delay_microseconds` has elapsed since the last wheel event.
@@ -91,6 +93,7 @@ Two methods can stop the scrolling:
 | `use_reverse_scroll_braking` | Whether reverse-scroll braking is enabled. |  
 | `max_reverse_scroll_braking_microseconds` | Time window to ignore jitter after braking. |  
 | `max_reverse_scroll_braking_times` | Maximum reverse-scroll braking event times. |
+| `reverse_scroll_intent_window_microseconds` | Time from the first reverse brake during which absorbed events are treated as one continuous reverse scroll. |
 | `use_mouse_movement_braking` | Whether mouse movement triggers braking. |  
 | `max_mouse_movement_distance` | Maximum allowed 2D movement distance within the time window before scrolling stops. |
 | `mouse_movement_window_milliseconds` | The sliding time window (in milliseconds) used to track recent mouse movements. |

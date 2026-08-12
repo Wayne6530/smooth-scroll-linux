@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 3;
+  const CONFIG_VERSION = 4;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -356,6 +356,22 @@ const ParamSchema = (() => {
       max: 5,
       step: 1,
       group: 'braking',
+      'depends-on': 'use_reverse_scroll_braking',
+    },
+    {
+      key: 'reverse_scroll_intent_window_microseconds',
+      value: 200000,
+      defaultValue: 200000,
+      'label-en': 'Reverse Scroll Intent Window',
+      'label-zh': '反向滚动意图窗口',
+      'desc-en': 'Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. After it expires, the current event starts a new scroll without reusing absorbed speed or distance input.',
+      'desc-zh': '从首次反向制动事件开始计算的意图窗口（微秒）。超过窗口后，当前事件将开始一次新的滚动，不再复用制动期间吸收的速度或距离输入。',
+      type: 'int',
+      min: 0,
+      max: 500000,
+      step: 10000,
+      group: 'braking',
+      unit: 'us',
       'depends-on': 'use_reverse_scroll_braking',
     },
     {

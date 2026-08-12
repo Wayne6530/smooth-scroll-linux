@@ -540,6 +540,7 @@ int main(int argc, char* argv[])
   read_option("use_reverse_scroll_braking", options.use_reverse_scroll_braking);
   read_option("max_reverse_scroll_braking_microseconds", options.max_reverse_scroll_braking_microseconds);
   read_option("max_reverse_scroll_braking_times", options.max_reverse_scroll_braking_times);
+  read_option("reverse_scroll_intent_window_microseconds", options.reverse_scroll_intent_window_microseconds);
   read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
   read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
   read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);

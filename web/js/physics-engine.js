@@ -14,6 +14,7 @@ const PhysicsEngine = (() => {
       this.options = options;
       this.smoothMode = options.smooth_mode ?? SMOOTH_MODE_SPEED;
       this.wheelTickDistance = options.wheel_tick_distance ?? 120;
+      this.reverseScrollIntentWindow = options.reverse_scroll_intent_window_microseconds ?? 200000;
 
       // Pre-computed constants (mirrors C++ constructor, wheel_smoother.cpp:13-21)
       this.tickInterval = options.tick_interval_microseconds / 1e6;
@@ -170,12 +171,21 @@ const PhysicsEngine = (() => {
             }
 
             // Resume after braking
-            const speed = this.smoothSpeed(eventTimeUs - this.lastEventTime);
+            const continuousReverseScroll =
+              eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow;
+            let delta = this.initialDelta;
+            if (continuousReverseScroll) {
+              const speed = this.smoothSpeed(eventTimeUs - this.lastEventTime);
+              const rawDelta = speed * this.tickInterval;
+              delta = Math.max(this.initialDelta,
+                Math.min(rawDelta, this.maxDeltaBrakingTimes[this.brakingTimes_] || this.initialDelta));
+            } else {
+              this.eventIntervals = [];
+            }
             this.lastEventTime = eventTimeUs;
             this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
             this.positive_ = positive;
-            const rawDelta = speed * this.tickInterval;
-            this.delta_ = Math.max(this.initialDelta, Math.min(rawDelta, this.maxDeltaBrakingTimes[this.brakingTimes_] || this.initialDelta));
+            this.delta_ = delta;
             this.speed_ = this.delta_ * this.invTickInterval;
             this.brakingTimes_ = 0;
             const roundDelta = Math.round(this.delta_);
@@ -269,7 +279,9 @@ const PhysicsEngine = (() => {
               return null;
             }
 
-            const distanceTicks = this.brakingTimes_ + 1;
+            const continuousReverseScroll =
+              eventTimeUs <= this.lastBrakeStopTime + this.reverseScrollIntentWindow;
+            const distanceTicks = continuousReverseScroll ? this.brakingTimes_ + 1 : 1;
             this.brakingTimes_ = 0;
             return startDistanceScroll(distanceTicks);
           }

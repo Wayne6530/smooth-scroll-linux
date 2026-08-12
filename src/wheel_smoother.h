@@ -56,6 +56,7 @@ public:
     bool use_reverse_scroll_braking = true;
     int max_reverse_scroll_braking_microseconds = 100000;
     int max_reverse_scroll_braking_times = 3;
+    int reverse_scroll_intent_window_microseconds = 200000;
 
     bool use_mouse_movement_braking = true;
     int max_mouse_movement_distance = 30;
