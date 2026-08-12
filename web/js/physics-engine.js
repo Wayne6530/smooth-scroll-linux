@@ -245,7 +245,18 @@ const PhysicsEngine = (() => {
         this.delta_ = initialDistance;
         this.speed_ = this.speedForDistance(this.delta_);
 
-        let desiredDelta = Math.min(this.speed_ * this.tickInterval, this.delta_);
+        let desiredDelta = this.speed_ * this.tickInterval;
+        if (this.freeSpin_) {
+          const roundDelta = Math.round(desiredDelta);
+          if (roundDelta <= 0) {
+            return null;
+          }
+
+          this.totalDelta_ = roundDelta;
+          return { emittedDelta: roundDelta, totalDelta: this.totalDelta_ };
+        }
+
+        desiredDelta = Math.min(desiredDelta, this.delta_);
         const roundDelta = Math.min(Math.round(desiredDelta), initialDistance);
 
         this.deviation_ = desiredDelta - roundDelta;
@@ -370,6 +381,10 @@ const PhysicsEngine = (() => {
 
       this.deviation_ += desiredDelta - roundDelta;
       this.delta_ -= desiredDelta;
+
+      if (this.delta_ <= 0) {
+        this.speed_ = 0;
+      }
 
       if (roundDelta <= 0) {
         if (this.delta_ <= 0) {

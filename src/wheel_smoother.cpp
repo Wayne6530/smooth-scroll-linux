@@ -287,7 +287,27 @@ std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struc
 
     SPDLOG_DEBUG("distance mode target speed {:.2f}, remaining {:.2f}", speed_, delta_);
 
-    double desired_delta = std::min(speed_ * tick_interval_, delta_);
+    double desired_delta = speed_ * tick_interval_;
+    if (free_spin_)
+    {
+      int round_delta = static_cast<int>(std::round(desired_delta));
+      if (round_delta <= 0)
+      {
+        return std::nullopt;
+      }
+
+      total_delta_ = round_delta;
+
+      struct input_event ev;
+      ev.time = time;
+      ev.type = EV_REL;
+      ev.code = horizontal_ ? REL_HWHEEL_HI_RES : REL_WHEEL_HI_RES;
+      ev.value = positive_ ? round_delta : -round_delta;
+
+      return ev;
+    }
+
+    desired_delta = std::min(desired_delta, delta_);
     int round_delta = std::min(static_cast<int>(std::round(desired_delta)), initial_distance);
 
     deviation_ = desired_delta - round_delta;
@@ -477,6 +497,11 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
 
   deviation_ += desired_delta - round_delta;
   delta_ -= desired_delta;
+
+  if (delta_ <= 0)
+  {
+    speed_ = 0;
+  }
 
   if (round_delta <= 0)
   {
