@@ -60,6 +60,7 @@ const PhysicsEngine = (() => {
       this.distanceRemaining_ = 0;
       this.speed_ = 0;
       this.deviation_ = 0;
+      this.freeSpinDeviation_ = 0;
       this.totalDelta_ = 0;
       this.totalDeltaH_ = 0;
       this.brakingTimes_ = 0;
@@ -88,6 +89,7 @@ const PhysicsEngine = (() => {
       if (this.freeSpin_) {
         if (value === 0) {
           this.freeSpin_ = false;
+          this.freeSpinDeviation_ = 0;
         }
         return true;
       }
@@ -272,6 +274,7 @@ const PhysicsEngine = (() => {
 
           this.brakingTimes_ = 0;
 
+          this.freeSpinDeviation_ = 0;
           this.lastEventTime = eventTimeUs;
           this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
           this.positive_ = positive;
@@ -286,9 +289,10 @@ const PhysicsEngine = (() => {
           if (this.freeSpin_) {
             const distanceDelta = distanceSpeed * this.tickInterval;
             const desiredDelta = Math.max(speedDelta, distanceDelta);
-            const roundDelta = Math.round(desiredDelta);
+            const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
 
-            this.deviation_ = desiredDelta - roundDelta;
+            this.deviation_ = 0;
+            this.freeSpinDeviation_ += desiredDelta - roundDelta;
             this.speed_ = desiredDelta * this.invTickInterval;
             this.totalDelta_ = roundDelta;
 
@@ -362,9 +366,9 @@ const PhysicsEngine = (() => {
           const distanceDelta =
             this.speedForDistance(this.distanceRemaining_) * this.tickInterval;
           const desiredDelta = Math.max(speedDelta, distanceDelta);
-          const roundDelta = Math.round(desiredDelta + this.deviation_);
+          const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
 
-          this.deviation_ += desiredDelta - roundDelta;
+          this.freeSpinDeviation_ += desiredDelta - roundDelta;
           this.speed_ = desiredDelta * this.invTickInterval;
           this.totalDelta_ += roundDelta;
 
@@ -397,6 +401,7 @@ const PhysicsEngine = (() => {
       }
 
       this.eventIntervals = [];
+      this.freeSpinDeviation_ = 0;
       this.lastEventTime = eventTimeUs;
       this.nextTickTime = eventTimeUs + this.options.tick_interval_microseconds;
       this.positive_ = positive;
@@ -411,9 +416,10 @@ const PhysicsEngine = (() => {
         const distanceDelta =
           this.speedForDistance(this.distanceRemaining_) * this.tickInterval;
         const desiredDelta = Math.max(speedDelta, distanceDelta);
-        const roundDelta = Math.round(desiredDelta);
+        const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
 
-        this.deviation_ = desiredDelta - roundDelta;
+        this.deviation_ = 0;
+        this.freeSpinDeviation_ += desiredDelta - roundDelta;
         this.speed_ = desiredDelta * this.invTickInterval;
         this.totalDelta_ = roundDelta;
 
@@ -457,6 +463,7 @@ const PhysicsEngine = (() => {
         this.positive_ = positive;
         this.horizontal_ = horizontal;
         this.deviation_ = 0;
+        this.freeSpinDeviation_ = 0;
         this.totalDelta_ = 0;
 
         const initialDistance = this.wheelTickDistance * distanceTicks;
@@ -465,7 +472,8 @@ const PhysicsEngine = (() => {
 
         let desiredDelta = this.speed_ * this.tickInterval;
         if (this.freeSpin_) {
-          const roundDelta = Math.round(desiredDelta);
+          const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
+          this.freeSpinDeviation_ += desiredDelta - roundDelta;
           if (roundDelta <= 0) {
             return null;
           }
@@ -589,7 +597,8 @@ const PhysicsEngine = (() => {
       this.speed_ = this.speedForDistance(this.distanceRemaining_);
       let desiredDelta = this.speed_ * this.tickInterval;
       if (this.freeSpin_) {
-        const roundDelta = Math.round(desiredDelta);
+        const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
+        this.freeSpinDeviation_ += desiredDelta - roundDelta;
         if (roundDelta <= 0) {
           return null;
         }
@@ -639,8 +648,8 @@ const PhysicsEngine = (() => {
 
         this.nextTickTime += this.options.tick_interval_microseconds;
 
-        const roundDelta = Math.round(desiredDelta + this.deviation_);
-        this.deviation_ += desiredDelta - roundDelta;
+        const roundDelta = Math.round(desiredDelta + this.freeSpinDeviation_);
+        this.freeSpinDeviation_ += desiredDelta - roundDelta;
         this.speed_ = desiredDelta * this.invTickInterval;
 
         if (roundDelta <= 0) return null;

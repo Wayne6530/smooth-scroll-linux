@@ -137,6 +137,8 @@ While Free Spin is held:
 - Distance and Hybrid modes continue emitting smooth output but do not subtract it from `distance_remaining_`.
 - Hybrid mode continues to emit `max(speed_delta, distance_delta)`.
 
+Distance and Hybrid modes use a separate fractional accumulator for Free Spin output. This allows sub-unit per-tick displacement to produce events over time without changing the rounding state of the preserved distance budget.
+
 When Free Spin is released, normal decay resumes and the preserved distance budget continues to be consumed. Consequently, Free Spin output is additional to the configured minimum distance rather than part of that minimum.
 
 ### Braking Logic  

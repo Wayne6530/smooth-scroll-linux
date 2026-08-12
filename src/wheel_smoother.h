@@ -177,6 +177,7 @@ private:
   double distance_remaining_ = 0;
   double speed_ = 0;
   double deviation_ = 0;
+  double free_spin_deviation_ = 0;
   int total_delta_ = 0;
   int braking_times_ = 0;
   int rel_x_ = 0;

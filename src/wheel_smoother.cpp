@@ -70,6 +70,7 @@ bool WheelSmoother::handleFreeSpinButton(int value) noexcept
     if (value == 0)
     {
       free_spin_ = false;
+      free_spin_deviation_ = 0;
     }
     return true;
   }
@@ -301,6 +302,7 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
 
       braking_times_ = 0;
 
+      free_spin_deviation_ = 0;
       delta_ = start_delta;
       last_event_time_ = event_time;
       next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
@@ -318,9 +320,10 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
       {
         const double distance_delta = distance_speed * tick_interval_;
         const double desired_delta = std::max(speed_delta, distance_delta);
-        const int round_delta = static_cast<int>(std::round(desired_delta));
+        const int round_delta = static_cast<int>(std::round(desired_delta + free_spin_deviation_));
 
-        deviation_ = desired_delta - round_delta;
+        deviation_ = 0;
+        free_spin_deviation_ += desired_delta - round_delta;
         speed_ = desired_delta * inv_tick_interval_;
         total_delta_ = round_delta;
 
@@ -399,9 +402,9 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
     {
       const double distance_delta = distance_speed * tick_interval_;
       const double desired_delta = std::max(speed_delta, distance_delta);
-      const int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
+      const int round_delta = static_cast<int>(std::round(desired_delta + free_spin_deviation_));
 
-      deviation_ += desired_delta - round_delta;
+      free_spin_deviation_ += desired_delta - round_delta;
       speed_ = desired_delta * inv_tick_interval_;
       total_delta_ += round_delta;
 
@@ -438,6 +441,7 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
   }
 
   event_intervals_.clear();
+  free_spin_deviation_ = 0;
   delta_ = initial_delta_;
   last_event_time_ = event_time;
   next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
@@ -455,9 +459,10 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
   {
     const double distance_delta = distance_speed * tick_interval_;
     const double desired_delta = std::max(speed_delta, distance_delta);
-    const int round_delta = static_cast<int>(std::round(desired_delta));
+    const int round_delta = static_cast<int>(std::round(desired_delta + free_spin_deviation_));
 
-    deviation_ = desired_delta - round_delta;
+    deviation_ = 0;
+    free_spin_deviation_ += desired_delta - round_delta;
     speed_ = desired_delta * inv_tick_interval_;
     total_delta_ = round_delta;
 
@@ -560,6 +565,7 @@ std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struc
   positive_ = positive;
   horizontal_ = horizontal;
   deviation_ = 0;
+  free_spin_deviation_ = 0;
   total_delta_ = 0;
 
   const int initial_distance = options_.wheel_tick_distance * distance_ticks;
@@ -570,7 +576,8 @@ std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struc
   double desired_delta = speed_ * tick_interval_;
   if (free_spin_)
   {
-    const int round_delta = static_cast<int>(std::round(desired_delta));
+    const int round_delta = static_cast<int>(std::round(desired_delta + free_spin_deviation_));
+    free_spin_deviation_ += desired_delta - round_delta;
     if (round_delta <= 0)
     {
       return std::nullopt;
@@ -686,7 +693,8 @@ std::optional<struct input_event> WheelSmoother::tickDistance() noexcept
   double desired_delta = speed_ * tick_interval_;
   if (free_spin_)
   {
-    int round_delta = std::round(desired_delta);
+    int round_delta = std::round(desired_delta + free_spin_deviation_);
+    free_spin_deviation_ += desired_delta - round_delta;
     if (round_delta <= 0)
     {
       return std::nullopt;
@@ -759,8 +767,8 @@ std::optional<struct input_event> WheelSmoother::tickHybrid() noexcept
     const std::chrono::microseconds current_tick_time = next_tick_time_;
     next_tick_time_ += std::chrono::microseconds{ options_.tick_interval_microseconds };
 
-    const int round_delta = static_cast<int>(std::round(desired_delta + deviation_));
-    deviation_ += desired_delta - round_delta;
+    const int round_delta = static_cast<int>(std::round(desired_delta + free_spin_deviation_));
+    free_spin_deviation_ += desired_delta - round_delta;
     speed_ = desired_delta * inv_tick_interval_;
 
     if (round_delta <= 0)
