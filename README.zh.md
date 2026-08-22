@@ -122,3 +122,11 @@ sudo dnf install ./smooth-scroll-*.rpm
 - 请参阅 [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) 了解 32 字节内存布局。
 - 标准 C++ 协议契约位于 `include/smooth_scroll/ipc_protocol.h`。
 - CLI 扩展提供了一个小型 C++ IPC 客户端：`extensions/cli/include/smooth_scroll/ipc_client.h`。
+
+## 参与贡献
+
+核心守护进程不依赖特定桌面环境。为保持核心功能聚焦且设计一致，其架构、
+行为和总体设计方向由维护者主导。
+
+`extensions/` 下的桌面集成由社区共同参与维护。非常欢迎针对不同桌面环境和
+版本贡献功能实现、兼容性适配、打包、测试及长期维护工作。

@@ -131,3 +131,14 @@ file at `/dev/shm/smooth_scroll_shm`.
 - Read the [IPC Protocol](https://github.com/Wayne6530/smooth-scroll-linux/blob/main/docs/ipc_protocol.md) for the 32-byte memory layout.
 - The canonical C++ protocol contract lives at `include/smooth_scroll/ipc_protocol.h`.
 - The CLI extension includes a small C++ IPC client at `extensions/cli/include/smooth_scroll/ipc_client.h`.
+
+## Contributing
+
+The core daemon is desktop-environment agnostic. Its architecture, behavior,
+and overall design direction are maintainer-led to keep the core focused and
+consistent.
+
+Desktop integrations under `extensions/` are intended to be maintained
+collaboratively with the community. Contributions covering implementation,
+compatibility, packaging, testing, and ongoing maintenance across different
+desktop environments and versions are very welcome.
