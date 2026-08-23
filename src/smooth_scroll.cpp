@@ -980,6 +980,7 @@ int main(int argc, char* argv[])
                   struct input_event press_event = ev;
                   press_event.value = 1;
                   events.push_back(press_event);
+                  events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
                   events.push_back(ev);
                 }
               }
