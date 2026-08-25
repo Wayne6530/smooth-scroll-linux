@@ -48,6 +48,16 @@ const DEFAULT_CONFIG = {
         min_line_width: 1,
         head_width_scale: 0.5,
     },
+    auto_scroll: {
+        enabled: true,
+        offset_x: 12,
+        offset_y: 0,
+        size: 48,
+        color: '#cbd5e1',
+        dot_color: '#4ea1ff',
+        alpha: 0.95,
+        dot_size: 6,
+    },
     passthrough: {
         enabled: true,
         offset_x: 12,
@@ -187,6 +197,8 @@ function normalizeConfig(config) {
         config.dot = {};
     if (!isPlainObject(config.arrow))
         config.arrow = {};
+    if (!isPlainObject(config.auto_scroll))
+        config.auto_scroll = {};
     if (!isPlainObject(config.passthrough))
         config.passthrough = {};
     if (!isPlainObject(config.scroll))
@@ -220,6 +232,20 @@ function normalizeConfig(config) {
     config.arrow.line_width_scale = numberValue(config.arrow.line_width_scale, fallback.arrow.line_width_scale, 0.01, 0.4);
     config.arrow.min_line_width = Math.round(numberValue(config.arrow.min_line_width, fallback.arrow.min_line_width, 1, 32));
     config.arrow.head_width_scale = numberValue(config.arrow.head_width_scale, fallback.arrow.head_width_scale, 0.1, 1.5);
+
+    config.auto_scroll.enabled = boolValue(config.auto_scroll.enabled, fallback.auto_scroll.enabled);
+    config.auto_scroll.offset_x = numberValue(config.auto_scroll.offset_x, fallback.auto_scroll.offset_x, -256, 256);
+    config.auto_scroll.offset_y = numberValue(config.auto_scroll.offset_y, fallback.auto_scroll.offset_y, -256, 256);
+    config.auto_scroll.size = Math.round(numberValue(config.auto_scroll.size, fallback.auto_scroll.size, 20, 256));
+    config.auto_scroll.color = typeof config.auto_scroll.color === 'string' && config.auto_scroll.color !== ''
+        ? config.auto_scroll.color
+        : fallback.auto_scroll.color;
+    config.auto_scroll.dot_color =
+        typeof config.auto_scroll.dot_color === 'string' && config.auto_scroll.dot_color !== ''
+            ? config.auto_scroll.dot_color
+            : fallback.auto_scroll.dot_color;
+    config.auto_scroll.alpha = numberValue(config.auto_scroll.alpha, fallback.auto_scroll.alpha, 0, 1);
+    config.auto_scroll.dot_size = numberValue(config.auto_scroll.dot_size, fallback.auto_scroll.dot_size, 2, 64);
 
     config.passthrough.enabled = boolValue(config.passthrough.enabled, fallback.passthrough.enabled);
     config.passthrough.offset_x = numberValue(config.passthrough.offset_x, fallback.passthrough.offset_x, -256, 256);
@@ -700,16 +726,31 @@ class DotOverlay {
             reactive: false,
             can_focus: false,
         });
+        this._autoScrollDotActor = new St.DrawingArea({
+            visible: false,
+            reactive: false,
+            can_focus: false,
+        });
         this._mode = 'dot';
         this._currentSize = DEFAULT_CONFIG.dot.size;
+        this._autoScrollDotSize = DEFAULT_CONFIG.auto_scroll.dot_size;
         this._lastX = null;
         this._lastY = null;
+        this._lastAutoScrollDotX = null;
+        this._lastAutoScrollDotY = null;
         this._dotColor = parseColor(DEFAULT_CONFIG.dot.color);
         this._arrowColor = parseColor(DEFAULT_CONFIG.arrow.color);
+        this._autoScrollColor = parseColor(DEFAULT_CONFIG.auto_scroll.color);
+        this._autoScrollDotColor = parseColor(DEFAULT_CONFIG.auto_scroll.dot_color);
+        this._autoScrollOffsetX = 0;
+        this._autoScrollOffsetY = 0;
         this._passthroughColor = parseColor(DEFAULT_CONFIG.passthrough.color);
         this._repaintId = this._actor.connect('repaint', area => this._draw(area));
+        this._autoScrollDotRepaintId =
+            this._autoScrollDotActor.connect('repaint', area => this._drawAutoScrollDot(area));
 
         Main.layoutManager.uiGroup.add_child(this._actor);
+        Main.layoutManager.uiGroup.add_child(this._autoScrollDotActor);
         this.applyConfig(DEFAULT_CONFIG);
     }
 
@@ -719,8 +760,14 @@ class DotOverlay {
             this._actor.disconnect(this._repaintId);
             this._repaintId = 0;
         }
+        if (this._autoScrollDotRepaintId) {
+            this._autoScrollDotActor.disconnect(this._autoScrollDotRepaintId);
+            this._autoScrollDotRepaintId = 0;
+        }
         this._actor.destroy();
+        this._autoScrollDotActor.destroy();
         this._actor = null;
+        this._autoScrollDotActor = null;
     }
 
     applyConfig(config) {
@@ -730,8 +777,13 @@ class DotOverlay {
         this._config = config;
         this._dotColor = parseColor(config.dot.color);
         this._arrowColor = parseColor(config.arrow.color);
+        this._autoScrollColor = parseColor(config.auto_scroll.color);
+        this._autoScrollDotColor = parseColor(config.auto_scroll.dot_color);
+        this._autoScrollDotSize = Math.round(config.auto_scroll.dot_size);
         this._passthroughColor = parseColor(config.passthrough.color);
         this._actor.queue_repaint();
+        this._autoScrollDotActor.set_size(this._autoScrollDotSize + 2, this._autoScrollDotSize + 2);
+        this._autoScrollDotActor.queue_repaint();
     }
 
     update(snapshot, x, y, forcePassthroughActive = false) {
@@ -747,24 +799,32 @@ class DotOverlay {
         }
 
         const nextSize = this._visualSize(nextMode);
-        const needsRepaint = !this._actor.visible || nextMode !== this._mode || nextSize !== this._currentSize;
+        const geometryChanged =
+            !this._actor.visible || nextMode !== this._mode || nextSize !== this._currentSize;
 
         this._mode = nextMode;
         this._currentSize = nextSize;
+        this._autoScrollOffsetX = snapshot.autoScrollOffsetX;
+        this._autoScrollOffsetY = snapshot.autoScrollOffsetY;
 
         const alpha = this._alphaForMode(nextMode, snapshot);
 
-        if (needsRepaint)
+        if (geometryChanged)
             this._actor.set_size(this._currentSize, this._currentSize);
 
         this._actor.opacity = Math.round(alpha * 255);
+        this._autoScrollDotActor.opacity = Math.round(alpha * 255);
         this._setPointerPosition(x, y);
         this._raiseTop();
 
-        if (needsRepaint)
+        if (geometryChanged)
             this._actor.queue_repaint();
 
         this._actor.show();
+        if (nextMode === 'auto-scroll')
+            this._autoScrollDotActor.show();
+        else
+            this._autoScrollDotActor.hide();
         return true;
     }
 
@@ -787,21 +847,28 @@ class DotOverlay {
             this._lastX = null;
             this._lastY = null;
         }
+        if (this._autoScrollDotActor) {
+            this._autoScrollDotActor.hide();
+            this._lastAutoScrollDotX = null;
+            this._lastAutoScrollDotY = null;
+        }
     }
 
     _raiseTop() {
-        if (!this._actor)
+        if (!this._actor || !this._autoScrollDotActor)
             return;
 
-        const parent = this._actor.get_parent?.();
-        try {
-            if (parent?.set_child_above_sibling)
-                parent.set_child_above_sibling(this._actor, null);
-            else if (this._actor.raise_top)
-                this._actor.raise_top();
-        } catch (error) {
-            // Layering is best-effort; the indicator still works if a Shell
-            // version does not expose a supported raise API.
+        for (const actor of [this._actor, this._autoScrollDotActor]) {
+            const parent = actor.get_parent?.();
+            try {
+                if (parent?.set_child_above_sibling)
+                    parent.set_child_above_sibling(actor, null);
+                else if (actor.raise_top)
+                    actor.raise_top();
+            } catch (error) {
+                // Layering is best-effort; the indicator still works if a Shell
+                // version does not expose a supported raise API.
+            }
         }
     }
 
@@ -809,19 +876,43 @@ class DotOverlay {
         const size = this._currentSize;
         const stage = global.get_stage();
         const offset = this._offsetForMode(this._mode);
-        const dotX = clamp(Math.round(x + offset.x - size / 2), 0, Math.max(0, stage.width - size));
-        const dotY = clamp(Math.round(y + offset.y - size / 2), 0, Math.max(0, stage.height - size));
+        const actorX = clamp(Math.round(x + offset.x - size / 2), 0, Math.max(0, stage.width - size));
+        const actorY = clamp(Math.round(y + offset.y - size / 2), 0, Math.max(0, stage.height - size));
 
-        if (dotX !== this._lastX || dotY !== this._lastY) {
-            this._actor.set_position(dotX, dotY);
-            this._lastX = dotX;
-            this._lastY = dotY;
+        if (actorX !== this._lastX || actorY !== this._lastY) {
+            this._actor.set_position(actorX, actorY);
+            this._lastX = actorX;
+            this._lastY = actorY;
+        }
+
+        if (this._mode === 'auto-scroll') {
+            const dotActorSize = this._autoScrollDotSize + 2;
+            const dotRadius = this._autoScrollDotSize / 2;
+            const originX = actorX + size / 2;
+            const originY = actorY + size / 2;
+            const dotX = clamp(
+                Math.round(originX + this._autoScrollOffsetX - dotRadius),
+                0,
+                Math.max(0, stage.width - dotActorSize));
+            const dotY = clamp(
+                Math.round(originY + this._autoScrollOffsetY - dotRadius),
+                0,
+                Math.max(0, stage.height - dotActorSize));
+
+            if (dotX !== this._lastAutoScrollDotX || dotY !== this._lastAutoScrollDotY) {
+                this._autoScrollDotActor.set_position(dotX, dotY);
+                this._lastAutoScrollDotX = dotX;
+                this._lastAutoScrollDotY = dotY;
+            }
         }
     }
 
     _modeForSnapshot(snapshot, forcePassthroughActive) {
         if (forcePassthroughActive && this._config.passthrough.enabled)
             return 'passthrough';
+
+        if (snapshot.autoScroll)
+            return this._config.auto_scroll.enabled ? 'auto-scroll' : null;
 
         if (snapshot.dragView)
             return this._config.arrow.enabled ? 'arrow' : null;
@@ -839,6 +930,9 @@ class DotOverlay {
         if (mode === 'arrow')
             return this._config.arrow.alpha;
 
+        if (mode === 'auto-scroll')
+            return this._config.auto_scroll.alpha;
+
         return this._alphaForSpeed(snapshot.speed);
     }
 
@@ -854,6 +948,13 @@ class DotOverlay {
             return {
                 x: this._config.arrow.offset_x,
                 y: this._config.arrow.offset_y,
+            };
+        }
+
+        if (mode === 'auto-scroll') {
+            return {
+                x: this._config.auto_scroll.offset_x,
+                y: this._config.auto_scroll.offset_y,
             };
         }
 
@@ -880,6 +981,9 @@ class DotOverlay {
         if (mode === 'arrow')
             return this._config.arrow.size;
 
+        if (mode === 'auto-scroll')
+            return this._config.auto_scroll.size;
+
         if (mode === 'passthrough') {
             return this._config.passthrough.size;
         }
@@ -890,6 +994,13 @@ class DotOverlay {
     _draw(area) {
         const cr = area.get_context();
         const size = this._currentSize;
+
+        if (this._mode === 'auto-scroll') {
+            this._drawAutoScroll(cr, size);
+            if (cr.$dispose)
+                cr.$dispose();
+            return;
+        }
 
         cr.setSourceRGBA(0, 0, 0, 0.28);
         if (this._mode === 'arrow')
@@ -918,6 +1029,9 @@ class DotOverlay {
 
         if (mode === 'arrow')
             return this._arrowColor;
+
+        if (mode === 'auto-scroll')
+            return this._autoScrollColor;
 
         return this._dotColor;
     }
@@ -950,6 +1064,71 @@ class DotOverlay {
         this._fillTriangle(cr, center, size - pad + shadowOffset, head, arrow.head_width_scale, 'down');
         this._fillTriangle(cr, pad + shadowOffset, center, head, arrow.head_width_scale, 'left');
         this._fillTriangle(cr, size - pad + shadowOffset, center, head, arrow.head_width_scale, 'right');
+    }
+
+    _drawAutoScroll(cr, size) {
+        const center = size / 2;
+        const ringWidth = Math.max(1, Math.round(size * 0.05));
+        const radius = Math.max(1, (size - ringWidth - 4) / 2);
+        const triangleLength = Math.max(3, Math.round(size * 0.15));
+        const triangleHalfWidth = Math.max(2, Math.round(size * 0.09));
+        const triangleTipDistance = Math.max(triangleLength, radius - ringWidth - 2);
+
+        const drawFrame = shadowOffset => {
+            const frameCenter = center + shadowOffset;
+            cr.setLineWidth(ringWidth);
+            cr.arc(frameCenter, frameCenter, radius, 0, Math.PI * 2);
+            cr.stroke();
+
+            const widthScale = triangleHalfWidth / triangleLength;
+            this._fillTriangle(
+                cr,
+                frameCenter,
+                frameCenter - triangleTipDistance,
+                triangleLength,
+                widthScale,
+                'up');
+            this._fillTriangle(
+                cr,
+                frameCenter,
+                frameCenter + triangleTipDistance,
+                triangleLength,
+                widthScale,
+                'down');
+            this._fillTriangle(
+                cr,
+                frameCenter - triangleTipDistance,
+                frameCenter,
+                triangleLength,
+                widthScale,
+                'left');
+            this._fillTriangle(
+                cr,
+                frameCenter + triangleTipDistance,
+                frameCenter,
+                triangleLength,
+                widthScale,
+                'right');
+        };
+
+        cr.setSourceRGBA(0, 0, 0, 0.32);
+        drawFrame(1);
+        cr.setSourceRGBA(this._autoScrollColor.r, this._autoScrollColor.g, this._autoScrollColor.b, 1);
+        drawFrame(0);
+    }
+
+    _drawAutoScrollDot(area) {
+        const cr = area.get_context();
+        const radius = this._autoScrollDotSize / 2;
+        cr.setSourceRGBA(0, 0, 0, 0.32);
+        cr.arc(radius + 1, radius + 1, radius, 0, Math.PI * 2);
+        cr.fill();
+        cr.setSourceRGBA(this._autoScrollDotColor.r, this._autoScrollDotColor.g, this._autoScrollDotColor.b, 1);
+        cr.arc(radius, radius, radius, 0, Math.PI * 2);
+        cr.fill();
+
+        if (cr.$dispose)
+            cr.$dispose();
     }
 
     _fillTriangle(cr, x, y, head, widthScale, direction) {
@@ -1231,6 +1410,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
     _updateDot(snapshot, x, y, forcePassthroughActive) {
         const canShowIndicator = Boolean(
             (forcePassthroughActive && this._config?.passthrough?.enabled) ||
+            (snapshot.autoScroll && this._config?.auto_scroll?.enabled) ||
             (snapshot.dragView && this._config?.arrow?.enabled) ||
             (snapshot.speed > 0 && this._config?.dot?.enabled)
         );

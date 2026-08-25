@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="480" height="130" viewBox="0 0 960 260" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="130" viewBox="0 0 1280 260" role="img" aria-labelledby="title desc">
   <title id="title">GNOME pointer-side indicators</title>
-  <desc id="desc">Three pointer-side indicator states: scrolling dot, Drag View four-way arrow, and passthrough X.</desc>
+  <desc id="desc">Four pointer-side indicator states: scrolling dot, Drag View four-way arrow, Auto Scroll origin and moving dot, and passthrough X.</desc>
   <defs>
     <style>
       .label { fill: #1f2937; font: 700 20px sans-serif; letter-spacing: 0; }
@@ -21,16 +21,16 @@
     </g>
   </defs>
 
-  <rect width="960" height="260" fill="#f5f7fb"/>
+  <rect width="1280" height="260" fill="#f5f7fb"/>
 
-  <g transform="translate(108 52)">
+  <g transform="translate(76 52)">
     <use href="#cursor" x="0" y="42"/>
     <circle cx="82" cy="44" r="12" fill="#000000" opacity="0.24"/>
     <circle cx="80" cy="42" r="12" fill="#4ea1ff" filter="url(#blue-glow)"/>
     <text x="-28" y="186" class="label">SCROLLING</text>
   </g>
 
-  <g transform="translate(432 52)">
+  <g transform="translate(382 52)">
     <use href="#cursor" x="0" y="42"/>
     <g transform="translate(92 42)" filter="url(#blue-glow)">
       <g transform="translate(2 2)" opacity="0.24">
@@ -42,7 +42,22 @@
     <text x="-28" y="186" class="label">DRAG VIEW</text>
   </g>
 
-  <g transform="translate(756 52)">
+  <g transform="translate(688 52)">
+    <use href="#cursor" x="0" y="42"/>
+    <g transform="translate(92 42)">
+      <g transform="translate(2 2)" opacity="0.28">
+        <circle cx="0" cy="0" r="34" fill="none" stroke="#000000" stroke-width="5"/>
+        <path d="M0 -25 L-7 -15 L7 -15 Z M0 25 L-7 15 L7 15 Z M-25 0 L-15 -7 L-15 7 Z M25 0 L15 -7 L15 7 Z" fill="#000000"/>
+      </g>
+      <circle cx="0" cy="0" r="34" fill="none" stroke="#cbd5e1" stroke-width="5"/>
+      <path d="M0 -25 L-7 -15 L7 -15 Z M0 25 L-7 15 L7 15 Z M-25 0 L-15 -7 L-15 7 Z M25 0 L15 -7 L15 7 Z" fill="#cbd5e1"/>
+      <circle cx="48" cy="-28" r="7" fill="#000000" opacity="0.28" transform="translate(2 2)"/>
+      <circle cx="48" cy="-28" r="7" fill="#4ea1ff" filter="url(#blue-glow)"/>
+    </g>
+    <text x="-34" y="186" class="label">AUTO SCROLL</text>
+  </g>
+
+  <g transform="translate(994 52)">
     <use href="#cursor" x="0" y="42"/>
     <g transform="translate(92 42)" filter="url(#red-glow)">
       <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#000000" stroke-width="7" stroke-linecap="round" opacity="0.24"/>

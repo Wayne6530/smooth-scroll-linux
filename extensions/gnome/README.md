@@ -17,6 +17,8 @@ behavior unpredictable.
 
 - Draws a small dot near the pointer while inertial scrolling is active.
 - Draws a four-way arrow near the pointer while Drag View is active.
+- Draws a stationary circled four-triangle origin marker during Auto Scroll,
+  with a blue dot that follows the IPC pointer offset.
 - Draws an X near the pointer while Force Passthrough is active.
 - Stops inertial scrolling when the pointer leaves the window where scrolling
   started.
@@ -85,6 +87,14 @@ relative to the pointer, not the top-left corner of the indicator.
 false` disables the arrow. `offset_x`, `offset_y`, `size`, `color`, and `alpha`
 control placement and appearance; `padding_scale`, `head_size_scale`,
 `line_width_scale`, and `head_width_scale` control the arrow geometry.
+
+`auto_scroll` controls the Auto Scroll origin marker independently from the
+other indicators. The circle and four unconnected triangles remain fixed while
+the blue dot follows `auto_scroll_offset` from IPC. `offset_x`, `offset_y`,
+`size`, `color`, `dot_color`, `dot_size`, and `alpha` control its placement and
+appearance. The blue dot uses the IPC offset directly and may move outside the
+origin circle; the daemon limits that offset at the displacement corresponding
+to the configured maximum Auto Scroll speed.
 
 `passthrough` controls the X drawn while force passthrough is active,
 independently from `dot`. `"enabled": false` disables the X. `offset_x` and
