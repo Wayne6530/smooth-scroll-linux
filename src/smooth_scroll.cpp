@@ -797,10 +797,14 @@ int main(int argc, char* argv[])
       }
       else
       {
-        if (auto ev_wheel = wheel_smoother.tick())
+        const auto tick_result = wheel_smoother.tick();
+        for (std::size_t i = 0; i < tick_result.count; ++i)
         {
-          events.push_back(*ev_wheel);
-          if (!write_events(ev_wheel->time))
+          events.push_back(tick_result.events[i]);
+        }
+        if (tick_result.count > 0)
+        {
+          if (!write_events(tick_result.events[0].time))
           {
             SPDLOG_ERROR("Write uinput failed");
             cleanup();
@@ -949,13 +953,17 @@ int main(int argc, char* argv[])
                 break;
 
               case REL_X:
-                wheel_smoother.handleRelXEvent(ev);
-                events.push_back(ev);
+                if (wheel_smoother.handleRelXEvent(ev))
+                {
+                  events.push_back(ev);
+                }
                 break;
 
               case REL_Y:
-                wheel_smoother.handleRelYEvent(ev);
-                events.push_back(ev);
+                if (wheel_smoother.handleRelYEvent(ev))
+                {
+                  events.push_back(ev);
+                }
                 break;
 
               default:
@@ -1011,9 +1019,16 @@ int main(int argc, char* argv[])
           case EV_SYN:
             if (ev.code == SYN_REPORT)
             {
-              if (wheel_smoother.handleReportEvent(ev.time))
+              switch (wheel_smoother.handleReportEvent(ev.time))
               {
-                ipc.setSpeed(0, false, false);
+                case WheelSmoother::ReportResult::ScrollStopped:
+                  ipc.setSpeed(0, false, false);
+                  break;
+                case WheelSmoother::ReportResult::AutoScrollOffsetChanged:
+                  ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
+                  break;
+                case WheelSmoother::ReportResult::None:
+                  break;
               }
 
               if (!write_events(ev.time))
@@ -1051,10 +1066,14 @@ int main(int argc, char* argv[])
         }
         else
         {
-          if (auto ev_wheel = wheel_smoother.tick())
+          const auto tick_result = wheel_smoother.tick();
+          for (std::size_t i = 0; i < tick_result.count; ++i)
           {
-            events.push_back(*ev_wheel);
-            if (!write_events(ev_wheel->time))
+            events.push_back(tick_result.events[i]);
+          }
+          if (tick_result.count > 0)
+          {
+            if (!write_events(tick_result.events[0].time))
             {
               SPDLOG_ERROR("Write uinput failed");
               cleanup();

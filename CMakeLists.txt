@@ -57,6 +57,19 @@ target_include_directories(smooth-scroll
 )
 target_link_libraries(smooth-scroll fmt::fmt evdev)
 
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(wheel-smoother-test
+    tests/wheel_smoother_test.cpp
+    src/wheel_smoother.cpp
+    src/mouse_movement_buffer.cpp
+  )
+  target_compile_definitions(wheel-smoother-test PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+  target_include_directories(wheel-smoother-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_link_libraries(wheel-smoother-test fmt::fmt)
+  add_test(NAME wheel-smoother-test COMMAND wheel-smoother-test)
+endif()
+
 install(TARGETS smooth-scroll DESTINATION /usr/bin)
 install(FILES debian/smooth-scroll.service DESTINATION /usr/lib/systemd/system)
 install(DIRECTORY config/ DESTINATION /etc/smooth-scroll)

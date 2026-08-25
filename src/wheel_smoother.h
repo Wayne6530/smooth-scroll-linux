@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -16,6 +19,14 @@ namespace smooth_scroll
 
 class WheelSmoother
 {
+  enum class AutoScrollState
+  {
+    Inactive,
+    Held,
+    Latched,
+    ExitHeld,
+  };
+
 public:
   enum class SmoothMode
   {
@@ -30,11 +41,44 @@ public:
     Always = 1,
   };
 
+  enum class AutoScrollActivationMode
+  {
+    Scrolling = 0,
+    Always = 1,
+  };
+
+  enum class AutoScrollAxisMode
+  {
+    Vertical = 0,
+    Horizontal = 1,
+    Omnidirectional = 2,
+  };
+
   enum class DragViewButtonResult
   {
     Passthrough,
     Handled,
     ReplayClick,
+  };
+
+  enum class AutoScrollButtonResult
+  {
+    Passthrough,
+    Handled,
+    ReplayClick,
+  };
+
+  enum class ReportResult
+  {
+    None,
+    ScrollStopped,
+    AutoScrollOffsetChanged,
+  };
+
+  struct TickResult
+  {
+    std::array<struct input_event, 2> events{};
+    std::size_t count = 0;
   };
 
   struct Options
@@ -67,6 +111,13 @@ public:
     DragViewActivationMode drag_view_activation_mode = DragViewActivationMode::Scrolling;
     int drag_view_click_timeout_milliseconds = 200;
     int drag_view_speed = 3;
+
+    AutoScrollActivationMode auto_scroll_activation_mode = AutoScrollActivationMode::Scrolling;
+    AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Omnidirectional;
+    int auto_scroll_deadzone = 8;
+    int auto_scroll_click_timeout_milliseconds = 200;
+    double auto_scroll_speed_factor = 50;
+    double auto_scroll_max_speed = 6000;
   };
 
   explicit WheelSmoother(const Options& options);
@@ -79,23 +130,29 @@ public:
 
   void stop() noexcept;
 
+  void hardReset() noexcept;
+
   bool handleFreeSpinButton(int value) noexcept;
 
   DragViewButtonResult handleDragViewButton(const struct timeval& time, int value) noexcept;
 
+  AutoScrollButtonResult handleAutoScrollButton(const struct timeval& time, int value) noexcept;
+
+  void handleOrdinaryButton() noexcept;
+
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive, bool horizontal);
 
-  std::optional<struct input_event> tick() noexcept;
+  TickResult tick() noexcept;
 
   std::optional<struct timeval> timeout() const noexcept;
 
   std::optional<std::chrono::microseconds> next_tick_time() const noexcept;
 
-  void handleRelXEvent(struct input_event& ev) noexcept;
+  [[nodiscard]] bool handleRelXEvent(struct input_event& ev) noexcept;
 
-  void handleRelYEvent(struct input_event& ev) noexcept;
+  [[nodiscard]] bool handleRelYEvent(struct input_event& ev) noexcept;
 
-  bool handleReportEvent(const struct timeval& time) noexcept;
+  [[nodiscard]] ReportResult handleReportEvent(const struct timeval& time) noexcept;
 
   [[nodiscard]] bool positive() const noexcept
   {
@@ -122,6 +179,31 @@ public:
     return drag_view_;
   }
 
+  [[nodiscard]] bool auto_scroll() const noexcept
+  {
+    return auto_scroll_state_ != AutoScrollState::Inactive;
+  }
+
+  [[nodiscard]] int64_t auto_scroll_offset_x() const noexcept
+  {
+    return auto_scroll_offset_x_;
+  }
+
+  [[nodiscard]] int64_t auto_scroll_offset_y() const noexcept
+  {
+    return auto_scroll_offset_y_;
+  }
+
+  [[nodiscard]] bool auto_scroll_horizontal_enabled() const noexcept
+  {
+    return options_.auto_scroll_axis_mode != AutoScrollAxisMode::Vertical;
+  }
+
+  [[nodiscard]] bool auto_scroll_vertical_enabled() const noexcept
+  {
+    return options_.auto_scroll_axis_mode != AutoScrollAxisMode::Horizontal;
+  }
+
 private:
   struct input_event makeWheelEvent(const struct timeval& time, int round_delta) const noexcept;
 
@@ -140,9 +222,29 @@ private:
 
   std::optional<struct input_event> tickHybrid() noexcept;
 
+  TickResult tickAutoScroll() noexcept;
+
   void stopScroll() noexcept;
 
+  void stopAutoScroll() noexcept;
+
+  void resetAutoScrollMotion() noexcept;
+
+  [[nodiscard]] bool auto_scroll_button_held() const noexcept
+  {
+    return auto_scroll_state_ == AutoScrollState::Held || auto_scroll_state_ == AutoScrollState::ExitHeld;
+  }
+
   [[nodiscard]] bool scrollActive() const noexcept;
+
+  [[nodiscard]] bool scrolling() const noexcept
+  {
+    return scrollActive() || auto_scroll();
+  }
+
+  [[nodiscard]] bool autoScrollMoving() const noexcept;
+
+  [[nodiscard]] double autoScrollSpeedForOffset(int64_t offset) const noexcept;
 
   double speedForDistance(double distance) const noexcept;
 
@@ -171,6 +273,7 @@ private:
   std::chrono::microseconds next_tick_time_{ 0 };
   std::chrono::microseconds last_brake_stop_time_{ 0 };
   std::chrono::microseconds drag_view_press_time_{ 0 };
+  std::chrono::microseconds auto_scroll_press_time_{ 0 };
   bool positive_ = false;
   bool horizontal_ = false;
   double delta_ = 0;
@@ -182,8 +285,13 @@ private:
   int braking_times_ = 0;
   int rel_x_ = 0;
   int rel_y_ = 0;
+  int64_t auto_scroll_offset_x_ = 0;
+  int64_t auto_scroll_offset_y_ = 0;
+  double auto_scroll_deviation_x_ = 0;
+  double auto_scroll_deviation_y_ = 0;
   bool free_spin_ = false;
   bool drag_view_ = false;
+  AutoScrollState auto_scroll_state_ = AutoScrollState::Inactive;
 };
 
 }  // namespace smooth_scroll
