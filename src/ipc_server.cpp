@@ -3,6 +3,8 @@
 
 #include "ipc_server.h"
 
+#include <algorithm>
+#include <limits>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -63,9 +65,9 @@ bool IpcServer::initialize()
   mapped_memory_->state_bits.store(0, std::memory_order_relaxed);
   mapped_memory_->scroll_id.store(0, std::memory_order_relaxed);
   mapped_memory_->force_passthrough.store(0, std::memory_order_relaxed);
+  mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
   mapped_memory_->reserved[0].store(0, std::memory_order_relaxed);
   mapped_memory_->reserved[1].store(0, std::memory_order_relaxed);
-  mapped_memory_->reserved[2].store(0, std::memory_order_relaxed);
 
   mapped_memory_->daemon_pid.store(getpid(), std::memory_order_relaxed);
   mapped_memory_->magic_version.store(IPC_MAGIC_VERSION_EXPECTED, std::memory_order_release);
@@ -81,6 +83,7 @@ void IpcServer::cleanup() noexcept
   {
     mapped_memory_->daemon_pid.store(0, std::memory_order_relaxed);
     mapped_memory_->state_bits.store(0, std::memory_order_relaxed);
+    mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
 
     munmap(mapped_memory_, sizeof(SmoothScrollIPC));
     mapped_memory_ = nullptr;
@@ -139,11 +142,44 @@ void IpcServer::setFreeSpin(bool free_spin) noexcept
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 
+void IpcServer::setAutoScroll(bool auto_scroll) noexcept
+{
+  if (auto_scroll)
+  {
+    state_ |= IPC_STATE_AUTO_SCROLL;
+  }
+  else
+  {
+    state_ &= ~IPC_STATE_AUTO_SCROLL;
+  }
+  mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
+}
+
+void IpcServer::setAutoScrollAxes(bool horizontal_enabled, bool vertical_enabled) noexcept
+{
+  state_ &= ~(IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED | IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED);
+  if (horizontal_enabled)
+    state_ |= IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED;
+  if (vertical_enabled)
+    state_ |= IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED;
+  mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
+}
+
+void IpcServer::setAutoScrollOffset(int64_t horizontal, int64_t vertical) noexcept
+{
+  const int16_t clamped_horizontal = static_cast<int16_t>(std::clamp<int64_t>(
+      horizontal, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
+  const int16_t clamped_vertical = static_cast<int16_t>(std::clamp<int64_t>(
+      vertical, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
+  const uint32_t packed = packAutoScrollOffset(clamped_horizontal, clamped_vertical);
+  mapped_memory_->auto_scroll_offset.store(packed, std::memory_order_relaxed);
+}
+
 void IpcServer::setSpeed(double speed, bool positive, bool horizontal) noexcept
 {
   uint32_t clamped_speed = static_cast<uint32_t>(std::clamp(speed, 0.0, 65535.0));
 
-  state_ &= 0x0000FFCF;
+  state_ &= ~(0xFFFF0000u | IPC_STATE_HORIZONTAL | IPC_STATE_DIRECTION);
 
   if (horizontal)
     state_ |= IPC_STATE_HORIZONTAL;

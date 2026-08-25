@@ -30,6 +30,7 @@ IpcSnapshot IpcClient::readSnapshot()
   }
 
   const uint32_t stateBits = m_ipc->state_bits.load(std::memory_order_relaxed);
+  const uint32_t autoScrollOffset = m_ipc->auto_scroll_offset.load(std::memory_order_relaxed);
 
   IpcSnapshot snapshot;
   snapshot.valid = true;
@@ -40,6 +41,13 @@ IpcSnapshot IpcClient::readSnapshot()
   snapshot.passthrough = (stateBits & smooth_scroll::IPC_STATE_PASSTHROUGH) != 0;
   snapshot.dragView = (stateBits & smooth_scroll::IPC_STATE_DRAG_VIEW) != 0;
   snapshot.freeSpin = (stateBits & smooth_scroll::IPC_STATE_FREE_SPIN) != 0;
+  snapshot.autoScroll = (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL) != 0;
+  snapshot.autoScrollHorizontalEnabled =
+      (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED) != 0;
+  snapshot.autoScrollVerticalEnabled =
+      (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED) != 0;
+  snapshot.autoScrollOffsetX = smooth_scroll::autoScrollHorizontalOffset(autoScrollOffset);
+  snapshot.autoScrollOffsetY = smooth_scroll::autoScrollVerticalOffset(autoScrollOffset);
   snapshot.horizontal = (stateBits & smooth_scroll::IPC_STATE_HORIZONTAL) != 0;
   snapshot.positive = (stateBits & smooth_scroll::IPC_STATE_DIRECTION) != 0;
   snapshot.speed = stateBits >> smooth_scroll::IPC_STATE_SPEED_SHIFT;

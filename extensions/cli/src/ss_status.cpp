@@ -14,6 +14,7 @@ int main()
     return 1;
 
   uint32_t last_state = 0xFFFFFFFF;
+  uint32_t last_auto_scroll_offset = 0xFFFFFFFF;
 
   while (true)
   {
@@ -24,8 +25,9 @@ int main()
     }
 
     uint32_t current_state = ipc->state_bits.load(std::memory_order_relaxed);
+    uint32_t current_auto_scroll_offset = ipc->auto_scroll_offset.load(std::memory_order_relaxed);
 
-    if (current_state != last_state)
+    if (current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset)
     {
       bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
       bool passthrough = current_state & smooth_scroll::IPC_STATE_PASSTHROUGH;
@@ -33,6 +35,12 @@ int main()
       bool free_spin = current_state & smooth_scroll::IPC_STATE_FREE_SPIN;
       bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;
       bool direction = current_state & smooth_scroll::IPC_STATE_DIRECTION;
+      bool auto_scroll = current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL;
+      bool auto_scroll_horizontal_enabled =
+          current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED;
+      bool auto_scroll_vertical_enabled = current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED;
+      int16_t auto_scroll_offset_x = smooth_scroll::autoScrollHorizontalOffset(current_auto_scroll_offset);
+      int16_t auto_scroll_offset_y = smooth_scroll::autoScrollVerticalOffset(current_auto_scroll_offset);
       uint16_t speed = current_state >> smooth_scroll::IPC_STATE_SPEED_SHIFT;
 
       std::cout << "{"
@@ -41,12 +49,20 @@ int main()
                 << "\"passthrough\":" << (passthrough ? "true" : "false") << ","
                 << "\"drag_view\":" << (drag_view ? "true" : "false") << ","
                 << "\"free_spin\":" << (free_spin ? "true" : "false") << ","
+                << "\"auto_scroll\":" << (auto_scroll ? "true" : "false") << ","
+                << "\"auto_scroll_horizontal_enabled\":"
+                << (auto_scroll_horizontal_enabled ? "true" : "false") << ","
+                << "\"auto_scroll_vertical_enabled\":" << (auto_scroll_vertical_enabled ? "true" : "false")
+                << ","
+                << "\"auto_scroll_offset_x\":" << auto_scroll_offset_x << ","
+                << "\"auto_scroll_offset_y\":" << auto_scroll_offset_y << ","
                 << "\"horizontal\":" << (horizontal ? "true" : "false") << ","
                 << "\"direction\":\"" << (direction ? "positive" : "negative") << "\","
                 << "\"speed\":" << speed << "}\n"
                 << std::flush;
 
       last_state = current_state;
+      last_auto_scroll_offset = current_auto_scroll_offset;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(16));

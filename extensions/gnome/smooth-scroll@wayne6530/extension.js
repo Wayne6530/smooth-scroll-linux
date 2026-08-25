@@ -10,12 +10,13 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const IPC_PATH = '/dev/shm/smooth_scroll_shm';
 const IPC_SIZE = 32;
-const IPC_MAGIC = 0x53530001;
+const IPC_MAGIC = 0x53530002;
 const IPC_OFFSET_MAGIC = 0x00;
 const IPC_OFFSET_DAEMON_PID = 0x04;
 const IPC_OFFSET_STATE_BITS = 0x08;
 const IPC_OFFSET_SCROLL_ID = 0x0c;
 const IPC_OFFSET_FORCE_PASSTHROUGH = 0x10;
+const IPC_OFFSET_AUTO_SCROLL = 0x14;
 
 const CONFIG_DIR_NAME = 'smooth-scroll-gnome-extension';
 const CONFIG_FILE_NAME = 'config.json';
@@ -343,6 +344,8 @@ class SmoothScrollIpcClient {
             const stateBits = view.getUint32(IPC_OFFSET_STATE_BITS, true);
             const scrollId = view.getUint32(IPC_OFFSET_SCROLL_ID, true);
             const forcePassthrough = view.getUint32(IPC_OFFSET_FORCE_PASSTHROUGH, true);
+            const autoScrollOffsetX = view.getInt16(IPC_OFFSET_AUTO_SCROLL, true);
+            const autoScrollOffsetY = view.getInt16(IPC_OFFSET_AUTO_SCROLL + 2, true);
 
             this._lastValid = true;
             this._lastPid = pid;
@@ -356,6 +359,11 @@ class SmoothScrollIpcClient {
                 freeSpin: (stateBits & (1 << 3)) !== 0,
                 horizontal: (stateBits & (1 << 4)) !== 0,
                 positive: (stateBits & (1 << 5)) !== 0,
+                autoScroll: (stateBits & (1 << 6)) !== 0,
+                autoScrollHorizontalEnabled: (stateBits & (1 << 7)) !== 0,
+                autoScrollVerticalEnabled: (stateBits & (1 << 8)) !== 0,
+                autoScrollOffsetX,
+                autoScrollOffsetY,
                 speed: stateBits >>> 16,
                 scrollId,
                 forcePassthrough,
@@ -389,6 +397,11 @@ class SmoothScrollIpcClient {
             passthrough: false,
             dragView: false,
             freeSpin: false,
+            autoScroll: false,
+            autoScrollHorizontalEnabled: false,
+            autoScrollVerticalEnabled: false,
+            autoScrollOffsetX: 0,
+            autoScrollOffsetY: 0,
             horizontal: false,
             positive: false,
             speed: 0,

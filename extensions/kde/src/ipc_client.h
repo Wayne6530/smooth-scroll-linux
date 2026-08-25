@@ -20,6 +20,11 @@ struct IpcSnapshot
   bool passthrough = false;
   bool dragView = false;
   bool freeSpin = false;
+  bool autoScroll = false;
+  bool autoScrollHorizontalEnabled = false;
+  bool autoScrollVerticalEnabled = false;
+  int16_t autoScrollOffsetX = 0;
+  int16_t autoScrollOffsetY = 0;
   bool horizontal = false;
   bool positive = false;
   uint32_t speed = 0;

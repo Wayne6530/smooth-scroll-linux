@@ -32,6 +32,12 @@ public:
 
   void setFreeSpin(bool free_spin) noexcept;
 
+  void setAutoScroll(bool auto_scroll) noexcept;
+
+  void setAutoScrollAxes(bool horizontal_enabled, bool vertical_enabled) noexcept;
+
+  void setAutoScrollOffset(int64_t horizontal, int64_t vertical) noexcept;
+
   void setSpeed(double speed, bool positive, bool horizontal) noexcept;
 
   [[nodiscard]] bool checkBrakeSignal() noexcept;
