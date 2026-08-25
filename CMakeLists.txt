@@ -68,6 +68,14 @@ if(BUILD_TESTING)
   target_include_directories(wheel-smoother-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(wheel-smoother-test fmt::fmt)
   add_test(NAME wheel-smoother-test COMMAND wheel-smoother-test)
+
+  add_test(
+    NAME conflicting-mode-buttons
+    COMMAND smooth-scroll --config ${CMAKE_SOURCE_DIR}/tests/conflicting-mode-buttons.toml
+  )
+  set_tests_properties(conflicting-mode-buttons PROPERTIES
+    PASS_REGULAR_EXPRESSION "Conflicting mode button configuration"
+  )
 endif()
 
 install(TARGETS smooth-scroll DESTINATION /usr/bin)

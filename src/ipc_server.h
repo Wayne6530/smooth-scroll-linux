@@ -40,7 +40,9 @@ public:
 
   void setSpeed(double speed, bool positive, bool horizontal) noexcept;
 
-  [[nodiscard]] bool checkBrakeSignal() noexcept;
+  void resetMotionState() noexcept;
+
+  [[nodiscard]] bool checkBrakeRequest() noexcept;
 
   [[nodiscard]] bool isForcePassthroughEnabled() const noexcept;
 
@@ -53,6 +55,7 @@ private:
 
   uint32_t state_{ 0 };
   uint32_t scroll_id_{ 0 };
+  bool force_passthrough_enabled_{ false };
 };
 
 }  // namespace smooth_scroll

@@ -1,0 +1,4 @@
+device = "/dev/null"
+free_spin_button = 273
+drag_view_button = 274
+auto_scroll_button = 274

@@ -73,6 +73,7 @@ bool IpcServer::initialize()
   mapped_memory_->magic_version.store(IPC_MAGIC_VERSION_EXPECTED, std::memory_order_release);
 
   scroll_id_ = 0;
+  force_passthrough_enabled_ = false;
 
   return true;
 }
@@ -191,18 +192,34 @@ void IpcServer::setSpeed(double speed, bool positive, bool horizontal) noexcept
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 
-[[nodiscard]] bool IpcServer::checkBrakeSignal() noexcept
+void IpcServer::resetMotionState() noexcept
+{
+  state_ &= ~(0xFFFF0000u | IPC_STATE_HORIZONTAL | IPC_STATE_DIRECTION | IPC_STATE_DRAG_VIEW | IPC_STATE_FREE_SPIN |
+              IPC_STATE_AUTO_SCROLL);
+  mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
+  mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
+}
+
+[[nodiscard]] bool IpcServer::checkBrakeRequest() noexcept
 {
   assert(mapped_memory_);
 
+  bool brake = false;
   uint32_t current_id = mapped_memory_->scroll_id.load(std::memory_order_relaxed);
   if (current_id != scroll_id_)
   {
     scroll_id_ = current_id;
-    return true;
+    brake = true;
   }
 
-  return false;
+  const bool force_passthrough = isForcePassthroughEnabled();
+  if (force_passthrough && !force_passthrough_enabled_)
+  {
+    brake = true;
+  }
+  force_passthrough_enabled_ = force_passthrough;
+
+  return brake;
 }
 
 [[nodiscard]] bool IpcServer::isForcePassthroughEnabled() const noexcept

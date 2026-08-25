@@ -406,12 +406,6 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  IpcServer ipc;
-  if (!ipc.initialize())
-  {
-    return -1;
-  }
-
   if (access(config_path.c_str(), R_OK) != 0)
   {
     SPDLOG_INFO("Config file '{}' is not readable: {}", config_path, strerror(errno));
@@ -431,12 +425,6 @@ int main(int argc, char* argv[])
   if (!device.has_value())
   {
     SPDLOG_INFO("No 'device' field in config file");
-
-    device = findDevice();
-    if ((*device).empty())
-    {
-      return -1;
-    }
   }
 
   int free_spin_button = BTN_RIGHT;
@@ -459,6 +447,27 @@ int main(int argc, char* argv[])
   else
   {
     SPDLOG_WARN("Use default drag view button {}", drag_view_button);
+  }
+
+  int auto_scroll_button = 0;
+  if (auto opt = table["auto_scroll_button"].value<int>())
+  {
+    auto_scroll_button = *opt;
+    SPDLOG_INFO("Use auto scroll button {}", auto_scroll_button);
+  }
+  else
+  {
+    SPDLOG_WARN("Use default auto scroll button {}", auto_scroll_button);
+  }
+
+  const auto buttons_conflict = [](int lhs, int rhs) { return lhs != 0 && lhs == rhs; };
+  if (buttons_conflict(auto_scroll_button, drag_view_button) || buttons_conflict(auto_scroll_button, free_spin_button))
+  {
+    SPDLOG_ERROR(
+        "Conflicting mode button configuration: auto_scroll_button={}, drag_view_button={}, free_spin_button={}. "
+        "An enabled Auto Scroll button must differ from the Drag View and Free Spin buttons.",
+        auto_scroll_button, drag_view_button, free_spin_button);
+    return -1;
   }
 
   std::vector<unsigned int> keyboard_braking_keys;
@@ -573,6 +582,77 @@ int main(int argc, char* argv[])
   }
   read_option("drag_view_click_timeout_milliseconds", options.drag_view_click_timeout_milliseconds);
   read_option("drag_view_speed", options.drag_view_speed);
+
+  if (auto opt = table["auto_scroll_activation_mode"].value<int>())
+  {
+    if (*opt == static_cast<int>(WheelSmoother::AutoScrollActivationMode::Scrolling))
+    {
+      options.auto_scroll_activation_mode = WheelSmoother::AutoScrollActivationMode::Scrolling;
+      SPDLOG_INFO("Config loaded: auto_scroll_activation_mode = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollActivationMode::Always))
+    {
+      options.auto_scroll_activation_mode = WheelSmoother::AutoScrollActivationMode::Always;
+      SPDLOG_INFO("Config loaded: auto_scroll_activation_mode = {}", *opt);
+    }
+    else
+    {
+      SPDLOG_WARN("Config 'auto_scroll_activation_mode' invalid, using default: {}",
+                  static_cast<int>(options.auto_scroll_activation_mode));
+    }
+  }
+  else
+  {
+    SPDLOG_WARN("Config 'auto_scroll_activation_mode' not found or invalid, using default: {}",
+                static_cast<int>(options.auto_scroll_activation_mode));
+  }
+  if (auto opt = table["auto_scroll_axis_mode"].value<int>())
+  {
+    if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Vertical))
+    {
+      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Vertical;
+      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Horizontal))
+    {
+      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Horizontal;
+      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Omnidirectional))
+    {
+      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Omnidirectional;
+      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
+    }
+    else
+    {
+      SPDLOG_WARN("Config 'auto_scroll_axis_mode' invalid, using default: {}",
+                  static_cast<int>(options.auto_scroll_axis_mode));
+    }
+  }
+  else
+  {
+    SPDLOG_WARN("Config 'auto_scroll_axis_mode' not found or invalid, using default: {}",
+                static_cast<int>(options.auto_scroll_axis_mode));
+  }
+  read_option("auto_scroll_deadzone", options.auto_scroll_deadzone);
+  read_option("auto_scroll_click_timeout_milliseconds", options.auto_scroll_click_timeout_milliseconds);
+  read_option("auto_scroll_speed_factor", options.auto_scroll_speed_factor);
+  read_option("auto_scroll_max_speed", options.auto_scroll_max_speed);
+
+  if (!device.has_value())
+  {
+    device = findDevice();
+    if (device->empty())
+    {
+      return -1;
+    }
+  }
+
+  IpcServer ipc;
+  if (!ipc.initialize())
+  {
+    return -1;
+  }
 
   if (signal(SIGINT, signalHandler) == SIG_ERR)
   {
@@ -736,6 +816,7 @@ int main(int argc, char* argv[])
   ipc.setConnected();
 
   WheelSmoother wheel_smoother{ options };
+  ipc.setAutoScrollAxes(wheel_smoother.auto_scroll_horizontal_enabled(), wheel_smoother.auto_scroll_vertical_enabled());
 
   int max_fd;
   fd_set fds;
@@ -791,9 +872,12 @@ int main(int argc, char* argv[])
     }
     else if (select_ret == 0)
     {
-      if (ipc.checkBrakeSignal() || ipc.isForcePassthroughEnabled())
+      if (ipc.checkBrakeRequest())
       {
         wheel_smoother.stop();
+        ipc.setSpeed(0, false, false);
+        ipc.setAutoScroll(wheel_smoother.auto_scroll());
+        ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
       }
       else
       {
@@ -811,9 +895,8 @@ int main(int argc, char* argv[])
             return -1;
           }
         }
+        ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
       }
-
-      ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
       continue;
     }
 
@@ -852,11 +935,10 @@ int main(int argc, char* argv[])
         {
           if (braking_keys_table[ev.code])
           {
-            if (wheel_smoother.speed() != 0)
-            {
-              ipc.setSpeed(0, false, false);
-            }
             wheel_smoother.stop();
+            ipc.setSpeed(0, false, false);
+            ipc.setAutoScroll(wheel_smoother.auto_scroll());
+            ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
           }
 
           if (passthrough_keys_table[ev.code])
@@ -908,9 +990,29 @@ int main(int argc, char* argv[])
         {
           if (ev.type == EV_SYN && ev.code == SYN_DROPPED)
           {
+            events.clear();
+            wheel_smoother.hardReset();
+            ipc.resetMotionState();
             read_flag = LIBEVDEV_READ_FLAG_SYNC;
             continue;
           }
+
+          // Reconstruct the virtual device state without acquiring a pointer
+          // mode midway through a button lifecycle.
+          if (ev.type == EV_SYN && ev.code == SYN_REPORT)
+          {
+            if (!write_events(ev.time))
+            {
+              SPDLOG_ERROR("Write uinput failed during input resynchronization");
+              cleanup();
+              return -1;
+            }
+          }
+          else if (ev.type != EV_MSC)
+          {
+            events.push_back(ev);
+          }
+          continue;
         }
         else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
         {
@@ -930,9 +1032,13 @@ int main(int argc, char* argv[])
                 }
                 else
                 {
-                  if (ipc.checkBrakeSignal())
+                  if (ipc.checkBrakeRequest())
                   {
                     wheel_smoother.stop();
+                    ipc.setSpeed(0, false, false);
+                    ipc.setAutoScroll(wheel_smoother.auto_scroll());
+                    ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(),
+                                            wheel_smoother.auto_scroll_offset_y());
                   }
 
                   if (auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL))
@@ -973,41 +1079,63 @@ int main(int argc, char* argv[])
             break;
 
           case EV_KEY: {
-            bool handled = false;
+            if (ev.code == auto_scroll_button)
+            {
+              const auto result = wheel_smoother.handleAutoScrollButton(ev.time, ev.value);
+              if (result == WheelSmoother::AutoScrollButtonResult::ReplayClick)
+              {
+                struct input_event press_event = ev;
+                press_event.value = 1;
+                events.push_back(press_event);
+                events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
+                events.push_back(ev);
+              }
+              else if (result == WheelSmoother::AutoScrollButtonResult::Passthrough)
+              {
+                wheel_smoother.handleOrdinaryButton();
+                events.push_back(ev);
+              }
 
-            if (ev.code == drag_view_button)
+              ipc.setSpeed(0, false, false);
+              ipc.setAutoScroll(wheel_smoother.auto_scroll());
+              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
+            }
+            else if (ev.code == drag_view_button)
             {
               const auto result = wheel_smoother.handleDragViewButton(ev.time, ev.value);
-              handled = result != WheelSmoother::DragViewButtonResult::Passthrough;
-              if (handled)
+              if (result == WheelSmoother::DragViewButtonResult::ReplayClick)
               {
-                ipc.setDragView(wheel_smoother.drag_view());
-
-                if (result == WheelSmoother::DragViewButtonResult::ReplayClick)
-                {
-                  struct input_event press_event = ev;
-                  press_event.value = 1;
-                  events.push_back(press_event);
-                  events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
-                  events.push_back(ev);
-                }
+                struct input_event press_event = ev;
+                press_event.value = 1;
+                events.push_back(press_event);
+                events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
+                events.push_back(ev);
               }
+              else if (result == WheelSmoother::DragViewButtonResult::Passthrough)
+              {
+                wheel_smoother.handleOrdinaryButton();
+                events.push_back(ev);
+              }
+
+              ipc.setSpeed(0, false, false);
+              ipc.setAutoScroll(wheel_smoother.auto_scroll());
+              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
+              ipc.setDragView(wheel_smoother.drag_view());
             }
             else if (ev.code == free_spin_button)
             {
-              if ((handled = wheel_smoother.handleFreeSpinButton(ev.value)))
+              if (!wheel_smoother.handleFreeSpinButton(ev.value))
               {
-                ipc.setFreeSpin(wheel_smoother.free_spin());
+                events.push_back(ev);
               }
+              ipc.setFreeSpin(wheel_smoother.free_spin());
             }
-
-            if (!handled)
+            else
             {
-              if (wheel_smoother.speed() != 0)
-              {
-                ipc.setSpeed(0, false, false);
-              }
-              wheel_smoother.stop();
+              wheel_smoother.handleOrdinaryButton();
+              ipc.setSpeed(0, false, false);
+              ipc.setAutoScroll(wheel_smoother.auto_scroll());
+              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
               events.push_back(ev);
             }
             break;
@@ -1060,9 +1188,12 @@ int main(int argc, char* argv[])
           std::chrono::seconds{ ev.time.tv_sec } + std::chrono::microseconds{ ev.time.tv_usec };
       if (event_time > *next_tick_time)
       {
-        if (ipc.checkBrakeSignal() || ipc.isForcePassthroughEnabled())
+        if (ipc.checkBrakeRequest())
         {
           wheel_smoother.stop();
+          ipc.setSpeed(0, false, false);
+          ipc.setAutoScroll(wheel_smoother.auto_scroll());
+          ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
         }
         else
         {
@@ -1080,9 +1211,8 @@ int main(int argc, char* argv[])
               return -1;
             }
           }
+          ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
         }
-
-        ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
       }
     }
   }
