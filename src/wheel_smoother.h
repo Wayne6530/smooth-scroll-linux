@@ -113,7 +113,7 @@ public:
     int drag_view_speed = 3;
 
     AutoScrollActivationMode auto_scroll_activation_mode = AutoScrollActivationMode::Scrolling;
-    AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Omnidirectional;
+    AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Vertical;
     int auto_scroll_deadzone = 8;
     int auto_scroll_click_timeout_milliseconds = 200;
     double auto_scroll_speed_factor = 50;
