@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 
 #include <spdlog/spdlog.h>
 
@@ -34,8 +35,15 @@ WheelSmoother::WheelSmoother(const Options& options)
   , mouse_movement_buffer_{ std::chrono::milliseconds(options.mouse_movement_window_milliseconds) }
 {
   assert(options.auto_scroll_deadzone >= 0);
-  assert(options.auto_scroll_speed_factor > 0);
-  assert(options.auto_scroll_max_speed > 0);
+  assert(options.auto_scroll_speed_factor > 0 && std::isfinite(options.auto_scroll_speed_factor));
+  assert(options.auto_scroll_max_speed > 0 && std::isfinite(options.auto_scroll_max_speed));
+
+  const long double auto_scroll_max_offset =
+      options.auto_scroll_deadzone +
+      std::ceil(static_cast<long double>(options.auto_scroll_max_speed) / options.auto_scroll_speed_factor);
+  assert(auto_scroll_max_offset <=
+         static_cast<long double>(std::numeric_limits<int64_t>::max() - std::numeric_limits<int>::max()));
+  auto_scroll_max_offset_ = static_cast<int64_t>(auto_scroll_max_offset);
 
   SPDLOG_DEBUG("tick interval {}s alpha {}", tick_interval_, alpha_);
 
@@ -1132,8 +1140,10 @@ WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeva
 
   if (auto_scroll())
   {
-    auto_scroll_offset_x_ += rel_x_;
-    auto_scroll_offset_y_ += rel_y_;
+    auto_scroll_offset_x_ =
+        std::clamp(auto_scroll_offset_x_ + rel_x_, -auto_scroll_max_offset_, auto_scroll_max_offset_);
+    auto_scroll_offset_y_ =
+        std::clamp(auto_scroll_offset_y_ + rel_y_, -auto_scroll_max_offset_, auto_scroll_max_offset_);
     rel_x_ = 0;
     rel_y_ = 0;
     return ReportResult::AutoScrollOffsetChanged;

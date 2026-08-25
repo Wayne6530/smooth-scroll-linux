@@ -265,6 +265,7 @@ private:
   double distance_curve_low_distance_;
   double distance_curve_high_distance_;
   int squared_max_mouse_movement_distance_;
+  int64_t auto_scroll_max_offset_ = 0;
   MouseMovementBuffer mouse_movement_buffer_;
   std::vector<double> max_delta_braking_times_;
 

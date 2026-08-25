@@ -225,6 +225,38 @@ void testFractionalOutput()
   assert(output == 2);
 }
 
+void testAutoScrollOffsetSaturation()
+{
+  auto options = autoOptions();
+  options.tick_interval_microseconds = 1'000'000;
+  options.auto_scroll_speed_factor = 30;
+  options.auto_scroll_max_speed = 100;
+  WheelSmoother smoother{ options };
+
+  smoother.handleAutoScrollButton(atMilliseconds(0), 1);
+  move(smoother, 1000, -1000, 1);
+
+  // deadzone + ceil(max speed / speed factor) = 8 + ceil(100 / 30) = 12
+  assert(smoother.auto_scroll_offset_x() == 12);
+  assert(smoother.auto_scroll_offset_y() == -12);
+  auto result = smoother.tick();
+  assert(result.count == 2);
+  assert(result.events[0].value == 100);
+  assert(result.events[1].value == 100);
+
+  move(smoother, -1, 1, 2);
+  assert(smoother.auto_scroll_offset_x() == 11);
+  assert(smoother.auto_scroll_offset_y() == -11);
+  result = smoother.tick();
+  assert(result.count == 2);
+  assert(result.events[0].value == 90);
+  assert(result.events[1].value == 90);
+
+  move(smoother, -1000, 1000, 3);
+  assert(smoother.auto_scroll_offset_x() == -12);
+  assert(smoother.auto_scroll_offset_y() == 12);
+}
+
 void testButtonsAndBraking()
 {
   auto options = autoOptions();
@@ -324,6 +356,7 @@ int main()
   testOmnidirectionalLatchReverseAndExit();
   testAxisModesAndDualAxisOutput();
   testFractionalOutput();
+  testAutoScrollOffsetSaturation();
   testButtonsAndBraking();
   testPreActivationBrakeAndWheelIsolation();
   testDragOwnershipAndHardReset();
