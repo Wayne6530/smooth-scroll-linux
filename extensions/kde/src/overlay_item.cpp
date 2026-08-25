@@ -42,6 +42,12 @@ void OverlayItem::setArrowConfig(const ArrowVisualConfig& config)
   update();
 }
 
+void OverlayItem::setAutoScrollConfig(const AutoScrollVisualConfig& config)
+{
+  m_autoScroll = config;
+  update();
+}
+
 void OverlayItem::setPassthroughConfig(const PassthroughVisualConfig& config)
 {
   m_passthrough = config;
@@ -56,6 +62,17 @@ void OverlayItem::paint(QPainter* painter)
   }
 
   painter->setRenderHint(QPainter::Antialiasing, true);
+
+  if (m_mode == IndicatorMode::AutoScroll)
+  {
+    drawAutoScroll(painter);
+    return;
+  }
+  if (m_mode == IndicatorMode::AutoScrollDot)
+  {
+    drawAutoScrollDot(painter);
+    return;
+  }
 
   QColor shadow(0, 0, 0);
   shadow.setAlphaF(0.28);
@@ -131,6 +148,53 @@ void OverlayItem::drawArrow(QPainter* painter, int shadowOffset)
   fillTriangle(painter, QPointF(center, size - pad + shadowOffset), head, m_arrow.headWidthScale, Qt::DownArrow);
   fillTriangle(painter, QPointF(pad + shadowOffset, center), head, m_arrow.headWidthScale, Qt::LeftArrow);
   fillTriangle(painter, QPointF(size - pad + shadowOffset, center), head, m_arrow.headWidthScale, Qt::RightArrow);
+}
+
+void OverlayItem::drawAutoScroll(QPainter* painter)
+{
+  const double size = width();
+  const double center = size / 2.0;
+  const double ringWidth = std::max(1.0, std::round(size * 0.05));
+  const double radius = std::max(1.0, (size - ringWidth - 4.0) / 2.0);
+  const double triangleLength = std::max(3.0, std::round(size * 0.15));
+  const double triangleHalfWidth = std::max(2.0, std::round(size * 0.09));
+  const double triangleTipDistance = std::max(triangleLength, radius - ringWidth - 2.0);
+
+  const auto drawFrame = [&](const QColor& color, int shadowOffset) {
+    const double frameCenter = center + shadowOffset;
+    painter->setPen(QPen(color, ringWidth));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawEllipse(QPointF(frameCenter, frameCenter), radius, radius);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(color);
+
+    const double widthScale = triangleHalfWidth / triangleLength;
+    fillTriangle(painter, QPointF(frameCenter, frameCenter - triangleTipDistance), triangleLength, widthScale,
+                 Qt::UpArrow);
+    fillTriangle(painter, QPointF(frameCenter, frameCenter + triangleTipDistance), triangleLength, widthScale,
+                 Qt::DownArrow);
+    fillTriangle(painter, QPointF(frameCenter - triangleTipDistance, frameCenter), triangleLength, widthScale,
+                 Qt::LeftArrow);
+    fillTriangle(painter, QPointF(frameCenter + triangleTipDistance, frameCenter), triangleLength, widthScale,
+                 Qt::RightArrow);
+  };
+
+  QColor shadow(0, 0, 0);
+  shadow.setAlphaF(0.32);
+  drawFrame(shadow, 1);
+  drawFrame(m_autoScroll.color, 0);
+}
+
+void OverlayItem::drawAutoScrollDot(QPainter* painter)
+{
+  const double radius = m_autoScroll.dotSize / 2.0;
+  QColor shadow(0, 0, 0);
+  shadow.setAlphaF(0.32);
+  painter->setPen(Qt::NoPen);
+  painter->setBrush(shadow);
+  painter->drawEllipse(QPointF(radius + 1.0, radius + 1.0), radius, radius);
+  painter->setBrush(m_autoScroll.dotColor);
+  painter->drawEllipse(QPointF(radius, radius), radius, radius);
 }
 
 void OverlayItem::drawPassthrough(QPainter* painter, int shadowOffset)

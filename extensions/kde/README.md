@@ -10,8 +10,8 @@ It provides:
 - per-application force-passthrough rules
 - inertial scrolling stop when the pointer leaves the window where scrolling
   started
-- pointer-side indicators for inertial scrolling, Drag View, and forced
-  passthrough
+- pointer-side indicators for inertial scrolling, Drag View, Auto Scroll, and
+  forced passthrough
 
 The effect talks to the daemon through Smooth Scroll Linux's shared-memory IPC
 file:
@@ -127,7 +127,16 @@ cp config.example.json ~/.config/smooth-scroll-kde-effect/config.json
 
 The effect reloads the file when it changes.
 
-`dot`, `arrow`, and `passthrough` control the pointer-side indicators.
+`dot`, `arrow`, `auto_scroll`, and `passthrough` control the pointer-side
+indicators.
+
+`auto_scroll` controls the Auto Scroll origin marker independently from the
+other indicators. The circle and four unconnected triangles remain fixed while
+the blue dot follows `auto_scroll_offset` from IPC. `offset_x`, `offset_y`,
+`size`, `color`, `dot_color`, `dot_size`, and `alpha` control its placement and
+appearance. The blue dot uses the IPC offset directly and may move outside the
+origin circle; the daemon limits that offset at the displacement corresponding
+to the configured maximum Auto Scroll speed.
 
 `scroll.poll_interval_ms` controls how often the effect samples IPC and window
 state. The default is 4ms for lower indicator latency. Increasing it reduces

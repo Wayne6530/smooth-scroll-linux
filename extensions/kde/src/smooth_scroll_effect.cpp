@@ -277,12 +277,19 @@ SmoothScrollEffect::SmoothScrollEffect(QObject* parent) : KWin::Effect(parent)
   m_overlayView->setVisible(false);
   m_overlayItem = new OverlayItem(m_overlayView->contentItem());
   m_overlayItem->setMode(IndicatorMode::Hidden);
-  m_overlayItem->setDotConfig(m_config.dot);
-  m_overlayItem->setArrowConfig(m_config.arrow);
-  m_overlayItem->setPassthroughConfig(m_config.passthrough);
+
+  m_autoScrollDotView =
+      std::make_unique<KWin::OffscreenQuickView>(KWin::OffscreenQuickView::ExportMode::Texture, true);
+  m_autoScrollDotView->setVisible(false);
+  m_autoScrollDotItem = new OverlayItem(m_autoScrollDotView->contentItem());
+  m_autoScrollDotItem->setMode(IndicatorMode::AutoScrollDot);
+
+  applyOverlayConfig();
 
   connect(m_overlayView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
           [this]() { requestOverlayRepaint(m_overlayGeometry); });
+  connect(m_autoScrollDotView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
+          [this]() { requestOverlayRepaint(m_autoScrollDotGeometry); });
 
   connect(&m_timer, &QTimer::timeout, this, &SmoothScrollEffect::tick);
   m_timer.setTimerType(Qt::PreciseTimer);
@@ -315,6 +322,17 @@ void SmoothScrollEffect::paintScreen(const KWin::RenderTarget& renderTarget, con
       m_overlayContentDirty = false;
     }
     KWin::effects->renderOffscreenQuickView(renderTarget, viewport, m_overlayView.get());
+
+    if (m_autoScrollDotVisible && m_autoScrollDotView)
+    {
+      syncAutoScrollDotGeometry();
+      if (m_autoScrollDotContentDirty)
+      {
+        m_autoScrollDotView->update();
+        m_autoScrollDotContentDirty = false;
+      }
+      KWin::effects->renderOffscreenQuickView(renderTarget, viewport, m_autoScrollDotView.get());
+    }
   }
 }
 
@@ -327,14 +345,7 @@ void SmoothScrollEffect::reconfigure(ReconfigureFlags flags)
 {
   Q_UNUSED(flags)
   loadConfig();
-  if (m_overlayItem)
-  {
-    m_overlayItem->setDotConfig(m_config.dot);
-    m_overlayItem->setArrowConfig(m_config.arrow);
-    m_overlayItem->setPassthroughConfig(m_config.passthrough);
-    m_overlayContentDirty = true;
-    requestOverlayRepaint(m_overlayGeometry);
-  }
+  applyOverlayConfig();
   applyTimerInterval();
 }
 
@@ -472,13 +483,7 @@ QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePa
   }
 
   loadConfig();
-  if (m_overlayItem)
-  {
-    m_overlayItem->setDotConfig(m_config.dot);
-    m_overlayItem->setArrowConfig(m_config.arrow);
-    m_overlayItem->setPassthroughConfig(m_config.passthrough);
-    m_overlayContentDirty = true;
-  }
+  applyOverlayConfig();
   applyTimerInterval();
 
   const QString action = ruleExists ? (includeTitle && !titleRuleUpdated ? QStringLiteral("Added title override") :
@@ -554,6 +559,7 @@ void SmoothScrollEffect::loadConfig()
   const QJsonObject root = document.object();
   const QJsonObject dot = root.value(QStringLiteral("dot")).toObject();
   const QJsonObject arrow = root.value(QStringLiteral("arrow")).toObject();
+  const QJsonObject autoScroll = root.value(QStringLiteral("auto_scroll")).toObject();
   const QJsonObject passthroughVisual = root.value(QStringLiteral("passthrough")).toObject();
   const QJsonObject scroll = root.value(QStringLiteral("scroll")).toObject();
 
@@ -582,6 +588,17 @@ void SmoothScrollEffect::loadConfig()
   next.arrow.minLineWidth = readInt(arrow, QStringLiteral("min_line_width"), next.arrow.minLineWidth, 0, 512);
   next.arrow.headWidthScale =
       readDouble(arrow, QStringLiteral("head_width_scale"), next.arrow.headWidthScale, 0.0, 4.0);
+
+  next.autoScroll.enabled = readBool(autoScroll, QStringLiteral("enabled"), next.autoScroll.enabled);
+  next.autoScroll.offsetX =
+      readInt(autoScroll, QStringLiteral("offset_x"), next.autoScroll.offsetX, -256, 256);
+  next.autoScroll.offsetY =
+      readInt(autoScroll, QStringLiteral("offset_y"), next.autoScroll.offsetY, -256, 256);
+  next.autoScroll.size = readInt(autoScroll, QStringLiteral("size"), next.autoScroll.size, 20, 256);
+  next.autoScroll.color = readColor(autoScroll, QStringLiteral("color"), next.autoScroll.color);
+  next.autoScroll.dotColor = readColor(autoScroll, QStringLiteral("dot_color"), next.autoScroll.dotColor);
+  next.autoScroll.alpha = readDouble(autoScroll, QStringLiteral("alpha"), next.autoScroll.alpha, 0.0, 1.0);
+  next.autoScroll.dotSize = readInt(autoScroll, QStringLiteral("dot_size"), next.autoScroll.dotSize, 2, 64);
 
   next.passthrough.enabled = readBool(passthroughVisual, QStringLiteral("enabled"), next.passthrough.enabled);
   next.passthrough.forceWhenNoRegularWindow = readBool(
@@ -656,6 +673,25 @@ void SmoothScrollEffect::loadConfig()
   m_config = next;
 }
 
+void SmoothScrollEffect::applyOverlayConfig()
+{
+  if (m_overlayItem)
+  {
+    m_overlayItem->setDotConfig(m_config.dot);
+    m_overlayItem->setArrowConfig(m_config.arrow);
+    m_overlayItem->setAutoScrollConfig(m_config.autoScroll);
+    m_overlayItem->setPassthroughConfig(m_config.passthrough);
+    m_overlayContentDirty = true;
+    requestOverlayRepaint(m_overlayGeometry);
+  }
+  if (m_autoScrollDotItem)
+  {
+    m_autoScrollDotItem->setAutoScrollConfig(m_config.autoScroll);
+    m_autoScrollDotContentDirty = true;
+    requestOverlayRepaint(m_autoScrollDotGeometry);
+  }
+}
+
 bool SmoothScrollEffect::maybeReloadConfig()
 {
   if (m_configReloadTimer.isValid() && !m_configReloadTimer.hasExpired(ConfigReloadIntervalMs))
@@ -673,14 +709,7 @@ bool SmoothScrollEffect::maybeReloadConfig()
 
   const int oldInterval = m_config.pollIntervalMs;
   loadConfig();
-  if (m_overlayItem)
-  {
-    m_overlayItem->setDotConfig(m_config.dot);
-    m_overlayItem->setArrowConfig(m_config.arrow);
-    m_overlayItem->setPassthroughConfig(m_config.passthrough);
-    m_overlayContentDirty = true;
-    requestOverlayRepaint(m_overlayGeometry);
-  }
+  applyOverlayConfig();
   if (oldInterval != m_config.pollIntervalMs)
   {
     applyTimerInterval();
@@ -826,7 +855,7 @@ void SmoothScrollEffect::setForcePassthrough(bool enabled)
 
 void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer, bool forcePassthroughActive)
 {
-  if (!m_overlayView || !m_overlayItem)
+  if (!m_overlayView || !m_overlayItem || !m_autoScrollDotView || !m_autoScrollDotItem)
   {
     return;
   }
@@ -863,6 +892,39 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
 
   syncOverlayGeometry(pointer);
 
+  if (mode == IndicatorMode::AutoScroll)
+  {
+    m_autoScrollOffsetX = snapshot.autoScrollOffsetX;
+    m_autoScrollOffsetY = snapshot.autoScrollOffsetY;
+
+    const int dotViewSize = m_config.autoScroll.dotSize + 2;
+    if (m_autoScrollDotViewSize != dotViewSize)
+    {
+      m_autoScrollDotItem->setWidth(dotViewSize);
+      m_autoScrollDotItem->setHeight(dotViewSize);
+      m_autoScrollDotViewSize = dotViewSize;
+      m_autoScrollDotContentDirty = true;
+    }
+    m_autoScrollDotView->setOpacity(alpha);
+    syncAutoScrollDotGeometry();
+
+    if (m_autoScrollDotContentDirty)
+    {
+      m_autoScrollDotItem->update();
+      requestOverlayRepaint(m_autoScrollDotGeometry);
+    }
+    if (!m_autoScrollDotVisible)
+    {
+      m_autoScrollDotView->show();
+      m_autoScrollDotVisible = true;
+      requestOverlayRepaint(m_autoScrollDotGeometry);
+    }
+  }
+  else
+  {
+    hideAutoScrollDot();
+  }
+
   if (m_overlayContentDirty)
   {
     m_overlayItem->update();
@@ -897,6 +959,27 @@ void SmoothScrollEffect::syncOverlayGeometry(const QPointF& pointer)
   requestOverlayRepaint(nextGeometry);
 }
 
+void SmoothScrollEffect::syncAutoScrollDotGeometry()
+{
+  if (!m_autoScrollDotView || m_overlayMode != IndicatorMode::AutoScroll || m_autoScrollDotViewSize <= 0 ||
+      m_overlayGeometry.isNull())
+  {
+    return;
+  }
+
+  const QRect nextGeometry = autoScrollDotGeometry();
+  if (m_autoScrollDotGeometry == nextGeometry)
+  {
+    return;
+  }
+
+  const QRect oldGeometry = m_autoScrollDotGeometry;
+  m_autoScrollDotView->setGeometry(nextGeometry);
+  m_autoScrollDotGeometry = nextGeometry;
+  requestOverlayRepaint(oldGeometry);
+  requestOverlayRepaint(nextGeometry);
+}
+
 QRect SmoothScrollEffect::overlayGeometryForPointer(const QPointF& pointer, IndicatorMode mode, int size) const
 {
   const QPoint offset = visualOffsetForMode(m_config, mode);
@@ -911,14 +994,39 @@ QRect SmoothScrollEffect::overlayGeometryForPointer(const QPointF& pointer, Indi
   return QRect(x, y, size, size);
 }
 
+QRect SmoothScrollEffect::autoScrollDotGeometry() const
+{
+  const QRectF virtualGeometry = KWin::effects->virtualScreenGeometry();
+  // Anchor to the displayed marker rather than the raw pointer so the two
+  // visuals remain aligned when the origin marker is clamped at a screen edge.
+  const double originX = m_overlayGeometry.x() + m_overlaySize / 2.0;
+  const double originY = m_overlayGeometry.y() + m_overlaySize / 2.0;
+  const double dotRadius = m_config.autoScroll.dotSize / 2.0;
+
+  const int minX = std::floor(virtualGeometry.x());
+  const int minY = std::floor(virtualGeometry.y());
+  const int maxX = std::max(
+      minX,
+      static_cast<int>(std::ceil(virtualGeometry.x() + virtualGeometry.width())) - m_autoScrollDotViewSize);
+  const int maxY = std::max(
+      minY,
+      static_cast<int>(std::ceil(virtualGeometry.y() + virtualGeometry.height())) - m_autoScrollDotViewSize);
+  const int x =
+      std::clamp(static_cast<int>(std::round(originX + m_autoScrollOffsetX - dotRadius)), minX, maxX);
+  const int y =
+      std::clamp(static_cast<int>(std::round(originY + m_autoScrollOffsetY - dotRadius)), minY, maxY);
+  return QRect(x, y, m_autoScrollDotViewSize, m_autoScrollDotViewSize);
+}
+
 void SmoothScrollEffect::hideOverlay()
 {
-  if (!m_overlayVisible)
+  if (!m_overlayVisible && !m_autoScrollDotVisible)
   {
     return;
   }
 
   const QRect oldGeometry = m_overlayGeometry;
+  hideAutoScrollDot();
   m_overlayVisible = false;
   m_overlayContentDirty = false;
   m_overlayMode = IndicatorMode::Hidden;
@@ -936,12 +1044,35 @@ void SmoothScrollEffect::hideOverlay()
   requestOverlayRepaint(oldGeometry);
 }
 
+void SmoothScrollEffect::hideAutoScrollDot()
+{
+  if (!m_autoScrollDotVisible)
+  {
+    return;
+  }
+
+  const QRect oldGeometry = m_autoScrollDotGeometry;
+  m_autoScrollDotVisible = false;
+  m_autoScrollDotGeometry = QRect();
+  m_autoScrollOffsetX = 0;
+  m_autoScrollOffsetY = 0;
+  if (m_autoScrollDotView)
+  {
+    m_autoScrollDotView->hide();
+  }
+  requestOverlayRepaint(oldGeometry);
+}
+
 IndicatorMode SmoothScrollEffect::overlayModeForState(const Config& config, const IpcSnapshot& snapshot,
                                                       bool forcePassthroughActive)
 {
   if (forcePassthroughActive && config.passthrough.enabled)
   {
     return IndicatorMode::Passthrough;
+  }
+  if (snapshot.autoScroll)
+  {
+    return config.autoScroll.enabled ? IndicatorMode::AutoScroll : IndicatorMode::Hidden;
   }
   if (snapshot.dragView && config.arrow.enabled)
   {
@@ -960,6 +1091,10 @@ int SmoothScrollEffect::visualSizeForMode(const Config& config, IndicatorMode mo
   {
     return config.arrow.size;
   }
+  if (mode == IndicatorMode::AutoScroll)
+  {
+    return config.autoScroll.size;
+  }
   if (mode == IndicatorMode::Passthrough)
   {
     return config.passthrough.size;
@@ -972,6 +1107,10 @@ QPoint SmoothScrollEffect::visualOffsetForMode(const Config& config, IndicatorMo
   if (mode == IndicatorMode::Arrow)
   {
     return QPoint(config.arrow.offsetX, config.arrow.offsetY);
+  }
+  if (mode == IndicatorMode::AutoScroll)
+  {
+    return QPoint(config.autoScroll.offsetX, config.autoScroll.offsetY);
   }
   if (mode == IndicatorMode::Passthrough)
   {
@@ -989,6 +1128,10 @@ double SmoothScrollEffect::alphaForMode(const Config& config, IndicatorMode mode
   if (mode == IndicatorMode::Arrow)
   {
     return config.arrow.alpha;
+  }
+  if (mode == IndicatorMode::AutoScroll)
+  {
+    return config.autoScroll.alpha;
   }
   return alphaForSpeed(config.dot, speed);
 }

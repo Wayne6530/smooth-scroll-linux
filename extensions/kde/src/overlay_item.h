@@ -14,6 +14,8 @@ enum class IndicatorMode
   Hidden,
   Dot,
   Arrow,
+  AutoScroll,
+  AutoScrollDot,
   Passthrough,
 };
 
@@ -47,6 +49,18 @@ struct ArrowVisualConfig
   double headWidthScale = 0.5;
 };
 
+struct AutoScrollVisualConfig
+{
+  bool enabled = true;
+  int offsetX = 12;
+  int offsetY = 0;
+  int size = 24;
+  QColor color = QColor(QStringLiteral("#cbd5e1"));
+  QColor dotColor = QColor(QStringLiteral("#4ea1ff"));
+  double alpha = 0.95;
+  int dotSize = 6;
+};
+
 struct PassthroughVisualConfig
 {
   bool enabled = true;
@@ -72,6 +86,7 @@ public:
   void setMode(IndicatorMode mode);
   void setDotConfig(const DotVisualConfig& config);
   void setArrowConfig(const ArrowVisualConfig& config);
+  void setAutoScrollConfig(const AutoScrollVisualConfig& config);
   void setPassthroughConfig(const PassthroughVisualConfig& config);
 
   void paint(QPainter* painter) override;
@@ -80,6 +95,8 @@ private:
   QColor colorForMode() const;
   void drawDot(QPainter* painter, int shadowOffset);
   void drawArrow(QPainter* painter, int shadowOffset);
+  void drawAutoScroll(QPainter* painter);
+  void drawAutoScrollDot(QPainter* painter);
   void drawPassthrough(QPainter* painter, int shadowOffset);
   static void fillTriangle(QPainter* painter, const QPointF& point, double head, double widthScale,
                            Qt::ArrowType direction);
@@ -87,6 +104,7 @@ private:
   IndicatorMode m_mode = IndicatorMode::Hidden;
   DotVisualConfig m_dot;
   ArrowVisualConfig m_arrow;
+  AutoScrollVisualConfig m_autoScroll;
   PassthroughVisualConfig m_passthrough;
 };
 

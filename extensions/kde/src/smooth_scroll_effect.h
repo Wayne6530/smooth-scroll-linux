@@ -46,6 +46,7 @@ struct Config
 {
   DotVisualConfig dot;
   ArrowVisualConfig arrow;
+  AutoScrollVisualConfig autoScroll;
   PassthroughVisualConfig passthrough;
   bool stopOnPointerLeaveWindow = true;
   int pollIntervalMs = 4;
@@ -83,6 +84,7 @@ public Q_SLOTS:
 private:
   void tick();
   void loadConfig();
+  void applyOverlayConfig();
   bool maybeReloadConfig();
   bool shellOverviewActive() const;
   KWin::EffectWindow* windowAt(const QPointF& pos) const;
@@ -93,8 +95,11 @@ private:
   void setForcePassthrough(bool enabled);
   void updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer, bool forcePassthroughActive);
   void syncOverlayGeometry(const QPointF& pointer);
+  void syncAutoScrollDotGeometry();
   QRect overlayGeometryForPointer(const QPointF& pointer, IndicatorMode mode, int size) const;
+  QRect autoScrollDotGeometry() const;
   void hideOverlay();
+  void hideAutoScrollDot();
   static IndicatorMode overlayModeForState(const Config& config, const IpcSnapshot& snapshot,
                                            bool forcePassthroughActive);
   static int visualSizeForMode(const Config& config, IndicatorMode mode);
@@ -117,12 +122,20 @@ private:
   IpcClient m_ipc;
   std::unique_ptr<KWin::OffscreenQuickView> m_overlayView;
   OverlayItem* m_overlayItem = nullptr;
+  std::unique_ptr<KWin::OffscreenQuickView> m_autoScrollDotView;
+  OverlayItem* m_autoScrollDotItem = nullptr;
   bool m_overlayVisible = false;
   bool m_overlayContentDirty = false;
+  bool m_autoScrollDotVisible = false;
+  bool m_autoScrollDotContentDirty = false;
   IndicatorMode m_overlayMode = IndicatorMode::Hidden;
   int m_overlaySize = 0;
+  int m_autoScrollDotViewSize = 0;
   double m_overlayOpacity = -1.0;
   QRect m_overlayGeometry;
+  QRect m_autoScrollDotGeometry;
+  int16_t m_autoScrollOffsetX = 0;
+  int16_t m_autoScrollOffsetY = 0;
   QString m_anchorWindowKey;
   bool m_stopRequestedForAnchor = false;
   uint32_t m_lastSpeed = 0;

@@ -25,6 +25,16 @@
     "min_line_width": 1,
     "head_width_scale": 0.5
   },
+  "auto_scroll": {
+    "enabled": true,
+    "offset_x": 12,
+    "offset_y": 0,
+    "size": 24,
+    "color": "#cbd5e1",
+    "dot_color": "#4ea1ff",
+    "alpha": 0.95,
+    "dot_size": 6
+  },
   "passthrough": {
     "enabled": true,
     "force_when_no_regular_window": true,
