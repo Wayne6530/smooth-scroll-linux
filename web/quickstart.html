@@ -96,8 +96,8 @@ sudo dnf install ./smooth-scroll-*.rpm</code></pre>
           </li>
           <li>
             <h3>Passthrough</h3>
-            <p class="doc-copy lang-block lang-en">Hold a passthrough key when the application should receive raw wheel events, for example browser zoom or editor shortcuts. Defaults: <code>Ctrl</code> and <code>Super</code>, both customizable.</p>
-            <p class="doc-copy lang-block lang-zh">当应用需要接收原始滚轮事件时，按住透传按键，例如浏览器缩放或编辑器快捷操作。默认按键：<code>Ctrl</code> 和 <code>Super</code>，都可以自定义。</p>
+            <p class="doc-copy lang-block lang-en">Hold a passthrough key when the application should receive raw wheel events, for example browser zoom or editor shortcuts. Pressing or releasing it also brakes inertia, while a held pointer gesture keeps ownership. Defaults: <code>Ctrl</code> and <code>Super</code>, both customizable.</p>
+            <p class="doc-copy lang-block lang-zh">当应用需要接收原始滚轮事件时，按住透传按键，例如浏览器缩放或编辑器快捷操作。按下或松开也会制动惯性，但仍按住的指针手势会保留所有权。默认按键：<code>Ctrl</code> 和 <code>Super</code>，都可以自定义。</p>
             <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-key lang-block lang-en">Hold Ctrl / Super</span><span class="move-token token-key lang-block lang-zh">按住 Ctrl / Super</span><span class="move-arrow">&gt;</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span></p>
           </li>
           <li>
@@ -111,6 +111,12 @@ sudo dnf install ./smooth-scroll-*.rpm</code></pre>
             <p class="doc-copy lang-block lang-en">Use Drag View when you want mouse movement to pan content, including horizontal movement. It can be available only while scrolling or at any time. A quick press is replayed as a normal click. Default button: middle mouse button, customizable.</p>
             <p class="doc-copy lang-block lang-zh">希望用鼠标移动来平移内容时使用 Drag View，也可以处理横向移动。它既可设为仅滚动时可用，也可设为始终可用；快速按下松开仍会补发为普通单击。默认按键是鼠标中键，可以自定义。</p>
             <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span><span class="move-arrow">&gt;</span><span class="move-token token-middle lang-block lang-en">Middle press</span><span class="move-token token-middle lang-block lang-zh">中键按下</span><span class="move-arrow">&gt;</span><span class="move-token token-move lang-block lang-en">Mouse move</span><span class="move-token token-move lang-block lang-zh">鼠标移动</span><span class="move-arrow">&gt;</span><span class="move-token token-middle lang-block lang-en">Middle release</span><span class="move-token token-middle lang-block lang-zh">中键释放</span></p>
+          </li>
+          <li>
+            <h3>Auto Scroll</h3>
+            <p class="doc-copy lang-block lang-en">Auto Scroll is an optional hands-free mode with vertical-only, horizontal-only, and omnidirectional axis modes. Press its configured button and move beyond the dead zone; release while moving to keep scrolling, or return to the dead zone before release to exit. Move the mouse to adjust speed and click the Auto Scroll button again to exit a latched session. It is disabled by default.</p>
+            <p class="doc-copy lang-block lang-zh">Auto Scroll 是可选的免手持模式，可配置为仅垂直、仅水平或全向。按下配置的按键并移动鼠标越过死区；有速度时松开会保持滚动，松开前回到死区则退出。锁定后可继续移动鼠标调整速度，再次单击 Auto Scroll 按键即可退出。该模式默认禁用。</p>
+            <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-middle lang-block lang-en">Auto press</span><span class="move-token token-middle lang-block lang-zh">按下 Auto</span><span class="move-arrow">&gt;</span><span class="move-token token-move lang-block lang-en">Cross dead zone</span><span class="move-token token-move lang-block lang-zh">越过死区</span><span class="move-arrow">&gt;</span><span class="move-token token-middle lang-block lang-en">Release while moving</span><span class="move-token token-middle lang-block lang-zh">有速度时松开</span></p>
           </li>
         </ol>
       </section>

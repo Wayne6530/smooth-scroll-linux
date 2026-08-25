@@ -25,7 +25,7 @@ const ConfigWriter = (() => {
       lines.push('');
     }
 
-    const GROUP_ORDER = ['device', 'scroll', 'braking', 'drag-view', 'advanced'];
+    const GROUP_ORDER = ['device', 'scroll', 'braking', 'drag-view', 'auto-scroll', 'advanced'];
     const groups = ParamSchema.getGroups(schema.params);
     const orderedGroups = GROUP_ORDER.filter(g => groups.has(g));
 

@@ -8,7 +8,7 @@ const ConfigEditor = (() => {
   let onParamChange = null;
   let params = [];
 
-  const GROUP_ORDER = ['device', 'scroll', 'braking', 'drag-view', 'advanced'];
+  const GROUP_ORDER = ['device', 'scroll', 'braking', 'drag-view', 'auto-scroll', 'advanced'];
 
   function getEffectiveValue(param) {
     const current = currentValues[param.key];
@@ -30,6 +30,13 @@ const ConfigEditor = (() => {
       keys: ['min_speed_change_ratio', 'max_speed_change_ratio'],
       check: (v) => (v.min_speed_change_ratio ?? 0) <= (v.max_speed_change_ratio ?? Infinity),
       messageKey: 'validation.min-max-ratio',
+    },
+    {
+      keys: ['free_spin_button', 'drag_view_button', 'auto_scroll_button'],
+      check: (v) => Number(v.auto_scroll_button) === 0 ||
+        (Number(v.auto_scroll_button) !== Number(v.free_spin_button) &&
+         Number(v.auto_scroll_button) !== Number(v.drag_view_button)),
+      messageKey: 'validation.mode-button-conflict',
     },
   ];
 

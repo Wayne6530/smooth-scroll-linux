@@ -141,6 +141,14 @@ Distance and Hybrid modes use a separate fractional accumulator for Free Spin ou
 
 When Free Spin is released, normal decay resumes and the preserved distance budget continues to be consumed. Consequently, Free Spin output is additional to the configured minimum distance rather than part of that minimum.
 
+### Auto Scroll
+
+Auto Scroll has a separate pointer-ownership state from ordinary inertia, Drag View, and Free Spin. An accepted press immediately enters the held state, records a virtual origin, and consumes pointer movement. `auto_scroll_axis_mode` can enable only the vertical axis, only the horizontal axis, or both axes simultaneously. Each enabled component applies the dead zone independently, maps the remaining displacement linearly to speed, and caps it at `auto_scroll_max_speed`.
+
+Releasing the activation button while either enabled axis has non-zero speed latches the mode, so output continues hands-free. Releasing while every enabled axis is paused exits instead; a sufficiently short release is replayed as a native click. This decision depends only on the current displacement, so moving out of and back into the dead zone is equivalent to a short click. Pointer movement continues changing the virtual offset without moving the visible pointer. A second Auto Scroll click exits on release, while a non-Free-Spin button exits a latched session immediately.
+
+Each Auto Scroll axis uses its own fractional output accumulator so low speeds survive integer event quantization. In omnidirectional mode, the daemon emits the horizontal and vertical high-resolution wheel events in one input report. It also broadens the user-facing "scrolling" predicate used by Drag View and Free Spin eligibility, while the physics engine continues using the narrower ordinary-inertia predicate for decay, reverse braking, and mouse-movement braking.
+
 ### Braking Logic  
 
 Three methods can stop the scrolling:
