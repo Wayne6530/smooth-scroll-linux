@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 6;
+  const CONFIG_VERSION = 7;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -591,6 +591,48 @@ const ParamSchema = (() => {
       enumLabels: {
         en: { 0: 'Vertical only', 1: 'Horizontal only', 2: 'Omnidirectional' },
         zh: { 0: '仅垂直', 1: '仅水平', 2: '全向' },
+      },
+    },
+    {
+      key: 'auto_scroll_wheel_action',
+      value: 0,
+      defaultValue: 0,
+      'label-en': 'Latched Wheel Action',
+      'label-zh': '锁定状态滚轮操作',
+      'desc-en': 'Controls physical wheel events while Auto Scroll is latched. Ignore drops the event and keeps Auto Scroll active. Exit consumes the event and exits without producing scroll.',
+      'desc-zh': '控制 Auto Scroll 锁定时的物理滚轮事件。忽略会丢弃事件并保持 Auto Scroll；退出会消费事件并退出，且不产生滚动。',
+      type: 'int',
+      min: 0,
+      max: 1,
+      step: 1,
+      group: 'auto-scroll',
+      enum: [0, 1],
+      'enum-labels-en': '0=Ignore|1=Exit',
+      'enum-labels-zh': '0=忽略|1=退出',
+      enumLabels: {
+        en: { 0: 'Ignore', 1: 'Exit' },
+        zh: { 0: '忽略', 1: '退出' },
+      },
+    },
+    {
+      key: 'auto_scroll_exit_button_mode',
+      value: 1,
+      defaultValue: 1,
+      'label-en': 'Exit Button Mode',
+      'label-zh': '退出按键模式',
+      'desc-en': 'Controls whether an ordinary button press can start a held exit while Auto Scroll is latched. Auto Scroll Button accepts only the activation button; Any Button also captures ordinary presses. An uncaptured release still exits immediately and passes through. Drag View and Free Spin retain special handling.',
+      'desc-zh': '控制普通按键按下能否在 Auto Scroll 锁定时发起按住退出。Auto Scroll 按键模式只接受激活按键；任意按键模式也会捕获普通按键按下。未被捕获的松开事件仍会立即退出并透传。Drag View 和 Free Spin 保持特殊处理。',
+      type: 'int',
+      min: 0,
+      max: 1,
+      step: 1,
+      group: 'auto-scroll',
+      enum: [0, 1],
+      'enum-labels-en': '0=Auto Scroll button|1=Any button',
+      'enum-labels-zh': '0=Auto Scroll 按键|1=任意按键',
+      enumLabels: {
+        en: { 0: 'Auto Scroll button', 1: 'Any button' },
+        zh: { 0: 'Auto Scroll 按键', 1: '任意按键' },
       },
     },
     {

@@ -69,7 +69,7 @@ void WheelSmoother::stop() noexcept
   stopScroll();
   braking_times_ = 0;
 
-  if (auto_scroll_button_held())
+  if (auto_scroll_held())
   {
     resetAutoScrollMotion();
   }
@@ -112,18 +112,8 @@ bool WheelSmoother::handleFreeSpinButton(int value) noexcept
   return false;
 }
 
-WheelSmoother::DragViewButtonResult WheelSmoother::handleDragViewButton(const struct timeval& time, int value) noexcept
+WheelSmoother::ButtonResult WheelSmoother::handleDragViewButton(const struct timeval& time, int value) noexcept
 {
-  if (!drag_view_ && value == 1 && !auto_scroll_button_held() &&
-      (scrolling() || options_.drag_view_activation_mode == DragViewActivationMode::Always))
-  {
-    stopAutoScroll();
-    drag_view_ = true;
-    drag_view_press_time_ = std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
-    stopScroll();
-    return DragViewButtonResult::Handled;
-  }
-
   if (drag_view_)
   {
     if (value == 0)
@@ -138,115 +128,178 @@ WheelSmoother::DragViewButtonResult WheelSmoother::handleDragViewButton(const st
 
       if (press_duration >= std::chrono::microseconds::zero() && press_duration < click_timeout)
       {
-        return DragViewButtonResult::ReplayClick;
+        return ButtonResult::ReplayClick;
       }
     }
-    return DragViewButtonResult::Handled;
+    return ButtonResult::Handled;
   }
 
-  return DragViewButtonResult::Passthrough;
+  switch (auto_scroll_state_)
+  {
+    case AutoScrollState::Held:
+    case AutoScrollState::ExitHeld:
+      return ButtonResult::Passthrough;
+
+    case AutoScrollState::Latched:
+      if (value != 1)
+      {
+        stopAutoScroll();
+        return ButtonResult::Passthrough;
+      }
+      break;
+
+    case AutoScrollState::Inactive:
+      if (value != 1 || (options_.drag_view_activation_mode == DragViewActivationMode::Scrolling && !scrollActive()))
+      {
+        stopScroll();
+        braking_times_ = 0;
+        return ButtonResult::Passthrough;
+      }
+      break;
+  }
+
+  stopAutoScroll();
+  stopScroll();
+  drag_view_ = true;
+  drag_view_press_time_ = std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
+  return ButtonResult::Handled;
 }
 
-WheelSmoother::AutoScrollButtonResult WheelSmoother::handleAutoScrollButton(const struct timeval& time,
-                                                                            int value) noexcept
+WheelSmoother::ButtonResult WheelSmoother::handleAutoScrollButton(const struct timeval& time, int button,
+                                                                  int value) noexcept
 {
   const std::chrono::microseconds event_time =
       std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
 
-  if (value == 1)
+  switch (auto_scroll_state_)
   {
-    if (auto_scroll_state_ == AutoScrollState::Latched)
-    {
-      auto_scroll_state_ = AutoScrollState::ExitHeld;
-      return AutoScrollButtonResult::Handled;
+    case AutoScrollState::ExitHeld:
+      assert(auto_scroll_exit_button_.has_value());
+      if (button != *auto_scroll_exit_button_)
+      {
+        return ButtonResult::Passthrough;
+      }
+
+      if (value == 0)
+      {
+        stopAutoScroll();
+      }
+      return ButtonResult::Handled;
+
+    case AutoScrollState::Latched:
+      if (value == 1)
+      {
+        startAutoScrollExit(button);
+        return ButtonResult::Handled;
+      }
+
+      stopAutoScroll();
+      return ButtonResult::Passthrough;
+
+    case AutoScrollState::Held: {
+      if (value != 0)
+      {
+        return ButtonResult::Handled;
+      }
+
+      if (autoScrollMoving())
+      {
+        auto_scroll_state_ = AutoScrollState::Latched;
+        return ButtonResult::Handled;
+      }
+
+      const std::chrono::microseconds click_timeout =
+          std::chrono::milliseconds{ options_.auto_scroll_click_timeout_milliseconds };
+      const std::chrono::microseconds press_duration = event_time - auto_scroll_press_time_;
+      stopAutoScroll();
+
+      if (press_duration >= std::chrono::microseconds::zero() && press_duration < click_timeout)
+      {
+        return ButtonResult::ReplayClick;
+      }
+
+      return ButtonResult::Handled;
     }
 
-    if (auto_scroll_button_held())
-    {
-      return AutoScrollButtonResult::Handled;
-    }
+    case AutoScrollState::Inactive:
+      if (value != 1 || drag_view_ ||
+          (options_.auto_scroll_activation_mode == AutoScrollActivationMode::Scrolling && !scrollActive()))
+      {
+        stopScroll();
+        braking_times_ = 0;
+        return ButtonResult::Passthrough;
+      }
 
-    if (drag_view_ ||
-        (options_.auto_scroll_activation_mode == AutoScrollActivationMode::Scrolling && !scrollActive()))
-    {
-      return AutoScrollButtonResult::Passthrough;
-    }
+      assert(auto_scroll_offset_x_ == 0);
+      assert(auto_scroll_offset_y_ == 0);
+      assert(auto_scroll_deviation_x_ == 0);
+      assert(auto_scroll_deviation_y_ == 0);
 
-    assert(auto_scroll_offset_x_ == 0);
-    assert(auto_scroll_offset_y_ == 0);
-    assert(auto_scroll_deviation_x_ == 0);
-    assert(auto_scroll_deviation_y_ == 0);
-
-    auto_scroll_state_ = AutoScrollState::Held;
-    auto_scroll_press_time_ = event_time;
-    next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
-    rel_x_ = 0;
-    rel_y_ = 0;
-    stopScroll();
-    braking_times_ = 0;
-    return AutoScrollButtonResult::Handled;
+      stopScroll();
+      braking_times_ = 0;
+      auto_scroll_state_ = AutoScrollState::Held;
+      auto_scroll_press_time_ = event_time;
+      next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
+      return ButtonResult::Handled;
   }
 
-  if (!auto_scroll_button_held())
-  {
-    return AutoScrollButtonResult::Passthrough;
-  }
-
-  if (value != 0)
-  {
-    return AutoScrollButtonResult::Handled;
-  }
-
-  if (auto_scroll_state_ == AutoScrollState::ExitHeld)
-  {
-    stopAutoScroll();
-    return AutoScrollButtonResult::Handled;
-  }
-
-  if (auto_scroll_state_ != AutoScrollState::Held)
-  {
-    return AutoScrollButtonResult::Passthrough;
-  }
-
-  static_cast<void>(handleReportEvent(time));
-  if (autoScrollMoving())
-  {
-    auto_scroll_state_ = AutoScrollState::Latched;
-    return AutoScrollButtonResult::Handled;
-  }
-
-  const std::chrono::microseconds click_timeout =
-      std::chrono::milliseconds{ options_.auto_scroll_click_timeout_milliseconds };
-  const std::chrono::microseconds press_duration = event_time - auto_scroll_press_time_;
-  stopAutoScroll();
-
-  if (press_duration >= std::chrono::microseconds::zero() && press_duration < click_timeout)
-  {
-    return AutoScrollButtonResult::ReplayClick;
-  }
-
-  return AutoScrollButtonResult::Handled;
+  assert(false);
+  return ButtonResult::Handled;
 }
 
-void WheelSmoother::handleOrdinaryButton() noexcept
+WheelSmoother::ButtonResult WheelSmoother::handleOrdinaryButton(int button, int value) noexcept
 {
-  if (auto_scroll_button_held())
+  switch (auto_scroll_state_)
   {
-    return;
+    case AutoScrollState::Inactive:
+      stopScroll();
+      braking_times_ = 0;
+      return ButtonResult::Passthrough;
+
+    case AutoScrollState::Held:
+      return ButtonResult::Passthrough;
+
+    case AutoScrollState::Latched:
+      if (value == 1 && options_.auto_scroll_exit_button_mode == AutoScrollExitButtonMode::AnyButton)
+      {
+        startAutoScrollExit(button);
+        return ButtonResult::Handled;
+      }
+
+      stopAutoScroll();
+      return ButtonResult::Passthrough;
+
+    case AutoScrollState::ExitHeld:
+      assert(auto_scroll_exit_button_.has_value());
+      if (button != *auto_scroll_exit_button_)
+      {
+        return ButtonResult::Passthrough;
+      }
+
+      if (value == 0)
+      {
+        stopAutoScroll();
+      }
+      return ButtonResult::Handled;
   }
 
-  if (auto_scroll())
-  {
-    stopAutoScroll();
-  }
-
-  stopScroll();
-  braking_times_ = 0;
+  assert(false);
+  return ButtonResult::Passthrough;
 }
 
 std::optional<struct input_event> WheelSmoother::handleEvent(const struct timeval& time, bool positive, bool horizontal)
 {
-  if (drag_view_ || auto_scroll())
+  if (auto_scroll())
+  {
+    if (auto_scroll_state_ == AutoScrollState::Latched &&
+        options_.auto_scroll_wheel_action == AutoScrollWheelAction::Exit)
+    {
+      stopAutoScroll();
+    }
+    return std::nullopt;
+  }
+
+  if (drag_view_)
   {
     return std::nullopt;
   }
@@ -1187,7 +1240,16 @@ void WheelSmoother::stopScroll() noexcept
 void WheelSmoother::stopAutoScroll() noexcept
 {
   auto_scroll_state_ = AutoScrollState::Inactive;
+  auto_scroll_exit_button_.reset();
   resetAutoScrollMotion();
+}
+
+void WheelSmoother::startAutoScrollExit(int button) noexcept
+{
+  assert(auto_scroll_state_ == AutoScrollState::Latched);
+  assert(!auto_scroll_exit_button_.has_value());
+  auto_scroll_state_ = AutoScrollState::ExitHeld;
+  auto_scroll_exit_button_ = button;
 }
 
 void WheelSmoother::resetAutoScrollMotion() noexcept

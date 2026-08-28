@@ -634,6 +634,52 @@ int main(int argc, char* argv[])
     SPDLOG_WARN("Config 'auto_scroll_axis_mode' not found or invalid, using default: {}",
                 static_cast<int>(options.auto_scroll_axis_mode));
   }
+  if (auto opt = table["auto_scroll_wheel_action"].value<int>())
+  {
+    if (*opt == static_cast<int>(WheelSmoother::AutoScrollWheelAction::Ignore))
+    {
+      options.auto_scroll_wheel_action = WheelSmoother::AutoScrollWheelAction::Ignore;
+      SPDLOG_INFO("Config loaded: auto_scroll_wheel_action = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollWheelAction::Exit))
+    {
+      options.auto_scroll_wheel_action = WheelSmoother::AutoScrollWheelAction::Exit;
+      SPDLOG_INFO("Config loaded: auto_scroll_wheel_action = {}", *opt);
+    }
+    else
+    {
+      SPDLOG_WARN("Config 'auto_scroll_wheel_action' invalid, using default: {}",
+                  static_cast<int>(options.auto_scroll_wheel_action));
+    }
+  }
+  else
+  {
+    SPDLOG_WARN("Config 'auto_scroll_wheel_action' not found or invalid, using default: {}",
+                static_cast<int>(options.auto_scroll_wheel_action));
+  }
+  if (auto opt = table["auto_scroll_exit_button_mode"].value<int>())
+  {
+    if (*opt == static_cast<int>(WheelSmoother::AutoScrollExitButtonMode::AutoScrollButton))
+    {
+      options.auto_scroll_exit_button_mode = WheelSmoother::AutoScrollExitButtonMode::AutoScrollButton;
+      SPDLOG_INFO("Config loaded: auto_scroll_exit_button_mode = {}", *opt);
+    }
+    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollExitButtonMode::AnyButton))
+    {
+      options.auto_scroll_exit_button_mode = WheelSmoother::AutoScrollExitButtonMode::AnyButton;
+      SPDLOG_INFO("Config loaded: auto_scroll_exit_button_mode = {}", *opt);
+    }
+    else
+    {
+      SPDLOG_WARN("Config 'auto_scroll_exit_button_mode' invalid, using default: {}",
+                  static_cast<int>(options.auto_scroll_exit_button_mode));
+    }
+  }
+  else
+  {
+    SPDLOG_WARN("Config 'auto_scroll_exit_button_mode' not found or invalid, using default: {}",
+                static_cast<int>(options.auto_scroll_exit_button_mode));
+  }
   read_option("auto_scroll_deadzone", options.auto_scroll_deadzone);
   read_option("auto_scroll_click_timeout_milliseconds", options.auto_scroll_click_timeout_milliseconds);
   read_option("auto_scroll_speed_factor", options.auto_scroll_speed_factor);
@@ -1035,10 +1081,6 @@ int main(int argc, char* argv[])
                   if (ipc.checkBrakeRequest())
                   {
                     wheel_smoother.stop();
-                    ipc.setSpeed(0, false, false);
-                    ipc.setAutoScroll(wheel_smoother.auto_scroll());
-                    ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(),
-                                            wheel_smoother.auto_scroll_offset_y());
                   }
 
                   if (auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL))
@@ -1047,6 +1089,9 @@ int main(int argc, char* argv[])
                   }
 
                   ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
+                  ipc.setAutoScroll(wheel_smoother.auto_scroll());
+                  ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(),
+                                          wheel_smoother.auto_scroll_offset_y());
                 }
                 break;
 
@@ -1081,8 +1126,8 @@ int main(int argc, char* argv[])
           case EV_KEY: {
             if (ev.code == auto_scroll_button)
             {
-              const auto result = wheel_smoother.handleAutoScrollButton(ev.time, ev.value);
-              if (result == WheelSmoother::AutoScrollButtonResult::ReplayClick)
+              const auto result = wheel_smoother.handleAutoScrollButton(ev.time, ev.code, ev.value);
+              if (result == WheelSmoother::ButtonResult::ReplayClick)
               {
                 struct input_event press_event = ev;
                 press_event.value = 1;
@@ -1090,9 +1135,8 @@ int main(int argc, char* argv[])
                 events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
                 events.push_back(ev);
               }
-              else if (result == WheelSmoother::AutoScrollButtonResult::Passthrough)
+              else if (result == WheelSmoother::ButtonResult::Passthrough)
               {
-                wheel_smoother.handleOrdinaryButton();
                 events.push_back(ev);
               }
 
@@ -1103,7 +1147,7 @@ int main(int argc, char* argv[])
             else if (ev.code == drag_view_button)
             {
               const auto result = wheel_smoother.handleDragViewButton(ev.time, ev.value);
-              if (result == WheelSmoother::DragViewButtonResult::ReplayClick)
+              if (result == WheelSmoother::ButtonResult::ReplayClick)
               {
                 struct input_event press_event = ev;
                 press_event.value = 1;
@@ -1111,9 +1155,8 @@ int main(int argc, char* argv[])
                 events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
                 events.push_back(ev);
               }
-              else if (result == WheelSmoother::DragViewButtonResult::Passthrough)
+              else if (result == WheelSmoother::ButtonResult::Passthrough)
               {
-                wheel_smoother.handleOrdinaryButton();
                 events.push_back(ev);
               }
 
@@ -1132,11 +1175,15 @@ int main(int argc, char* argv[])
             }
             else
             {
-              wheel_smoother.handleOrdinaryButton();
+              const auto result = wheel_smoother.handleOrdinaryButton(ev.code, ev.value);
+              if (result == WheelSmoother::ButtonResult::Passthrough)
+              {
+                events.push_back(ev);
+              }
+
               ipc.setSpeed(0, false, false);
               ipc.setAutoScroll(wheel_smoother.auto_scroll());
               ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-              events.push_back(ev);
             }
             break;
           }

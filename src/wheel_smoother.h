@@ -54,14 +54,19 @@ public:
     Omnidirectional = 2,
   };
 
-  enum class DragViewButtonResult
+  enum class AutoScrollWheelAction
   {
-    Passthrough,
-    Handled,
-    ReplayClick,
+    Ignore = 0,
+    Exit = 1,
   };
 
-  enum class AutoScrollButtonResult
+  enum class AutoScrollExitButtonMode
+  {
+    AutoScrollButton = 0,
+    AnyButton = 1,
+  };
+
+  enum class ButtonResult
   {
     Passthrough,
     Handled,
@@ -114,6 +119,8 @@ public:
 
     AutoScrollActivationMode auto_scroll_activation_mode = AutoScrollActivationMode::Scrolling;
     AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Vertical;
+    AutoScrollWheelAction auto_scroll_wheel_action = AutoScrollWheelAction::Ignore;
+    AutoScrollExitButtonMode auto_scroll_exit_button_mode = AutoScrollExitButtonMode::AnyButton;
     int auto_scroll_deadzone = 8;
     int auto_scroll_click_timeout_milliseconds = 200;
     double auto_scroll_speed_factor = 50;
@@ -134,11 +141,11 @@ public:
 
   bool handleFreeSpinButton(int value) noexcept;
 
-  DragViewButtonResult handleDragViewButton(const struct timeval& time, int value) noexcept;
+  ButtonResult handleDragViewButton(const struct timeval& time, int value) noexcept;
 
-  AutoScrollButtonResult handleAutoScrollButton(const struct timeval& time, int value) noexcept;
+  ButtonResult handleAutoScrollButton(const struct timeval& time, int button, int value) noexcept;
 
-  void handleOrdinaryButton() noexcept;
+  ButtonResult handleOrdinaryButton(int button, int value) noexcept;
 
   std::optional<struct input_event> handleEvent(const struct timeval& time, bool positive, bool horizontal);
 
@@ -230,10 +237,12 @@ private:
 
   void resetAutoScrollMotion() noexcept;
 
-  [[nodiscard]] bool auto_scroll_button_held() const noexcept
+  [[nodiscard]] bool auto_scroll_held() const noexcept
   {
     return auto_scroll_state_ == AutoScrollState::Held || auto_scroll_state_ == AutoScrollState::ExitHeld;
   }
+
+  void startAutoScrollExit(int button) noexcept;
 
   [[nodiscard]] bool scrollActive() const noexcept;
 
@@ -293,6 +302,7 @@ private:
   bool free_spin_ = false;
   bool drag_view_ = false;
   AutoScrollState auto_scroll_state_ = AutoScrollState::Inactive;
+  std::optional<int> auto_scroll_exit_button_;
 };
 
 }  // namespace smooth_scroll
