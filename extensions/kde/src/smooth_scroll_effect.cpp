@@ -1149,34 +1149,21 @@ void SmoothScrollEffect::updateOffscreenView(KWin::OffscreenQuickView* view, int
 QRect SmoothScrollEffect::overlayGeometryForPointer(const QPointF& pointer, IndicatorMode mode, int size) const
 {
   const QPoint offset = visualOffsetForMode(m_config, mode);
-  const auto virtualGeometry = KWin::effects->virtualScreenGeometry();
-
-  const int minX = std::floor(virtualGeometry.x());
-  const int minY = std::floor(virtualGeometry.y());
-  const int maxX = std::max(minX, static_cast<int>(std::ceil(virtualGeometry.x() + virtualGeometry.width())) - size);
-  const int maxY = std::max(minY, static_cast<int>(std::ceil(virtualGeometry.y() + virtualGeometry.height())) - size);
-  const int x = std::clamp(static_cast<int>(std::round(pointer.x() + offset.x() - size / 2.0)), minX, maxX);
-  const int y = std::clamp(static_cast<int>(std::round(pointer.y() + offset.y() - size / 2.0)), minY, maxY);
+  const int x = static_cast<int>(std::round(pointer.x() + offset.x() - size / 2.0));
+  const int y = static_cast<int>(std::round(pointer.y() + offset.y() - size / 2.0));
   return QRect(x, y, size, size);
 }
 
 QRect SmoothScrollEffect::autoScrollDotGeometry() const
 {
-  const auto virtualGeometry = KWin::effects->virtualScreenGeometry();
-  // Anchor to the displayed marker rather than the raw pointer so the two
-  // visuals remain aligned when the origin marker is clamped at a screen edge.
+  // Anchor to the marker's configured position so the displayed displacement
+  // always matches the Auto Scroll offset, including beyond a screen edge.
   const double originX = m_overlayGeometry.x() + m_overlayViewSize / 2.0;
   const double originY = m_overlayGeometry.y() + m_overlayViewSize / 2.0;
   const double dotViewRadius = m_autoScrollDotViewSize / 2.0;
 
-  const int minX = std::floor(virtualGeometry.x());
-  const int minY = std::floor(virtualGeometry.y());
-  const int maxX = std::max(minX, static_cast<int>(std::ceil(virtualGeometry.x() + virtualGeometry.width())) -
-                                      m_autoScrollDotViewSize);
-  const int maxY = std::max(minY, static_cast<int>(std::ceil(virtualGeometry.y() + virtualGeometry.height())) -
-                                      m_autoScrollDotViewSize);
-  const int x = std::clamp(static_cast<int>(std::round(originX + m_autoScrollOffsetX - dotViewRadius)), minX, maxX);
-  const int y = std::clamp(static_cast<int>(std::round(originY + m_autoScrollOffsetY - dotViewRadius)), minY, maxY);
+  const int x = static_cast<int>(std::round(originX + m_autoScrollOffsetX - dotViewRadius));
+  const int y = static_cast<int>(std::round(originY + m_autoScrollOffsetY - dotViewRadius));
   return QRect(x, y, m_autoScrollDotViewSize, m_autoScrollDotViewSize);
 }
 
