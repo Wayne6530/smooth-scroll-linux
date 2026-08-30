@@ -4,7 +4,7 @@
 #pragma once
 
 #include <QColor>
-#include <QQuickPaintedItem>
+#include <QQuickItem>
 
 namespace SmoothScrollKWin
 {
@@ -76,7 +76,7 @@ struct PassthroughVisualConfig
   double alpha = 0.9;
 };
 
-class OverlayItem : public QQuickPaintedItem
+class OverlayItem : public QQuickItem
 {
   Q_OBJECT
 
@@ -88,10 +88,14 @@ public:
   void setArrowConfig(const ArrowVisualConfig& config);
   void setAutoScrollConfig(const AutoScrollVisualConfig& config);
   void setPassthroughConfig(const PassthroughVisualConfig& config);
+  void setVisualSize(int size);
+  void setRenderDevicePixelRatio(qreal devicePixelRatio);
 
-  void paint(QPainter* painter) override;
+protected:
+  QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*) override;
 
 private:
+  void paint(QPainter* painter);
   QColor colorForMode() const;
   void drawDot(QPainter* painter, int shadowOffset);
   void drawArrow(QPainter* painter, int shadowOffset);
@@ -106,6 +110,8 @@ private:
   ArrowVisualConfig m_arrow;
   AutoScrollVisualConfig m_autoScroll;
   PassthroughVisualConfig m_passthrough;
+  int m_visualSize = 0;
+  qreal m_renderDevicePixelRatio = 1.0;
 };
 
 }  // namespace SmoothScrollKWin

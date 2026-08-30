@@ -63,7 +63,7 @@ Arch Linux:
 sudo pacman -S --needed base-devel cmake ninja extra-cmake-modules \
   qt6-base qt6-declarative \
   kcoreaddons kconfig kwindowsystem \
-  libdrm kwin
+  libdrm vulkan-headers kwin
 ```
 
 openSUSE:

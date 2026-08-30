@@ -3,9 +3,12 @@
 
 #include "overlay_item.h"
 
+#include <QImage>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
+#include <QQuickWindow>
+#include <QSGSimpleTextureNode>
 
 #include <algorithm>
 #include <cmath>
@@ -13,10 +16,10 @@
 namespace SmoothScrollKWin
 {
 
-OverlayItem::OverlayItem(QQuickItem* parent) : QQuickPaintedItem(parent)
+OverlayItem::OverlayItem(QQuickItem* parent) : QQuickItem(parent)
 {
   setAntialiasing(true);
-  setFillColor(Qt::transparent);
+  setFlag(ItemHasContents, true);
 }
 
 void OverlayItem::setMode(IndicatorMode mode)
@@ -54,6 +57,59 @@ void OverlayItem::setPassthroughConfig(const PassthroughVisualConfig& config)
   update();
 }
 
+void OverlayItem::setVisualSize(int size)
+{
+  if (m_visualSize == size)
+  {
+    return;
+  }
+
+  m_visualSize = std::max(0, size);
+  update();
+}
+
+void OverlayItem::setRenderDevicePixelRatio(qreal devicePixelRatio)
+{
+  const qreal normalizedDevicePixelRatio = std::max<qreal>(0.1, devicePixelRatio);
+  if (qFuzzyCompare(m_renderDevicePixelRatio, normalizedDevicePixelRatio))
+  {
+    return;
+  }
+
+  m_renderDevicePixelRatio = normalizedDevicePixelRatio;
+  update();
+}
+
+QSGNode* OverlayItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
+{
+  auto* node = static_cast<QSGSimpleTextureNode*>(oldNode);
+  if (!window() || width() <= 0 || height() <= 0)
+  {
+    delete node;
+    return nullptr;
+  }
+
+  const QSize pixelSize = (QSizeF(width(), height()) * m_renderDevicePixelRatio).toSize();
+  QImage image(pixelSize, QImage::Format_RGBA8888_Premultiplied);
+  image.setDevicePixelRatio(m_renderDevicePixelRatio);
+  image.fill(Qt::transparent);
+
+  QPainter painter(&image);
+  paint(&painter);
+  painter.end();
+
+  QSGTexture* texture = window()->createTextureFromImage(image);
+  if (!node)
+  {
+    node = new QSGSimpleTextureNode();
+    node->setOwnsTexture(true);
+  }
+  node->setTexture(texture);
+  node->setRect(boundingRect());
+  node->setFiltering(QSGTexture::Linear);
+  return node;
+}
+
 void OverlayItem::paint(QPainter* painter)
 {
   if (m_mode == IndicatorMode::Hidden)
@@ -63,14 +119,22 @@ void OverlayItem::paint(QPainter* painter)
 
   painter->setRenderHint(QPainter::Antialiasing, true);
 
-  if (m_mode == IndicatorMode::AutoScroll)
+  if (m_visualSize <= 0)
   {
-    drawAutoScroll(painter);
     return;
   }
+
+  painter->translate((width() - m_visualSize) / 2.0, (height() - m_visualSize) / 2.0);
+
   if (m_mode == IndicatorMode::AutoScrollDot)
   {
     drawAutoScrollDot(painter);
+    return;
+  }
+
+  if (m_mode == IndicatorMode::AutoScroll)
+  {
+    drawAutoScroll(painter);
     return;
   }
 
@@ -122,7 +186,7 @@ QColor OverlayItem::colorForMode() const
 
 void OverlayItem::drawDot(QPainter* painter, int shadowOffset)
 {
-  const double size = width();
+  const double size = m_visualSize;
   const double radius = std::max(1.0, (size - shadowOffset * 2.0) / 2.0);
   const QPointF center(size / 2.0 + shadowOffset, size / 2.0 + shadowOffset);
   painter->drawEllipse(center, radius, radius);
@@ -130,7 +194,7 @@ void OverlayItem::drawDot(QPainter* painter, int shadowOffset)
 
 void OverlayItem::drawArrow(QPainter* painter, int shadowOffset)
 {
-  const double size = width();
+  const double size = m_visualSize;
   const double center = size / 2.0 + shadowOffset;
   const double pad = std::max<double>(m_arrow.minPadding, std::round(size * m_arrow.paddingScale));
   const double head = std::max<double>(m_arrow.minHeadSize, std::round(size * m_arrow.headSizeScale));
@@ -152,7 +216,7 @@ void OverlayItem::drawArrow(QPainter* painter, int shadowOffset)
 
 void OverlayItem::drawAutoScroll(QPainter* painter)
 {
-  const double size = width();
+  const double size = m_visualSize;
   const double center = size / 2.0;
   const double ringWidth = std::max(1.0, std::round(size * 0.05));
   const double radius = std::max(1.0, (size - ringWidth - 4.0) / 2.0);
@@ -199,7 +263,7 @@ void OverlayItem::drawAutoScrollDot(QPainter* painter)
 
 void OverlayItem::drawPassthrough(QPainter* painter, int shadowOffset)
 {
-  const double size = width();
+  const double size = m_visualSize;
   const int maxPad = std::max(0, static_cast<int>(std::floor((size - 2.0) / 2.0)));
   const int pad = std::min(
       maxPad, std::max(m_passthrough.minPadding, static_cast<int>(std::round(size * m_passthrough.paddingScale))));

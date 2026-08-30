@@ -5,6 +5,7 @@ project(smooth_scroll_kwin_effect VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(QT_MAJOR_VERSION 6)
 
 find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -23,6 +24,12 @@ find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Quick Widgets)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons Config WindowSystem)
 find_package(KWin REQUIRED)
 
+if(KWin_VERSION VERSION_GREATER_EQUAL "6.7.0")
+    set(SMOOTH_SCROLL_KWIN_6_7_OR_NEWER 1)
+else()
+    set(SMOOTH_SCROLL_KWIN_6_7_OR_NEWER 0)
+endif()
+
 set(KWIN_QT_PLUGIN_DIR "${CMAKE_INSTALL_LIBDIR}/qt6/plugins")
 
 add_library(kwin_smooth_scroll MODULE
@@ -40,6 +47,11 @@ target_include_directories(kwin_smooth_scroll
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+)
+
+target_compile_definitions(kwin_smooth_scroll
+    PRIVATE
+        SMOOTH_SCROLL_KWIN_6_7_OR_NEWER=${SMOOTH_SCROLL_KWIN_6_7_OR_NEWER}
 )
 
 target_link_libraries(kwin_smooth_scroll

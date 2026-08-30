@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QVariantMap>
 
+#include <chrono>
 #include <memory>
 
 namespace KWin
@@ -71,8 +72,11 @@ public:
   explicit SmoothScrollEffect(QObject* parent = nullptr);
   ~SmoothScrollEffect() override;
 
+#if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  void prePaintScreen(KWin::ScreenPrePaintData& data, std::chrono::milliseconds presentTime) override;
   void paintScreen(const KWin::RenderTarget& renderTarget, const KWin::RenderViewport& viewport, int mask,
                    const KWin::Region& deviceRegion, KWin::LogicalOutput* screen) override;
+#endif
   bool isActive() const override;
   void reconfigure(ReconfigureFlags flags) override;
 
@@ -93,9 +97,18 @@ private:
   bool shouldForcePassthrough(KWin::EffectWindow* window, const WindowInfo& info) const;
   bool ruleMatches(const ForcePassthroughRule& rule, const WindowInfo& info) const;
   void setForcePassthrough(bool enabled);
+  void initializeOverlayViews();
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  void recreateOverlayViewsForScaleChange();
+#endif
   void updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer, bool forcePassthroughActive);
   void syncOverlayGeometry(const QPointF& pointer);
   void syncAutoScrollDotGeometry();
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  static void updateOffscreenView(KWin::OffscreenQuickView* view, int renderPasses = 2);
+#endif
+  bool syncViewDevicePixelRatio(KWin::OffscreenQuickView* view, OverlayItem* item, const QRect& geometry,
+                                qreal& currentDevicePixelRatio);
   QRect overlayGeometryForPointer(const QPointF& pointer, IndicatorMode mode, int size) const;
   QRect autoScrollDotGeometry() const;
   void hideOverlay();
@@ -130,7 +143,10 @@ private:
   bool m_autoScrollDotContentDirty = false;
   IndicatorMode m_overlayMode = IndicatorMode::Hidden;
   int m_overlaySize = 0;
+  int m_overlayViewSize = 0;
   int m_autoScrollDotViewSize = 0;
+  qreal m_overlayDevicePixelRatio = 0.0;
+  qreal m_autoScrollDotDevicePixelRatio = 0.0;
   double m_overlayOpacity = -1.0;
   QRect m_overlayGeometry;
   QRect m_autoScrollDotGeometry;

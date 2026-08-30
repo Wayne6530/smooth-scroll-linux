@@ -3,6 +3,7 @@
 
 #include "smooth_scroll_effect.h"
 
+#include <core/output.h>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <effect/offscreenquickview.h>
@@ -39,6 +40,7 @@ constexpr int MinPollIntervalMs = 1;
 constexpr int MaxPollIntervalMs = 1000;
 constexpr int ConfigReloadIntervalMs = 250;
 constexpr int OverlayRepaintMargin = 4;
+constexpr int OverlayCanvasMargin = 4;
 constexpr const char* ConfigDirName = "smooth-scroll-kde-effect";
 constexpr const char* ConfigFileName = "config.json";
 constexpr const char* DbusServiceName = "org.smooth_scroll.KWinEffect";
@@ -257,8 +259,10 @@ void requestOverlayRepaint(const QRect& geometry)
 {
   if (!geometry.isNull())
   {
-    KWin::effects->addRepaint(
-        geometry.adjusted(-OverlayRepaintMargin, -OverlayRepaintMargin, OverlayRepaintMargin, OverlayRepaintMargin));
+    const QRect repaintGeometry =
+        geometry.adjusted(-OverlayRepaintMargin, -OverlayRepaintMargin, OverlayRepaintMargin, OverlayRepaintMargin);
+    KWin::effects->addRepaint(repaintGeometry.x(), repaintGeometry.y(), repaintGeometry.width(),
+                              repaintGeometry.height());
   }
 }
 
@@ -272,24 +276,7 @@ SmoothScrollEffect::SmoothScrollEffect(QObject* parent) : KWin::Effect(parent)
           .filePath(QStringLiteral("%1/%2").arg(QLatin1String(ConfigDirName), QLatin1String(ConfigFileName)));
 
   loadConfig();
-
-  m_overlayView = std::make_unique<KWin::OffscreenQuickView>(KWin::OffscreenQuickView::ExportMode::Texture, true);
-  m_overlayView->setVisible(false);
-  m_overlayItem = new OverlayItem(m_overlayView->contentItem());
-  m_overlayItem->setMode(IndicatorMode::Hidden);
-
-  m_autoScrollDotView =
-      std::make_unique<KWin::OffscreenQuickView>(KWin::OffscreenQuickView::ExportMode::Texture, true);
-  m_autoScrollDotView->setVisible(false);
-  m_autoScrollDotItem = new OverlayItem(m_autoScrollDotView->contentItem());
-  m_autoScrollDotItem->setMode(IndicatorMode::AutoScrollDot);
-
-  applyOverlayConfig();
-
-  connect(m_overlayView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
-          [this]() { requestOverlayRepaint(m_overlayGeometry); });
-  connect(m_autoScrollDotView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
-          [this]() { requestOverlayRepaint(m_autoScrollDotGeometry); });
+  initializeOverlayViews();
 
   connect(&m_timer, &QTimer::timeout, this, &SmoothScrollEffect::tick);
   m_timer.setTimerType(Qt::PreciseTimer);
@@ -306,6 +293,79 @@ SmoothScrollEffect::~SmoothScrollEffect()
   hideOverlay();
   m_ipc.setForcePassthrough(false);
   m_ipc.close();
+}
+
+void SmoothScrollEffect::initializeOverlayViews()
+{
+  m_overlayView = std::make_unique<KWin::OffscreenQuickView>(KWin::OffscreenQuickView::ExportMode::Texture, true);
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  m_overlayView->setAutomaticRepaint(false);
+#endif
+  m_overlayView->setVisible(false);
+  m_overlayItem = new OverlayItem(m_overlayView->contentItem());
+  m_overlayItem->setMode(IndicatorMode::Hidden);
+
+  m_autoScrollDotView = std::make_unique<KWin::OffscreenQuickView>(KWin::OffscreenQuickView::ExportMode::Texture, true);
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  m_autoScrollDotView->setAutomaticRepaint(false);
+#endif
+  m_autoScrollDotView->setVisible(false);
+  m_autoScrollDotItem = new OverlayItem(m_autoScrollDotView->contentItem());
+  m_autoScrollDotItem->setMode(IndicatorMode::AutoScrollDot);
+
+  applyOverlayConfig();
+
+#if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  connect(m_overlayView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
+          [this]() { requestOverlayRepaint(m_overlayGeometry); });
+  connect(m_autoScrollDotView.get(), &KWin::OffscreenQuickView::repaintNeeded, this,
+          [this]() { requestOverlayRepaint(m_autoScrollDotGeometry); });
+#endif
+}
+
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+void SmoothScrollEffect::recreateOverlayViewsForScaleChange()
+{
+  const QRect oldOverlayGeometry = m_overlayGeometry;
+  const QRect oldAutoScrollDotGeometry = m_autoScrollDotGeometry;
+
+  m_overlayItem = nullptr;
+  m_overlayView.reset();
+  m_autoScrollDotItem = nullptr;
+  m_autoScrollDotView.reset();
+
+  m_overlayVisible = false;
+  m_overlayContentDirty = false;
+  m_autoScrollDotVisible = false;
+  m_autoScrollDotContentDirty = false;
+  m_overlayMode = IndicatorMode::Hidden;
+  m_overlaySize = 0;
+  m_overlayViewSize = 0;
+  m_autoScrollDotViewSize = 0;
+  m_overlayDevicePixelRatio = 0.0;
+  m_autoScrollDotDevicePixelRatio = 0.0;
+  m_overlayOpacity = -1.0;
+  m_overlayGeometry = QRect();
+  m_autoScrollDotGeometry = QRect();
+
+  initializeOverlayViews();
+  requestOverlayRepaint(oldOverlayGeometry);
+  requestOverlayRepaint(oldAutoScrollDotGeometry);
+}
+#endif
+
+#if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+void SmoothScrollEffect::prePaintScreen(KWin::ScreenPrePaintData& data, std::chrono::milliseconds presentTime)
+{
+  if (m_overlayVisible && !m_overlayGeometry.isNull())
+  {
+    // KWin 6.6 can retain parts of an independently composited effect from
+    // older swapchain buffers when another part of the screen causes a
+    // repaint. Include the complete indicator in every frame KWin already
+    // intends to paint, without scheduling frames while the screen is idle.
+    data.paint = data.paint.united(m_overlayGeometry);
+  }
+  KWin::effects->prePaintScreen(data, presentTime);
 }
 
 void SmoothScrollEffect::paintScreen(const KWin::RenderTarget& renderTarget, const KWin::RenderViewport& viewport,
@@ -335,6 +395,7 @@ void SmoothScrollEffect::paintScreen(const KWin::RenderTarget& renderTarget, con
     }
   }
 }
+#endif
 
 bool SmoothScrollEffect::isActive() const
 {
@@ -590,10 +651,8 @@ void SmoothScrollEffect::loadConfig()
       readDouble(arrow, QStringLiteral("head_width_scale"), next.arrow.headWidthScale, 0.0, 4.0);
 
   next.autoScroll.enabled = readBool(autoScroll, QStringLiteral("enabled"), next.autoScroll.enabled);
-  next.autoScroll.offsetX =
-      readInt(autoScroll, QStringLiteral("offset_x"), next.autoScroll.offsetX, -256, 256);
-  next.autoScroll.offsetY =
-      readInt(autoScroll, QStringLiteral("offset_y"), next.autoScroll.offsetY, -256, 256);
+  next.autoScroll.offsetX = readInt(autoScroll, QStringLiteral("offset_x"), next.autoScroll.offsetX, -256, 256);
+  next.autoScroll.offsetY = readInt(autoScroll, QStringLiteral("offset_y"), next.autoScroll.offsetY, -256, 256);
   next.autoScroll.size = readInt(autoScroll, QStringLiteral("size"), next.autoScroll.size, 20, 256);
   next.autoScroll.color = readColor(autoScroll, QStringLiteral("color"), next.autoScroll.color);
   next.autoScroll.dotColor = readColor(autoScroll, QStringLiteral("dot_color"), next.autoScroll.dotColor);
@@ -681,12 +740,22 @@ void SmoothScrollEffect::applyOverlayConfig()
     m_overlayItem->setArrowConfig(m_config.arrow);
     m_overlayItem->setAutoScrollConfig(m_config.autoScroll);
     m_overlayItem->setPassthroughConfig(m_config.passthrough);
+    const int viewSize =
+        std::max({ m_config.dot.size, m_config.arrow.size, m_config.autoScroll.size, m_config.passthrough.size }) +
+        OverlayCanvasMargin * 2;
+    if (m_overlayViewSize != viewSize)
+    {
+      m_overlayItem->setWidth(viewSize);
+      m_overlayItem->setHeight(viewSize);
+      m_overlayViewSize = viewSize;
+    }
     m_overlayContentDirty = true;
     requestOverlayRepaint(m_overlayGeometry);
   }
   if (m_autoScrollDotItem)
   {
     m_autoScrollDotItem->setAutoScrollConfig(m_config.autoScroll);
+    m_autoScrollDotItem->setVisualSize(m_config.autoScroll.dotSize);
     m_autoScrollDotContentDirty = true;
     requestOverlayRepaint(m_autoScrollDotGeometry);
   }
@@ -867,37 +936,63 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
     return;
   }
 
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  const KWin::LogicalOutput* pointerOutput = KWin::effects->screenAt(pointer.toPoint());
+  const qreal pointerDevicePixelRatio = pointerOutput ? pointerOutput->scale() : 1.0;
+  if (m_overlayDevicePixelRatio > 0.0 && !qFuzzyCompare(m_overlayDevicePixelRatio, pointerDevicePixelRatio))
+  {
+    recreateOverlayViewsForScaleChange();
+  }
+#endif
+
   const int size = visualSizeForMode(m_config, mode);
   const double alpha = alphaForMode(m_config, mode, snapshot.speed);
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+  bool overlayModeChanged = false;
+#endif
 
   if (m_overlayMode != mode)
   {
     m_overlayItem->setMode(mode);
     m_overlayMode = mode;
     m_overlayContentDirty = true;
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    overlayModeChanged = true;
+#endif
   }
   if (m_overlaySize != size)
   {
-    m_overlayItem->setWidth(size);
-    m_overlayItem->setHeight(size);
+    m_overlayItem->setVisualSize(size);
     m_overlaySize = size;
     m_overlayContentDirty = true;
   }
   if (std::abs(m_overlayOpacity - alpha) > 0.001)
   {
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    m_overlayItem->setOpacity(alpha);
+    m_overlayContentDirty = true;
+#else
     m_overlayView->setOpacity(alpha);
-    m_overlayOpacity = alpha;
     requestOverlayRepaint(m_overlayGeometry);
+#endif
+    m_overlayOpacity = alpha;
   }
 
   syncOverlayGeometry(pointer);
 
   if (mode == IndicatorMode::AutoScroll)
   {
+    m_autoScrollDotItem->setMode(IndicatorMode::AutoScrollDot);
+    if (!m_autoScrollDotVisible)
+    {
+      // hideAutoScrollDot() leaves the item in Hidden mode. Keep our manual
+      // update bookkeeping in sync with the QQuickItem state change.
+      m_autoScrollDotContentDirty = true;
+    }
     m_autoScrollOffsetX = snapshot.autoScrollOffsetX;
     m_autoScrollOffsetY = snapshot.autoScrollOffsetY;
 
-    const int dotViewSize = m_config.autoScroll.dotSize + 2;
+    const int dotViewSize = m_config.autoScroll.dotSize + OverlayCanvasMargin * 2;
     if (m_autoScrollDotViewSize != dotViewSize)
     {
       m_autoScrollDotItem->setWidth(dotViewSize);
@@ -905,19 +1000,35 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
       m_autoScrollDotViewSize = dotViewSize;
       m_autoScrollDotContentDirty = true;
     }
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    if (std::abs(m_autoScrollDotItem->opacity() - alpha) > 0.001)
+    {
+      m_autoScrollDotItem->setOpacity(alpha);
+      m_autoScrollDotContentDirty = true;
+    }
+#else
     m_autoScrollDotView->setOpacity(alpha);
+#endif
     syncAutoScrollDotGeometry();
 
-    if (m_autoScrollDotContentDirty)
-    {
-      m_autoScrollDotItem->update();
-      requestOverlayRepaint(m_autoScrollDotGeometry);
-    }
     if (!m_autoScrollDotVisible)
     {
       m_autoScrollDotView->show();
       m_autoScrollDotVisible = true;
+#if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
       requestOverlayRepaint(m_autoScrollDotGeometry);
+#endif
+    }
+    if (m_autoScrollDotContentDirty)
+    {
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+      updateOffscreenView(m_autoScrollDotView.get());
+      m_autoScrollDotContentDirty = false;
+      requestOverlayRepaint(m_autoScrollDotGeometry);
+#else
+      m_autoScrollDotItem->update();
+      requestOverlayRepaint(m_autoScrollDotGeometry);
+#endif
     }
   }
   else
@@ -925,38 +1036,49 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
     hideAutoScrollDot();
   }
 
-  if (m_overlayContentDirty)
-  {
-    m_overlayItem->update();
-    requestOverlayRepaint(m_overlayGeometry);
-  }
-
   if (!m_overlayVisible)
   {
     m_overlayView->show();
     m_overlayVisible = true;
+#if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
     requestOverlayRepaint(m_overlayGeometry);
+#endif
+  }
+
+  if (m_overlayContentDirty)
+  {
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    updateOffscreenView(m_overlayView.get(), overlayModeChanged ? 3 : 2);
+    m_overlayContentDirty = false;
+    requestOverlayRepaint(m_overlayGeometry);
+#else
+    m_overlayItem->update();
+    requestOverlayRepaint(m_overlayGeometry);
+#endif
   }
 }
 
 void SmoothScrollEffect::syncOverlayGeometry(const QPointF& pointer)
 {
-  if (!m_overlayView || m_overlayMode == IndicatorMode::Hidden || m_overlaySize <= 0)
+  if (!m_overlayView || m_overlayMode == IndicatorMode::Hidden || m_overlayViewSize <= 0)
   {
     return;
   }
 
-  const QRect nextGeometry = overlayGeometryForPointer(pointer, m_overlayMode, m_overlaySize);
-  if (m_overlayGeometry == nextGeometry)
+  const QRect nextGeometry = overlayGeometryForPointer(pointer, m_overlayMode, m_overlayViewSize);
+  if (m_overlayGeometry != nextGeometry)
   {
-    return;
+    const QRect oldGeometry = m_overlayGeometry;
+    m_overlayView->setGeometry(nextGeometry);
+    m_overlayGeometry = nextGeometry;
+    requestOverlayRepaint(oldGeometry);
+    requestOverlayRepaint(nextGeometry);
   }
 
-  const QRect oldGeometry = m_overlayGeometry;
-  m_overlayView->setGeometry(nextGeometry);
-  m_overlayGeometry = nextGeometry;
-  requestOverlayRepaint(oldGeometry);
-  requestOverlayRepaint(nextGeometry);
+  if (syncViewDevicePixelRatio(m_overlayView.get(), m_overlayItem, nextGeometry, m_overlayDevicePixelRatio))
+  {
+    m_overlayContentDirty = true;
+  }
 }
 
 void SmoothScrollEffect::syncAutoScrollDotGeometry()
@@ -968,22 +1090,66 @@ void SmoothScrollEffect::syncAutoScrollDotGeometry()
   }
 
   const QRect nextGeometry = autoScrollDotGeometry();
-  if (m_autoScrollDotGeometry == nextGeometry)
+  if (m_autoScrollDotGeometry != nextGeometry)
+  {
+    const QRect oldGeometry = m_autoScrollDotGeometry;
+    m_autoScrollDotView->setGeometry(nextGeometry);
+    m_autoScrollDotGeometry = nextGeometry;
+    requestOverlayRepaint(oldGeometry);
+    requestOverlayRepaint(nextGeometry);
+  }
+
+  if (syncViewDevicePixelRatio(m_autoScrollDotView.get(), m_autoScrollDotItem, nextGeometry,
+                               m_autoScrollDotDevicePixelRatio))
+  {
+    m_autoScrollDotContentDirty = true;
+  }
+}
+
+bool SmoothScrollEffect::syncViewDevicePixelRatio(KWin::OffscreenQuickView* view, OverlayItem* item,
+                                                  const QRect& geometry, qreal& currentDevicePixelRatio)
+{
+  if (!view || !item || geometry.isNull())
+  {
+    return false;
+  }
+
+  const KWin::LogicalOutput* output = KWin::effects->screenAt(geometry.center());
+  const qreal devicePixelRatio = output ? output->scale() : 1.0;
+  if (qFuzzyCompare(currentDevicePixelRatio, devicePixelRatio))
+  {
+    return false;
+  }
+
+  view->setDevicePixelRatio(devicePixelRatio);
+  item->setRenderDevicePixelRatio(devicePixelRatio);
+  currentDevicePixelRatio = devicePixelRatio;
+  return true;
+}
+
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+void SmoothScrollEffect::updateOffscreenView(KWin::OffscreenQuickView* view, int renderPasses)
+{
+  if (!view || !view->isVisible())
   {
     return;
   }
 
-  const QRect oldGeometry = m_autoScrollDotGeometry;
-  m_autoScrollDotView->setGeometry(nextGeometry);
-  m_autoScrollDotGeometry = nextGeometry;
-  requestOverlayRepaint(oldGeometry);
-  requestOverlayRepaint(nextGeometry);
+  // The custom texture node is synchronized by the first update. The next
+  // update exports that texture to the buffer consumed by KWin's scene item.
+  // Mode switches get one additional pass so a second view update cannot
+  // leave the main surface on an older swapchain buffer.
+  for (int pass = 0; pass < renderPasses; ++pass)
+  {
+    view->update(nullptr);
+  }
 }
+#endif
 
 QRect SmoothScrollEffect::overlayGeometryForPointer(const QPointF& pointer, IndicatorMode mode, int size) const
 {
   const QPoint offset = visualOffsetForMode(m_config, mode);
-  const QRectF virtualGeometry = KWin::effects->virtualScreenGeometry();
+  const auto virtualGeometry = KWin::effects->virtualScreenGeometry();
 
   const int minX = std::floor(virtualGeometry.x());
   const int minY = std::floor(virtualGeometry.y());
@@ -996,25 +1162,21 @@ QRect SmoothScrollEffect::overlayGeometryForPointer(const QPointF& pointer, Indi
 
 QRect SmoothScrollEffect::autoScrollDotGeometry() const
 {
-  const QRectF virtualGeometry = KWin::effects->virtualScreenGeometry();
+  const auto virtualGeometry = KWin::effects->virtualScreenGeometry();
   // Anchor to the displayed marker rather than the raw pointer so the two
   // visuals remain aligned when the origin marker is clamped at a screen edge.
-  const double originX = m_overlayGeometry.x() + m_overlaySize / 2.0;
-  const double originY = m_overlayGeometry.y() + m_overlaySize / 2.0;
-  const double dotRadius = m_config.autoScroll.dotSize / 2.0;
+  const double originX = m_overlayGeometry.x() + m_overlayViewSize / 2.0;
+  const double originY = m_overlayGeometry.y() + m_overlayViewSize / 2.0;
+  const double dotViewRadius = m_autoScrollDotViewSize / 2.0;
 
   const int minX = std::floor(virtualGeometry.x());
   const int minY = std::floor(virtualGeometry.y());
-  const int maxX = std::max(
-      minX,
-      static_cast<int>(std::ceil(virtualGeometry.x() + virtualGeometry.width())) - m_autoScrollDotViewSize);
-  const int maxY = std::max(
-      minY,
-      static_cast<int>(std::ceil(virtualGeometry.y() + virtualGeometry.height())) - m_autoScrollDotViewSize);
-  const int x =
-      std::clamp(static_cast<int>(std::round(originX + m_autoScrollOffsetX - dotRadius)), minX, maxX);
-  const int y =
-      std::clamp(static_cast<int>(std::round(originY + m_autoScrollOffsetY - dotRadius)), minY, maxY);
+  const int maxX = std::max(minX, static_cast<int>(std::ceil(virtualGeometry.x() + virtualGeometry.width())) -
+                                      m_autoScrollDotViewSize);
+  const int maxY = std::max(minY, static_cast<int>(std::ceil(virtualGeometry.y() + virtualGeometry.height())) -
+                                      m_autoScrollDotViewSize);
+  const int x = std::clamp(static_cast<int>(std::round(originX + m_autoScrollOffsetX - dotViewRadius)), minX, maxX);
+  const int y = std::clamp(static_cast<int>(std::round(originY + m_autoScrollOffsetY - dotViewRadius)), minY, maxY);
   return QRect(x, y, m_autoScrollDotViewSize, m_autoScrollDotViewSize);
 }
 
@@ -1033,13 +1195,20 @@ void SmoothScrollEffect::hideOverlay()
   m_overlaySize = 0;
   m_overlayOpacity = -1.0;
   m_overlayGeometry = QRect();
-  if (m_overlayView)
-  {
-    m_overlayView->hide();
-  }
   if (m_overlayItem)
   {
     m_overlayItem->setMode(IndicatorMode::Hidden);
+  }
+  if (m_overlayView)
+  {
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    if (m_overlayView->isVisible())
+    {
+      updateOffscreenView(m_overlayView.get());
+    }
+#else
+    m_overlayView->hide();
+#endif
   }
   requestOverlayRepaint(oldGeometry);
 }
@@ -1056,9 +1225,21 @@ void SmoothScrollEffect::hideAutoScrollDot()
   m_autoScrollDotGeometry = QRect();
   m_autoScrollOffsetX = 0;
   m_autoScrollOffsetY = 0;
+  if (m_autoScrollDotItem)
+  {
+    m_autoScrollDotItem->setMode(IndicatorMode::Hidden);
+  }
   if (m_autoScrollDotView)
   {
+#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
+    if (m_autoScrollDotView->isVisible())
+    {
+      updateOffscreenView(m_autoScrollDotView.get());
+    }
     m_autoScrollDotView->hide();
+#else
+    m_autoScrollDotView->hide();
+#endif
   }
   requestOverlayRepaint(oldGeometry);
 }
