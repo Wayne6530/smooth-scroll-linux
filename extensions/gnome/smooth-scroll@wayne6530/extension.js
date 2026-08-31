@@ -874,10 +874,9 @@ class DotOverlay {
 
     _setPointerPosition(x, y) {
         const size = this._currentSize;
-        const stage = global.get_stage();
         const offset = this._offsetForMode(this._mode);
-        const actorX = clamp(Math.round(x + offset.x - size / 2), 0, Math.max(0, stage.width - size));
-        const actorY = clamp(Math.round(y + offset.y - size / 2), 0, Math.max(0, stage.height - size));
+        const actorX = Math.round(x + offset.x - size / 2);
+        const actorY = Math.round(y + offset.y - size / 2);
 
         if (actorX !== this._lastX || actorY !== this._lastY) {
             this._actor.set_position(actorX, actorY);
@@ -886,18 +885,11 @@ class DotOverlay {
         }
 
         if (this._mode === 'auto-scroll') {
-            const dotActorSize = this._autoScrollDotSize + 2;
             const dotRadius = this._autoScrollDotSize / 2;
             const originX = actorX + size / 2;
             const originY = actorY + size / 2;
-            const dotX = clamp(
-                Math.round(originX + this._autoScrollOffsetX - dotRadius),
-                0,
-                Math.max(0, stage.width - dotActorSize));
-            const dotY = clamp(
-                Math.round(originY + this._autoScrollOffsetY - dotRadius),
-                0,
-                Math.max(0, stage.height - dotActorSize));
+            const dotX = Math.round(originX + this._autoScrollOffsetX - dotRadius);
+            const dotY = Math.round(originY + this._autoScrollOffsetY - dotRadius);
 
             if (dotX !== this._lastAutoScrollDotX || dotY !== this._lastAutoScrollDotY) {
                 this._autoScrollDotActor.set_position(dotX, dotY);
