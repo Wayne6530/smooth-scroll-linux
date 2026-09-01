@@ -4,6 +4,7 @@
 #include "ipc_server.h"
 
 #include <algorithm>
+#include <cassert>
 #include <limits>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -103,6 +104,13 @@ void IpcServer::setConnected() noexcept
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 
+void IpcServer::setDisconnected() noexcept
+{
+  state_ = 0;
+  mapped_memory_->state_bits.store(0, std::memory_order_relaxed);
+  mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
+}
+
 void IpcServer::setPassthrough(bool passthrough) noexcept
 {
   if (passthrough)
@@ -168,10 +176,10 @@ void IpcServer::setAutoScrollAxes(bool horizontal_enabled, bool vertical_enabled
 
 void IpcServer::setAutoScrollOffset(int64_t horizontal, int64_t vertical) noexcept
 {
-  const int16_t clamped_horizontal = static_cast<int16_t>(std::clamp<int64_t>(
-      horizontal, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
-  const int16_t clamped_vertical = static_cast<int16_t>(std::clamp<int64_t>(
-      vertical, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
+  const int16_t clamped_horizontal = static_cast<int16_t>(
+      std::clamp<int64_t>(horizontal, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
+  const int16_t clamped_vertical = static_cast<int16_t>(
+      std::clamp<int64_t>(vertical, std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max()));
   const uint32_t packed = packAutoScrollOffset(clamped_horizontal, clamped_vertical);
   mapped_memory_->auto_scroll_offset.store(packed, std::memory_order_relaxed);
 }

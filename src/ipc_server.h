@@ -26,6 +26,8 @@ public:
 
   void setConnected() noexcept;
 
+  void setDisconnected() noexcept;
+
   void setPassthrough(bool passthrough) noexcept;
 
   void setDragView(bool drag_view) noexcept;
