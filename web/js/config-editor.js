@@ -87,7 +87,10 @@ const ConfigEditor = (() => {
 
     const content = document.createElement('div');
     content.className = 'group-content';
-    if (groupName !== 'scroll') content.classList.add('collapsed');
+    if (groupName !== 'scroll') {
+      content.classList.add('collapsed');
+      header.classList.add('collapsed');
+    }
 
     for (const param of groupParams) {
       content.appendChild(createParamRow(param));
