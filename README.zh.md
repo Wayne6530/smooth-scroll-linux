@@ -42,7 +42,7 @@ sudo dnf install ./smooth-scroll-*.rpm
 1. 安装依赖
 
    ```bash
-   sudo apt install build-essential cmake libspdlog-dev libevdev-dev
+   sudo apt install build-essential cmake libspdlog-dev libevdev-dev libudev-dev
    ```
 
 2. 下载源码并编译
@@ -60,7 +60,7 @@ sudo dnf install ./smooth-scroll-*.rpm
 1. 安装依赖
 
    ```bash
-   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build
+   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel systemd-devel rpm-build
    ```
 
 2. 下载源码并编译
@@ -78,7 +78,7 @@ sudo dnf install ./smooth-scroll-*.rpm
 1. 安装依赖
 
    ```bash
-   sudo pacman -S base-devel cmake git spdlog libevdev
+   sudo pacman -S base-devel cmake git spdlog libevdev systemd-libs
    ```
 
 2. 下载源码并编译安装

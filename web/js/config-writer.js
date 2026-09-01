@@ -65,6 +65,7 @@ const ConfigWriter = (() => {
   }
 
   function formatValue(value, type) {
+    if (type === 'hid-device-list') return formatDeviceModels(value);
     if (typeof value === 'boolean') return value ? 'true' : 'false';
     if (type === 'int-array' || Array.isArray(value)) {
       return '[' + (Array.isArray(value) ? value.join(', ') : value) + ']';
@@ -78,6 +79,20 @@ const ConfigWriter = (() => {
       return String(value);
     }
     return String(value);
+  }
+
+  function formatDeviceModels(value) {
+    if (!Array.isArray(value) || value.length === 0) return '[]';
+    const lines = value.map(device => {
+      const vendor = formatHexId(device.vendorId);
+      const product = formatHexId(device.productId);
+      return `  { vendor_id = ${vendor}, product_id = ${product} },`;
+    });
+    return '[\n' + lines.join('\n') + '\n]';
+  }
+
+  function formatHexId(value) {
+    return '0x' + Number(value).toString(16).padStart(4, '0');
   }
 
   async function copyToClipboard(text) {

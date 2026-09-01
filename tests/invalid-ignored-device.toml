@@ -1,0 +1,1 @@
+ignored_devices = [{ vendor_id = 0x046d }]

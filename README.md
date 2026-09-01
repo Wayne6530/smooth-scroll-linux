@@ -44,7 +44,7 @@ After installation, **smooth-scroll.service** will start automatically and enabl
 1. Install dependencies:
 
    ```bash
-   sudo apt install build-essential cmake libspdlog-dev libevdev-dev
+   sudo apt install build-essential cmake libspdlog-dev libevdev-dev libudev-dev
    ```
 
 2. Clone and build:
@@ -62,7 +62,7 @@ After installation, **smooth-scroll.service** will start automatically and enabl
 1. Install dependencies:
 
    ```bash
-   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel rpm-build
+   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel systemd-devel rpm-build
    ```
 
 2. Clone and build:
@@ -80,7 +80,7 @@ After installation, **smooth-scroll.service** will start automatically and enabl
 1. Install dependencies:
 
    ```bash
-   sudo pacman -S base-devel cmake git spdlog libevdev
+   sudo pacman -S base-devel cmake git spdlog libevdev systemd-libs
    ```
 
 2. Clone and build:

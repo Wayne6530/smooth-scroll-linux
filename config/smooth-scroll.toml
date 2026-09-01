@@ -1,7 +1,7 @@
 # Smooth Scroll for Linux - Configuration File
 # https://github.com/Wayne6530/smooth-scroll-linux
 
-# @config_version: 7
+# @config_version: 8
 
 ## Reference: Button Codes
 # DISABLED    0
@@ -48,13 +48,29 @@
 
 # --- Device ---
 
-# @label-en: Device Path
-# @label-zh: 设备路径
-# @desc-en: Input device path, e.g. /dev/input/event9. If omitted, auto-detects the first active mouse.
-# @desc-zh: 输入设备路径，例如 /dev/input/event9。如果省略，将自动检测第一个活跃的鼠标设备。
-# @type: string
+# @label-en: Device Event Debounce
+# @label-zh: 设备事件防抖
+# @desc-en: Wait time used to merge related mouse and keyboard event nodes before restarting the active session.
+# @desc-zh: 在重启当前会话前，将连续创建的相关鼠标和键盘 input event 节点合并处理的等待时间。
+# @type: int
+# @min: 0
+# @max: 5000
+# @step: 50
 # @group: device
-# device = "/dev/input/event9"
+device_event_debounce_milliseconds = 500
+
+# @label-en: Ignored Device Models
+# @label-zh: 忽略的设备型号
+# @desc-en: Exact vendor/product model IDs excluded from mouse and keyboard discovery. Empty keeps automatic discovery enabled for every compatible device.
+# @desc-zh: 从鼠标和键盘发现中排除的精确厂商/产品型号 ID。为空时自动发现所有兼容设备。
+# @type: hid-device-list
+# @group: device
+ignored_devices = []
+# Example: ignored_devices = [
+#   { vendor_id = 0x046d, product_id = 0xc547 },
+# ]
+
+# --- Scroll ---
 
 # @label-en: Free Spin Button
 # @label-zh: Free Spin 按键
@@ -64,35 +80,9 @@
 # @min: 0
 # @max: 276
 # @step: 1
-# @group: device
+# @group: scroll
 # @enum: 0|272|273|274|275|276
 free_spin_button = 273
-
-# @label-en: Drag View Button
-# @label-zh: Drag View 按键
-# @desc-en: Mouse button code for Drag View mode. Set to 0 to disable. Availability is controlled by drag_view_activation_mode.
-# @desc-zh: Drag View 模式的鼠标按键代码。设为 0 以禁用。是否可进入该模式由 drag_view_activation_mode 控制。
-# @type: int
-# @min: 0
-# @max: 276
-# @step: 1
-# @group: device
-# @enum: 0|272|273|274|275|276
-drag_view_button = 274
-
-# @label-en: Auto Scroll Button
-# @label-zh: Auto Scroll 按键
-# @desc-en: Mouse button code for hands-free Auto Scroll. Set to 0 to disable. It must not conflict with the Free Spin or Drag View button.
-# @desc-zh: 免手持 Auto Scroll 模式的鼠标按键代码。设为 0 以禁用，且不得与 Free Spin 或 Drag View 按键冲突。
-# @type: int
-# @min: 0
-# @max: 276
-# @step: 1
-# @group: device
-# @enum: 0|272|273|274|275|276
-auto_scroll_button = 0
-
-# --- Scroll ---
 
 # @label-en: Smooth Mode
 # @label-zh: 平滑模式
@@ -270,21 +260,33 @@ mouse_movement_delay_microseconds = 100000
 
 # @label-en: Keyboard Braking Keys
 # @label-zh: 键盘制动键
-# @desc-en: Key codes that immediately stop scrolling when pressed or released. Default: Left Shift (42) and Right Shift (54).
-# @desc-zh: 按下或释放时立即停止滚动的键码。默认：左 Shift (42) 和右 Shift (54)。
+# @desc-en: Keyboard key codes that immediately stop scrolling when pressed or released. Pointer button codes 272-279 are not allowed. Default: Left Shift (42) and Right Shift (54).
+# @desc-zh: 按下或释放时立即停止滚动的键盘键码。不允许使用指针按键码 272-279。默认：左 Shift (42) 和右 Shift (54)。
 # @type: int-array
 # @group: braking
 keyboard_braking_keys = [42, 54]
 
 # @label-en: Keyboard Passthrough Keys
 # @label-zh: 键盘直通键
-# @desc-en: Key codes that enable passthrough mode while held. Their press and release edges also brake inertia; held pointer gestures remain owned. Default: Ctrl and Super keys.
-# @desc-zh: 按住时启用直通模式的键码。按下和松开边沿也会制动惯性，但仍按住的指针手势会保留所有权。默认：Ctrl 和 Super 键。
+# @desc-en: Keyboard key codes that enable passthrough mode while held. Their press and release edges also brake inertia; pointer button codes 272-279 are not allowed. Default: Ctrl and Super keys.
+# @desc-zh: 按住时启用直通模式的键盘键码。按下和松开边沿也会制动惯性；不允许使用指针按键码 272-279。默认：Ctrl 和 Super 键。
 # @type: int-array
 # @group: braking
 keyboard_passthrough_keys = [29, 97, 125, 126]
 
 # --- Drag-view ---
+
+# @label-en: Drag View Button
+# @label-zh: Drag View 按键
+# @desc-en: Mouse button code for Drag View mode. Set to 0 to disable. Availability is controlled by drag_view_activation_mode.
+# @desc-zh: Drag View 模式的鼠标按键代码。设为 0 以禁用。是否可进入该模式由 drag_view_activation_mode 控制。
+# @type: int
+# @min: 0
+# @max: 276
+# @step: 1
+# @group: drag-view
+# @enum: 0|272|273|274|275|276
+drag_view_button = 274
 
 # @label-en: Drag View Activation
 # @label-zh: Drag View 激活方式
@@ -324,6 +326,18 @@ drag_view_click_timeout_milliseconds = 200
 drag_view_speed = 3
 
 # --- Auto-scroll ---
+
+# @label-en: Auto Scroll Button
+# @label-zh: Auto Scroll 按键
+# @desc-en: Mouse button code for hands-free Auto Scroll. Set to 0 to disable. It must not conflict with the Free Spin or Drag View button.
+# @desc-zh: 免手持 Auto Scroll 模式的鼠标按键代码。设为 0 以禁用，且不得与 Free Spin 或 Drag View 按键冲突。
+# @type: int
+# @min: 0
+# @max: 276
+# @step: 1
+# @group: auto-scroll
+# @enum: 0|272|273|274|275|276
+auto_scroll_button = 0
 
 # @label-en: Auto Scroll Activation
 # @label-zh: Auto Scroll 激活方式

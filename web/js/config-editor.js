@@ -158,6 +158,7 @@ const ConfigEditor = (() => {
   }
 
   function createControl(param) {
+    if (param.type === 'hid-device-list') return createHidDeviceControl(param);
     if (param.commented) return createCommentedControl(param);
 
     switch (param.type) {
@@ -179,7 +180,9 @@ const ConfigEditor = (() => {
     input.type = 'text';
     input.id = 'param-' + param.key;
     input.className = 'param-input text';
-    input.placeholder = I18n.t('group.' + param.group) + ' (optional)';
+    input.placeholder = param.type === 'toml'
+      ? param.defaultValue
+      : I18n.t('group.' + param.group) + ' (optional)';
     input.dataset.key = param.key;
     if (currentValues[param.key] !== undefined) {
       input.value = currentValues[param.key];
@@ -189,6 +192,161 @@ const ConfigEditor = (() => {
       fireChange(param.key);
     });
     return input;
+  }
+
+  function createHidDeviceControl(param) {
+    const container = document.createElement('div');
+    container.className = 'hid-device-picker';
+    container.id = 'param-' + param.key;
+    container.dataset.key = param.key;
+
+    const list = document.createElement('div');
+    list.className = 'hid-device-list';
+
+    const empty = document.createElement('div');
+    empty.className = 'hid-device-empty';
+    empty.textContent = I18n.t('device.none-ignored');
+
+    const actions = document.createElement('div');
+    actions.className = 'hid-device-actions';
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'device-add-btn';
+    addButton.textContent = I18n.t('device.select-ignore');
+
+    const status = document.createElement('span');
+    status.className = 'hid-device-status';
+    status.textContent = 'hid' in navigator ? I18n.t('device.webhid-limit') : I18n.t('device.webhid-unsupported');
+
+    const getValue = () => Array.isArray(currentValues[param.key]) ? currentValues[param.key] : [];
+
+    function roleLabel(roles) {
+      if (roles.includes('mouse') && roles.includes('keyboard')) return I18n.t('device.role-composite');
+      if (roles.includes('mouse')) return I18n.t('device.role-mouse');
+      if (roles.includes('keyboard')) return I18n.t('device.role-keyboard');
+      return I18n.t('device.role-hid');
+    }
+
+    function renderList() {
+      list.innerHTML = '';
+      const devices = getValue();
+      empty.style.display = devices.length === 0 ? 'block' : 'none';
+
+      for (const device of devices) {
+        const row = document.createElement('label');
+        row.className = 'hid-device-row';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.setAttribute('aria-label', I18n.t('device.remove-ignore'));
+        checkbox.addEventListener('change', () => {
+          const remaining = getValue().filter(item =>
+            item.vendorId !== device.vendorId || item.productId !== device.productId);
+          currentValues[param.key] = remaining.length > 0 ? remaining : undefined;
+          renderList();
+          fireChange(param.key);
+        });
+
+        const identity = document.createElement('span');
+        identity.className = 'hid-device-identity';
+
+        const name = document.createElement('span');
+        name.className = 'hid-device-name';
+        name.textContent = device.productName || I18n.t('device.unnamed');
+
+        const details = document.createElement('span');
+        details.className = 'hid-device-details';
+        details.textContent = `${roleLabel(device.roles || [])} · ${formatHidId(device.vendorId)}:${formatHidId(device.productId)}`;
+
+        identity.appendChild(name);
+        identity.appendChild(details);
+        row.appendChild(checkbox);
+        row.appendChild(identity);
+        list.appendChild(row);
+      }
+    }
+
+    addButton.addEventListener('click', async () => {
+      if (!('hid' in navigator)) {
+        status.textContent = I18n.t('device.webhid-unsupported');
+        return;
+      }
+
+      try {
+        const selected = await navigator.hid.requestDevice({
+          // An empty filter list includes every WebHID-visible interface. This
+          // is important for gaming mice whose configurable interface uses a
+          // vendor-defined collection rather than the protected mouse report.
+          filters: [],
+        });
+        if (selected.length === 0) {
+          status.textContent = I18n.t('device.webhid-limit');
+          return;
+        }
+
+        const devices = getValue().map(device => ({ ...device, roles: [...(device.roles || [])] }));
+        for (const hidDevice of selected) {
+          const roles = hidDeviceRoles(hidDevice);
+          const existing = devices.find(device =>
+            device.vendorId === hidDevice.vendorId && device.productId === hidDevice.productId);
+          if (existing) {
+            existing.roles = Array.from(new Set([...existing.roles, ...roles]));
+            if (!existing.productName && hidDevice.productName) existing.productName = hidDevice.productName;
+          } else {
+            devices.push({
+              vendorId: hidDevice.vendorId,
+              productId: hidDevice.productId,
+              productName: hidDevice.productName || '',
+              roles,
+            });
+          }
+        }
+        devices.sort((lhs, rhs) =>
+          (lhs.productName || '').localeCompare(rhs.productName || '') ||
+          lhs.vendorId - rhs.vendorId || lhs.productId - rhs.productId);
+        currentValues[param.key] = devices;
+        status.textContent = I18n.t('device.webhid-limit');
+        renderList();
+        fireChange(param.key);
+      } catch (error) {
+        status.textContent = error.name === 'NotFoundError'
+          ? I18n.t('device.webhid-limit')
+          : I18n.t('device.selection-failed');
+      }
+    });
+
+    if (!('hid' in navigator)) {
+      addButton.disabled = true;
+    }
+
+    actions.appendChild(addButton);
+    actions.appendChild(status);
+    container.appendChild(empty);
+    container.appendChild(list);
+    container.appendChild(actions);
+    renderList();
+    return container;
+  }
+
+  function hidDeviceRoles(device) {
+    const roles = new Set();
+    const visit = (collections) => {
+      for (const collection of collections || []) {
+        if (collection.usagePage === 0x01 && collection.usage === 0x02) roles.add('mouse');
+        if (collection.usagePage === 0x01 && (collection.usage === 0x06 || collection.usage === 0x07)) {
+          roles.add('keyboard');
+        }
+        visit(collection.children);
+      }
+    };
+    visit(device.collections);
+    return Array.from(roles);
+  }
+
+  function formatHidId(value) {
+    return Number(value).toString(16).padStart(4, '0').toUpperCase();
   }
 
   function createBoolControl(param) {
@@ -431,7 +589,7 @@ const ConfigEditor = (() => {
 
     function confirmAdd() {
       const code = parseInt(addInput.value, 10);
-      if (isNaN(code) || code < 0 || code >= ParamSchema.KEY_CNT) {
+      if (isNaN(code) || code < 0 || code >= ParamSchema.KEY_CNT || ParamSchema.isPointerButton(code)) {
         addInput.classList.add('error');
         setTimeout(() => addInput.classList.remove('error'), 400);
         return;

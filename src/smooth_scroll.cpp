@@ -2,26 +2,31 @@
 // Copyright (c) 2026 Wayne6530
 
 #include <atomic>
-#include <optional>
-#include <chrono>
-#include <string_view>
+#include <cerrno>
+#include <cstdint>
+#include <csignal>
+#include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include <dirent.h>
-#include <libevdev-1.0/libevdev/libevdev.h>
-#include <linux/uinput.h>
-#include <signal.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <spdlog/fmt/ranges.h>
-#include <toml++/toml.hpp>
+#include <sys/eventfd.h>
+#include <unistd.h>
 
-#include "wheel_smoother.h"
+#include "config.h"
+#include "device_manager.h"
 #include "ipc_server.h"
+#include "session.h"
 #include "version.h"
+#include "virtual_device.h"
 
 using namespace std::string_view_literals;
 using namespace smooth_scroll;
+
+namespace
+{
 
 constexpr std::string_view kHelpStr =
     R"(Smooth Scroll for Linux (https://github.com/Wayne6530/smooth-scroll-linux)
@@ -36,362 +41,78 @@ Options:
 )"sv;
 
 constexpr std::string_view kDefaultConfigPath = "./smooth-scroll.toml"sv;
-
 std::atomic_bool kShutdown{ false };
+int kShutdownFd = -1;
 
-void signalHandler(int signal_num)
+void signalHandler(int signal_number)
 {
-  if (signal_num == SIGINT)
+  const int saved_errno = errno;
+  if (signal_number == SIGINT || signal_number == SIGTERM)
   {
     kShutdown.store(true, std::memory_order_relaxed);
+    if (kShutdownFd >= 0)
+    {
+      const std::uint64_t value = 1;
+      const ssize_t ignored = write(kShutdownFd, &value, sizeof(value));
+      static_cast<void>(ignored);
+    }
   }
+  errno = saved_errno;
 }
 
-std::string findDevice()
+bool installSignalHandlers()
 {
-  std::vector<std::pair<std::string, int>> mouse_devices;
-
-  DIR* dir = opendir("/dev/input");
-  if (!dir)
+  struct sigaction action
   {
-    SPDLOG_ERROR("Failed to open /dev/input directory");
-    return "";
-  }
-
-  dirent* entry;
-  while ((entry = readdir(dir)) != nullptr)
-  {
-    std::string_view name = entry->d_name;
-    if (name.rfind("event", 0) == 0)
-    {
-      std::string path = "/dev/input/" + std::string(name);
-
-      int fd = open(path.c_str(), O_RDONLY | O_NONBLOCK);
-      if (fd < 0)
-      {
-        SPDLOG_WARN("Failed to open device {}: {}", path, strerror(errno));
-        continue;
-      }
-
-      libevdev* dev = nullptr;
-      int rc = libevdev_new_from_fd(fd, &dev);
-      if (rc < 0)
-      {
-        SPDLOG_WARN("Failed to initialize libevdev for {}: {}", path, strerror(-rc));
-        close(fd);
-        continue;
-      }
-
-      bool is_mouse = libevdev_has_event_type(dev, EV_REL) && libevdev_has_event_code(dev, EV_REL, REL_X) &&
-                      libevdev_has_event_code(dev, EV_REL, REL_Y) && libevdev_has_event_code(dev, EV_REL, REL_WHEEL);
-
-      libevdev_free(dev);
-
-      if (is_mouse)
-      {
-        SPDLOG_DEBUG("Found mouse device: {}", path);
-        mouse_devices.emplace_back(path, fd);
-      }
-      else
-      {
-        SPDLOG_DEBUG("Device {} is not a mouse", path);
-        close(fd);
-      }
-    }
-  }
-  closedir(dir);
-
-  if (mouse_devices.empty())
-  {
-    SPDLOG_ERROR("No mouse devices found");
-    return "";
-  }
-
-  SPDLOG_INFO("Detecting active device...");
-
-  std::chrono::microseconds deadline = std::chrono::duration_cast<std::chrono::microseconds>(
-      (std::chrono::system_clock::now() + std::chrono::seconds{ 10 }).time_since_epoch());
-  fd_set read_fds;
-  while (!kShutdown.load(std::memory_order_relaxed))
-  {
-    FD_ZERO(&read_fds);
-    int max_fd = -1;
-
-    for (auto& [path, fd] : mouse_devices)
-    {
-      if (fd < 0)
-        continue;
-
-      FD_SET(fd, &read_fds);
-      if (fd > max_fd)
-        max_fd = fd;
-    }
-
-    if (max_fd < 0)
-    {
-      SPDLOG_INFO("All devices lost");
-      break;
-    }
-
-    std::chrono::microseconds now =
-        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
-
-    auto usec = (deadline - now).count();
-
-    if (usec < 0)
-    {
-      SPDLOG_INFO("No active device detected");
-      break;
-    }
-
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = usec;
-
-    while (timeout.tv_usec >= 1'000'000)
-    {
-      timeout.tv_sec += 1;
-      timeout.tv_usec -= 1'000'000;
-    }
-
-    int ret = select(max_fd + 1, &read_fds, nullptr, nullptr, &timeout);
-    if (ret < 0)
-    {
-      if (errno == EINTR)
-        continue;
-      SPDLOG_ERROR("select error: {}", strerror(errno));
-      break;
-    }
-    else if (ret == 0)
-    {
-      SPDLOG_INFO("No active device detected");
-      break;
-    }
-
-    for (auto& [path, fd] : mouse_devices)
-    {
-      if (fd < 0)
-        continue;
-
-      if (FD_ISSET(fd, &read_fds))
-      {
-        libevdev* dev = nullptr;
-        int rc = libevdev_new_from_fd(fd, &dev);
-        if (rc < 0)
-        {
-          SPDLOG_INFO("Device {} lost", path);
-          close(fd);
-          fd = -1;
-          continue;
-        }
-
-        int result;
-        struct input_event ev;
-        while ((result = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev)) == LIBEVDEV_READ_STATUS_SUCCESS)
-        {
-          if (ev.type == EV_REL)
-          {
-            SPDLOG_INFO("Active device detected: {}", path);
-            libevdev_free(dev);
-
-            for (auto& [path, fd] : mouse_devices)
-            {
-              if (fd < 0)
-                continue;
-
-              close(fd);
-            }
-
-            return path;
-          }
-        }
-        libevdev_free(dev);
-
-        if (result == -ENODEV)
-        {
-          SPDLOG_INFO("Device {} lost", path);
-          close(fd);
-          fd = -1;
-        }
-      }
-    }
-  }
-
-  for (auto& [path, fd] : mouse_devices)
-  {
-    if (fd < 0)
-      continue;
-
-    close(fd);
-  }
-
-  return "";
-}
-
-struct KeyboardDevice
-{
-  int fd;
-  libevdev* evdev;
-  int num_passthrough;
-};
-
-std::vector<KeyboardDevice> findKeyboardDevices(const std::vector<unsigned int>& keys, const std::string& mouse_device)
-{
-  std::vector<KeyboardDevice> keyboard_devices;
-
-  if (keys.empty())
-  {
-    return keyboard_devices;
-  }
-
-  DIR* dir = opendir("/dev/input");
-  if (!dir)
-  {
-    SPDLOG_ERROR("Failed to open /dev/input directory");
-    return keyboard_devices;
-  }
-
-  dirent* entry;
-  while ((entry = readdir(dir)) != nullptr)
-  {
-    std::string_view name = entry->d_name;
-    if (name.rfind("event", 0) == 0)
-    {
-      std::string path = "/dev/input/" + std::string(name);
-
-      if (path == mouse_device)
-      {
-        continue;
-      }
-
-      int fd = open(path.c_str(), O_RDONLY | O_NONBLOCK);
-      if (fd < 0)
-      {
-        SPDLOG_WARN("Failed to open device {}: {}", path, strerror(errno));
-        continue;
-      }
-
-      libevdev* dev = nullptr;
-      int rc = libevdev_new_from_fd(fd, &dev);
-      if (rc < 0)
-      {
-        SPDLOG_WARN("Failed to initialize libevdev for {}: {}", path, strerror(-rc));
-        close(fd);
-        continue;
-      }
-
-      bool has_keys = false;
-
-      bool is_keyboard = libevdev_has_event_type(dev, EV_KEY);
-      if (is_keyboard)
-      {
-        for (auto key : keys)
-        {
-          if (libevdev_has_event_code(dev, EV_KEY, key))
-          {
-            has_keys = true;
-            break;
-          }
-        }
-      }
-
-      if (has_keys)
-      {
-        SPDLOG_INFO("Use keyboard device: {}", path);
-        keyboard_devices.push_back(KeyboardDevice{ fd, dev, 0 });
-      }
-      else
-      {
-        SPDLOG_DEBUG("Device {} is not a valid keyboard", path);
-        close(fd);
-        libevdev_free(dev);
-      }
-    }
-  }
-  closedir(dir);
-
-  return keyboard_devices;
-}
-
-void waitUntilAllButtonsReleased(libevdev* evdev, const std::vector<int>& supported_buttons)
-{
-  auto are_any_buttons_pressed = [&]() -> bool {
-    for (int btn : supported_buttons)
-    {
-      if (libevdev_get_event_value(evdev, EV_KEY, btn) != 0)
-      {
-        return true;
-      }
-    }
-    return false;
   };
-
-  while (!kShutdown.load(std::memory_order_relaxed) && are_any_buttons_pressed())
+  action.sa_handler = signalHandler;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+  if (sigaction(SIGINT, &action, nullptr) < 0 || sigaction(SIGTERM, &action, nullptr) < 0)
   {
-    struct input_event ev;
-
-    int rc = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL | LIBEVDEV_READ_FLAG_BLOCKING, &ev);
-
-    if (rc == LIBEVDEV_READ_STATUS_SUCCESS)
-    {
-      continue;
-    }
-    else if (rc == LIBEVDEV_READ_STATUS_SYNC)
-    {
-      while (rc == LIBEVDEV_READ_STATUS_SYNC)
-      {
-        rc = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_SYNC, &ev);
-      }
-    }
-    else if (rc < 0 && rc != -EAGAIN)
-    {
-      break;
-    }
+    SPDLOG_ERROR("Failed to install shutdown signal handlers: {}", std::strerror(errno));
+    return false;
   }
+  return true;
 }
+
+}  // namespace
 
 int main(int argc, char* argv[])
 {
   spdlog::set_pattern("[%E.%f] [%^%L%$] %v");
 
-  std::string config_path(kDefaultConfigPath);
+  std::string config_path{ kDefaultConfigPath };
   bool show_help = false;
   bool show_version = false;
-
-  for (int i = 1; i < argc; ++i)
+  for (int index = 1; index < argc; ++index)
   {
-    std::string_view arg = argv[i];
-    if (arg == "-h" || arg == "--help")
+    const std::string_view argument = argv[index];
+    if (argument == "-h" || argument == "--help")
     {
       show_help = true;
       break;
     }
-    else if (arg == "-v" || arg == "--version")
+    if (argument == "-v" || argument == "--version")
     {
       show_version = true;
       break;
     }
-    else if (arg == "-d" || arg == "--debug")
+    if (argument == "-d" || argument == "--debug")
     {
       spdlog::set_level(spdlog::level::debug);
+      continue;
     }
-    else if ((arg == "-c" || arg == "--config"))
+    if (argument == "-c" || argument == "--config")
     {
-      if (i + 1 < argc)
+      if (index + 1 < argc)
       {
-        config_path = argv[++i];
-      }
-      else
-      {
-        show_help = true;
-        break;
+        config_path = argv[++index];
+        continue;
       }
     }
-    else
-    {
-      show_help = true;
-      break;
-    }
+    show_help = true;
+    break;
   }
 
   if (show_help)
@@ -399,871 +120,70 @@ int main(int argc, char* argv[])
     fmt::print("{}", kHelpStr);
     return 0;
   }
-
   if (show_version)
   {
     fmt::print("{}\n", kVersion);
     return 0;
   }
 
-  if (access(config_path.c_str(), R_OK) != 0)
-  {
-    SPDLOG_INFO("Config file '{}' is not readable: {}", config_path, strerror(errno));
-  }
+  Config config;
+  if (!loadConfig(config_path, config))
+    return -1;
 
-  toml::table table;
-  try
+  kShutdownFd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+  if (kShutdownFd < 0)
   {
-    table = toml::parse_file(config_path);
-  }
-  catch (const toml::parse_error& err)
-  {
-    SPDLOG_WARN("Parsing failed: {}", err.description());
-  }
-
-  std::optional<std::string> device = table["device"].value<std::string>();
-  if (!device.has_value())
-  {
-    SPDLOG_INFO("No 'device' field in config file");
-  }
-
-  int free_spin_button = BTN_RIGHT;
-  if (auto opt = table["free_spin_button"].value<int>())
-  {
-    free_spin_button = *opt;
-    SPDLOG_INFO("Use free spin button {}", free_spin_button);
-  }
-  else
-  {
-    SPDLOG_WARN("Use default free spin button {}", free_spin_button);
-  }
-
-  int drag_view_button = BTN_MIDDLE;
-  if (auto opt = table["drag_view_button"].value<int>())
-  {
-    drag_view_button = *opt;
-    SPDLOG_INFO("Use drag view button {}", drag_view_button);
-  }
-  else
-  {
-    SPDLOG_WARN("Use default drag view button {}", drag_view_button);
-  }
-
-  int auto_scroll_button = 0;
-  if (auto opt = table["auto_scroll_button"].value<int>())
-  {
-    auto_scroll_button = *opt;
-    SPDLOG_INFO("Use auto scroll button {}", auto_scroll_button);
-  }
-  else
-  {
-    SPDLOG_WARN("Use default auto scroll button {}", auto_scroll_button);
-  }
-
-  const auto buttons_conflict = [](int lhs, int rhs) { return lhs != 0 && lhs == rhs; };
-  if (buttons_conflict(auto_scroll_button, drag_view_button) || buttons_conflict(auto_scroll_button, free_spin_button))
-  {
-    SPDLOG_ERROR(
-        "Conflicting mode button configuration: auto_scroll_button={}, drag_view_button={}, free_spin_button={}. "
-        "An enabled Auto Scroll button must differ from the Drag View and Free Spin buttons.",
-        auto_scroll_button, drag_view_button, free_spin_button);
+    SPDLOG_ERROR("Failed to create shutdown eventfd: {}", std::strerror(errno));
     return -1;
   }
-
-  std::vector<unsigned int> keyboard_braking_keys;
-  if (auto array = table["keyboard_braking_keys"].as_array())
-  {
-    for (auto& elem : *array)
-    {
-      if (auto val = elem.value<unsigned int>())
-      {
-        if (*val < KEY_CNT)
-          keyboard_braking_keys.push_back(*val);
-      }
-    }
-  }
-  SPDLOG_INFO("Use keyboard braking keys {}", keyboard_braking_keys);
-
-  std::vector<unsigned int> keyboard_passthrough_keys;
-  if (auto array = table["keyboard_passthrough_keys"].as_array())
-  {
-    for (auto& elem : *array)
-    {
-      if (auto val = elem.value<unsigned int>())
-      {
-        if (*val < KEY_CNT)
-          keyboard_passthrough_keys.push_back(*val);
-      }
-    }
-  }
-  SPDLOG_INFO("Use keyboard passthrough keys {}", keyboard_passthrough_keys);
-
-  auto read_option = [&table](const char* name, auto& value) {
-    if (auto opt = table[name].value<std::remove_reference_t<decltype(value)>>())
-    {
-      value = *opt;
-      SPDLOG_INFO("Config loaded: {} = {}", name, value);
-    }
-    else
-    {
-      SPDLOG_WARN("Config '{}' not found or invalid, using default: {}", name, value);
-    }
-  };
-
-  WheelSmoother::Options options;
-  if (auto opt = table["smooth_mode"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::SmoothMode::Speed))
-    {
-      options.smooth_mode = WheelSmoother::SmoothMode::Speed;
-      SPDLOG_INFO("Config loaded: smooth_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::SmoothMode::Distance))
-    {
-      options.smooth_mode = WheelSmoother::SmoothMode::Distance;
-      SPDLOG_INFO("Config loaded: smooth_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::SmoothMode::Hybrid))
-    {
-      options.smooth_mode = WheelSmoother::SmoothMode::Hybrid;
-      SPDLOG_INFO("Config loaded: smooth_mode = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'smooth_mode' invalid, using default: {}", static_cast<int>(options.smooth_mode));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'smooth_mode' not found or invalid, using default: {}", static_cast<int>(options.smooth_mode));
-  }
-  read_option("wheel_tick_distance", options.wheel_tick_distance);
-  read_option("tick_interval_microseconds", options.tick_interval_microseconds);
-  read_option("min_deceleration", options.min_deceleration);
-  read_option("max_deceleration", options.max_deceleration);
-  read_option("initial_speed", options.initial_speed);
-  read_option("speed_factor", options.speed_factor);
-  read_option("speed_smooth_window_microseconds", options.speed_smooth_window_microseconds);
-  read_option("max_speed_change_lowerbound", options.max_speed_change_lowerbound);
-  read_option("min_speed_change_upperbound", options.min_speed_change_upperbound);
-  read_option("min_speed_change_ratio", options.min_speed_change_ratio);
-  read_option("max_speed_change_ratio", options.max_speed_change_ratio);
-  read_option("damping", options.damping);
-  read_option("use_reverse_scroll_braking", options.use_reverse_scroll_braking);
-  read_option("max_reverse_scroll_braking_microseconds", options.max_reverse_scroll_braking_microseconds);
-  read_option("max_reverse_scroll_braking_times", options.max_reverse_scroll_braking_times);
-  read_option("reverse_scroll_intent_window_microseconds", options.reverse_scroll_intent_window_microseconds);
-  read_option("use_mouse_movement_braking", options.use_mouse_movement_braking);
-  read_option("max_mouse_movement_distance", options.max_mouse_movement_distance);
-  read_option("mouse_movement_window_milliseconds", options.mouse_movement_window_milliseconds);
-  read_option("mouse_movement_delay_microseconds", options.mouse_movement_delay_microseconds);
-  if (auto opt = table["drag_view_activation_mode"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::DragViewActivationMode::Scrolling))
-    {
-      options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Scrolling;
-      SPDLOG_INFO("Config loaded: drag_view_activation_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::DragViewActivationMode::Always))
-    {
-      options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Always;
-      SPDLOG_INFO("Config loaded: drag_view_activation_mode = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'drag_view_activation_mode' invalid, using default: {}",
-                  static_cast<int>(options.drag_view_activation_mode));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'drag_view_activation_mode' not found or invalid, using default: {}",
-                static_cast<int>(options.drag_view_activation_mode));
-  }
-  read_option("drag_view_click_timeout_milliseconds", options.drag_view_click_timeout_milliseconds);
-  read_option("drag_view_speed", options.drag_view_speed);
-
-  if (auto opt = table["auto_scroll_activation_mode"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::AutoScrollActivationMode::Scrolling))
-    {
-      options.auto_scroll_activation_mode = WheelSmoother::AutoScrollActivationMode::Scrolling;
-      SPDLOG_INFO("Config loaded: auto_scroll_activation_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollActivationMode::Always))
-    {
-      options.auto_scroll_activation_mode = WheelSmoother::AutoScrollActivationMode::Always;
-      SPDLOG_INFO("Config loaded: auto_scroll_activation_mode = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'auto_scroll_activation_mode' invalid, using default: {}",
-                  static_cast<int>(options.auto_scroll_activation_mode));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'auto_scroll_activation_mode' not found or invalid, using default: {}",
-                static_cast<int>(options.auto_scroll_activation_mode));
-  }
-  if (auto opt = table["auto_scroll_axis_mode"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Vertical))
-    {
-      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Vertical;
-      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Horizontal))
-    {
-      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Horizontal;
-      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollAxisMode::Omnidirectional))
-    {
-      options.auto_scroll_axis_mode = WheelSmoother::AutoScrollAxisMode::Omnidirectional;
-      SPDLOG_INFO("Config loaded: auto_scroll_axis_mode = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'auto_scroll_axis_mode' invalid, using default: {}",
-                  static_cast<int>(options.auto_scroll_axis_mode));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'auto_scroll_axis_mode' not found or invalid, using default: {}",
-                static_cast<int>(options.auto_scroll_axis_mode));
-  }
-  if (auto opt = table["auto_scroll_wheel_action"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::AutoScrollWheelAction::Ignore))
-    {
-      options.auto_scroll_wheel_action = WheelSmoother::AutoScrollWheelAction::Ignore;
-      SPDLOG_INFO("Config loaded: auto_scroll_wheel_action = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollWheelAction::Exit))
-    {
-      options.auto_scroll_wheel_action = WheelSmoother::AutoScrollWheelAction::Exit;
-      SPDLOG_INFO("Config loaded: auto_scroll_wheel_action = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'auto_scroll_wheel_action' invalid, using default: {}",
-                  static_cast<int>(options.auto_scroll_wheel_action));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'auto_scroll_wheel_action' not found or invalid, using default: {}",
-                static_cast<int>(options.auto_scroll_wheel_action));
-  }
-  if (auto opt = table["auto_scroll_exit_button_mode"].value<int>())
-  {
-    if (*opt == static_cast<int>(WheelSmoother::AutoScrollExitButtonMode::AutoScrollButton))
-    {
-      options.auto_scroll_exit_button_mode = WheelSmoother::AutoScrollExitButtonMode::AutoScrollButton;
-      SPDLOG_INFO("Config loaded: auto_scroll_exit_button_mode = {}", *opt);
-    }
-    else if (*opt == static_cast<int>(WheelSmoother::AutoScrollExitButtonMode::AnyButton))
-    {
-      options.auto_scroll_exit_button_mode = WheelSmoother::AutoScrollExitButtonMode::AnyButton;
-      SPDLOG_INFO("Config loaded: auto_scroll_exit_button_mode = {}", *opt);
-    }
-    else
-    {
-      SPDLOG_WARN("Config 'auto_scroll_exit_button_mode' invalid, using default: {}",
-                  static_cast<int>(options.auto_scroll_exit_button_mode));
-    }
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'auto_scroll_exit_button_mode' not found or invalid, using default: {}",
-                static_cast<int>(options.auto_scroll_exit_button_mode));
-  }
-  read_option("auto_scroll_deadzone", options.auto_scroll_deadzone);
-  read_option("auto_scroll_click_timeout_milliseconds", options.auto_scroll_click_timeout_milliseconds);
-  read_option("auto_scroll_speed_factor", options.auto_scroll_speed_factor);
-  read_option("auto_scroll_max_speed", options.auto_scroll_max_speed);
-
-  if (!device.has_value())
-  {
-    device = findDevice();
-    if (device->empty())
-    {
-      return -1;
-    }
-  }
+  if (!installSignalHandlers())
+    return -1;
 
   IpcServer ipc;
   if (!ipc.initialize())
-  {
     return -1;
-  }
 
-  if (signal(SIGINT, signalHandler) == SIG_ERR)
-  {
-    SPDLOG_ERROR("can't catch SIGINT");
-    return -1;
-  }
+  std::vector<unsigned int> relevant_keyboard_keys = config.session.keyboard_braking_keys;
+  relevant_keyboard_keys.insert(relevant_keyboard_keys.end(), config.session.keyboard_passthrough_keys.begin(),
+                                config.session.keyboard_passthrough_keys.end());
 
-  int mouse_fd = open((*device).c_str(), O_RDONLY | O_NONBLOCK);
-  if (mouse_fd < 0)
-  {
-    SPDLOG_ERROR("can't open {}", *device);
-    return -1;
-  }
+  DeviceManager device_manager{ config.device_manager, relevant_keyboard_keys, kShutdown, kShutdownFd };
 
-  struct libevdev* mouse_evdev = nullptr;
-  int rc = libevdev_new_from_fd(mouse_fd, &mouse_evdev);
-  if (rc < 0)
-  {
-    SPDLOG_ERROR("failed to initialize libevdev: {}", strerror(-rc));
-    close(mouse_fd);
-    return -1;
-  }
-
-  int uinput_fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
-  if (uinput_fd < 0)
-  {
-    SPDLOG_ERROR("failed to open /dev/uinput");
-    libevdev_free(mouse_evdev);
-    close(mouse_fd);
-    return -1;
-  }
-
-  std::vector<int> supported_buttons;
-
-  SPDLOG_INFO("Input device name: \"{}\"", libevdev_get_name(mouse_evdev));
-  SPDLOG_INFO("Input device ID: bus {:#x} vendor {:#x} product {:#x}", libevdev_get_id_bustype(mouse_evdev),
-              libevdev_get_id_vendor(mouse_evdev), libevdev_get_id_product(mouse_evdev));
-
-  for (int type = 0; type < EV_MAX; type++)
-  {
-    if (libevdev_has_event_type(mouse_evdev, type))
-    {
-      const char* type_name = libevdev_event_type_get_name(type);
-      SPDLOG_INFO("  Event type {} ({}) supported", type, type_name ? type_name : "?");
-
-      if (type == EV_KEY)
-      {
-        ioctl(uinput_fd, UI_SET_EVBIT, type);
-        for (int code = 0; code < KEY_MAX; code++)
-        {
-          if (libevdev_has_event_code(mouse_evdev, type, code))
-          {
-            const char* code_name = libevdev_event_code_get_name(type, code);
-            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
-            ioctl(uinput_fd, UI_SET_KEYBIT, code);
-            supported_buttons.push_back(code);
-          }
-        }
-      }
-      else if (type == EV_REL)
-      {
-        ioctl(uinput_fd, UI_SET_EVBIT, type);
-        for (int code = 0; code < REL_MAX; code++)
-        {
-          if (libevdev_has_event_code(mouse_evdev, type, code))
-          {
-            const char* code_name = libevdev_event_code_get_name(type, code);
-            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
-            ioctl(uinput_fd, UI_SET_RELBIT, code);
-          }
-        }
-      }
-      else if (type == EV_MSC)
-      {
-        ioctl(uinput_fd, UI_SET_EVBIT, type);
-        for (int code = 0; code < MSC_MAX; code++)
-        {
-          if (libevdev_has_event_code(mouse_evdev, type, code))
-          {
-            const char* code_name = libevdev_event_code_get_name(type, code);
-            SPDLOG_INFO("    Event code {} ({})", code, code_name ? code_name : "?");
-            ioctl(uinput_fd, UI_SET_MSCBIT, code);
-          }
-        }
-      }
-    }
-  }
-
-  struct uinput_user_dev uidev;
-  memset(&uidev, 0, sizeof(uidev));
-  snprintf(uidev.name, UINPUT_MAX_NAME_SIZE, "Virtual Smooth Mouse");
-  uidev.id.bustype = BUS_USB;
-  uidev.id.vendor = 0x1234;
-  uidev.id.product = 0x5678;
-  uidev.id.version = 1;
-
-  if (write(uinput_fd, &uidev, sizeof(uidev)) < 0)
-  {
-    SPDLOG_ERROR("Write uidev failed");
-    close(uinput_fd);
-    libevdev_free(mouse_evdev);
-    close(mouse_fd);
-    return -1;
-  }
-
-  if (ioctl(uinput_fd, UI_DEV_CREATE) < 0)
-  {
-    SPDLOG_ERROR("Unable to create uinput device");
-    close(uinput_fd);
-    libevdev_free(mouse_evdev);
-    close(mouse_fd);
-    return -1;
-  }
-
-  int num_passthrough = 0;
-  std::array<bool, KEY_CNT> braking_keys_table{};
-  std::array<bool, KEY_CNT> passthrough_keys_table{};
-  std::vector<KeyboardDevice> keyboard_devices;
-  if (!keyboard_braking_keys.empty() || !keyboard_passthrough_keys.empty())
-  {
-    std::vector<unsigned int> keys;
-    keys.reserve(keyboard_braking_keys.size() + keyboard_passthrough_keys.size());
-    keys.insert(keys.end(), keyboard_braking_keys.begin(), keyboard_braking_keys.end());
-    keys.insert(keys.end(), keyboard_passthrough_keys.begin(), keyboard_passthrough_keys.end());
-
-    for (auto key : keys)
-    {
-      braking_keys_table[key] = true;
-    }
-
-    for (auto key : keyboard_passthrough_keys)
-    {
-      passthrough_keys_table[key] = true;
-    }
-
-    keyboard_devices = findKeyboardDevices(keys, *device);
-  }
-
-  waitUntilAllButtonsReleased(mouse_evdev, supported_buttons);
-
-  auto cleanup = [&]() {
-    libevdev_grab(mouse_evdev, LIBEVDEV_UNGRAB);
-    ioctl(uinput_fd, UI_DEV_DESTROY);
-    close(uinput_fd);
-    libevdev_free(mouse_evdev);
-    close(mouse_fd);
-    for (const auto& dev : keyboard_devices)
-    {
-      libevdev_free(dev.evdev);
-      close(dev.fd);
-    }
-  };
-
-  if (libevdev_grab(mouse_evdev, LIBEVDEV_GRAB) < 0)
-  {
-    SPDLOG_ERROR("failed to grab mouse_evdev");
-    cleanup();
-    return -1;
-  }
-
-  ipc.setConnected();
-
-  WheelSmoother wheel_smoother{ options };
-  ipc.setAutoScrollAxes(wheel_smoother.auto_scroll_horizontal_enabled(), wheel_smoother.auto_scroll_vertical_enabled());
-
-  int max_fd;
-  fd_set fds;
-
-  auto set_fds = [&]() {
-    max_fd = mouse_fd;
-    FD_ZERO(&fds);
-    FD_SET(mouse_fd, &fds);
-    for (const auto& dev : keyboard_devices)
-    {
-      FD_SET(dev.fd, &fds);
-      if (dev.fd > max_fd)
-      {
-        max_fd = dev.fd;
-      }
-    }
-  };
-
-  set_fds();
-
-  struct input_event ev;
-  std::vector<struct input_event> events;
-  events.reserve(16);
-
-  auto write_events = [&](const timeval& time) -> bool {
-    if (events.empty())
-      return true;
-
-    events.push_back({ time, EV_SYN, SYN_REPORT, 0 });
-    ssize_t expected_bytes = events.size() * sizeof(struct input_event);
-    ssize_t bytes_written = write(uinput_fd, events.data(), expected_bytes);
-    events.clear();
-    return bytes_written == expected_bytes;
-  };
-
+  VirtualDevice virtual_device;
   while (!kShutdown.load(std::memory_order_relaxed))
   {
-    fd_set read_fds = fds;
-
-    auto timeout = wheel_smoother.timeout();
-
-    int select_ret = select(max_fd + 1, &read_fds, NULL, NULL, timeout.has_value() ? &timeout.value() : NULL);
-    if (select_ret < 0)
-    {
-      if (errno == EINTR)
-      {
-        SPDLOG_TRACE("select errno EINTR");
-        continue;
-      }
-
-      SPDLOG_ERROR("select error: {}", select_ret);
+    AcquireResult acquisition = device_manager.acquireSessionDevices();
+    if (acquisition.status == AcquireStatus::Shutdown)
       break;
-    }
-    else if (select_ret == 0)
-    {
-      if (ipc.checkBrakeRequest())
-      {
-        wheel_smoother.stop();
-        ipc.setSpeed(0, false, false);
-        ipc.setAutoScroll(wheel_smoother.auto_scroll());
-        ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-      }
-      else
-      {
-        const auto tick_result = wheel_smoother.tick();
-        for (std::size_t i = 0; i < tick_result.count; ++i)
-        {
-          events.push_back(tick_result.events[i]);
-        }
-        if (tick_result.count > 0)
-        {
-          if (!write_events(tick_result.events[0].time))
-          {
-            SPDLOG_ERROR("Write uinput failed");
-            cleanup();
-            return -1;
-          }
-        }
-        ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
-      }
-      continue;
-    }
+    if (acquisition.status == AcquireStatus::FatalError || !acquisition.resources)
+      return -1;
 
-    for (auto it = keyboard_devices.begin(); it != keyboard_devices.end();)
-    {
-      const unsigned int fd = it->fd;
+    if (!virtual_device.ensureCapabilities(acquisition.resources->devices.mouse.info().capabilities))
+      return -1;
 
-      if (!FD_ISSET(fd, &read_fds))
-      {
-        ++it;
+    Session::CreateResult create_result = Session::CreateResult::InputOutputError;
+    auto session = Session::create(std::move(*acquisition.resources), config.session, virtual_device, ipc, kShutdown,
+                                   kShutdownFd, create_result);
+    if (!session)
+    {
+      virtual_device.reset();
+      if (create_result == Session::CreateResult::Shutdown)
+        break;
+      if (create_result == Session::CreateResult::MouseLost)
         continue;
-      }
-
-      libevdev* evdev = it->evdev;
-
-      int result;
-      int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
-      while (true)
-      {
-        result = libevdev_next_event(evdev, read_flag, &ev);
-
-        if (result == LIBEVDEV_READ_STATUS_SYNC)
-        {
-          if (ev.type == EV_SYN && ev.code == SYN_DROPPED)
-          {
-            read_flag = LIBEVDEV_READ_FLAG_SYNC;
-            continue;
-          }
-        }
-        else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
-        {
-          break;
-        }
-
-        if (ev.type == EV_KEY && ev.code < KEY_CNT && ev.value != 2)
-        {
-          if (braking_keys_table[ev.code])
-          {
-            wheel_smoother.stop();
-            ipc.setSpeed(0, false, false);
-            ipc.setAutoScroll(wheel_smoother.auto_scroll());
-            ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-          }
-
-          if (passthrough_keys_table[ev.code])
-          {
-            if (ev.value == 1)
-            {
-              ++it->num_passthrough;
-              ++num_passthrough;
-            }
-            else
-            {
-              if (it->num_passthrough)
-              {
-                --it->num_passthrough;
-                --num_passthrough;
-              }
-            }
-            ipc.setPassthrough(num_passthrough);
-          }
-        }
-      }
-
-      if (result == -ENODEV)
-      {
-        SPDLOG_WARN("Keyboard device lost");
-        libevdev_free(evdev);
-        close(fd);
-        num_passthrough -= it->num_passthrough;
-        ipc.setPassthrough(num_passthrough);
-
-        it = keyboard_devices.erase(it);
-
-        set_fds();
-        continue;
-      }
-
-      ++it;
+      return -1;
     }
 
-    if (FD_ISSET(mouse_fd, &read_fds))
-    {
-      int result;
-      int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
-      while (true)
-      {
-        result = libevdev_next_event(mouse_evdev, read_flag, &ev);
+    const Session::RunResult result = session->run(kShutdown);
+    if (result != Session::RunResult::RestartRequested)
+      virtual_device.reset();
+    session.reset();
 
-        if (result == LIBEVDEV_READ_STATUS_SYNC)
-        {
-          if (ev.type == EV_SYN && ev.code == SYN_DROPPED)
-          {
-            events.clear();
-            wheel_smoother.hardReset();
-            ipc.resetMotionState();
-            read_flag = LIBEVDEV_READ_FLAG_SYNC;
-            continue;
-          }
-
-          // Reconstruct the virtual device state without acquiring a pointer
-          // mode midway through a button lifecycle.
-          if (ev.type == EV_SYN && ev.code == SYN_REPORT)
-          {
-            if (!write_events(ev.time))
-            {
-              SPDLOG_ERROR("Write uinput failed during input resynchronization");
-              cleanup();
-              return -1;
-            }
-          }
-          else if (ev.type != EV_MSC)
-          {
-            events.push_back(ev);
-          }
-          continue;
-        }
-        else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
-        {
-          break;
-        }
-
-        switch (ev.type)
-        {
-          case EV_REL:
-            switch (ev.code)
-            {
-              case REL_WHEEL:
-              case REL_HWHEEL:
-                if (num_passthrough || ipc.isForcePassthroughEnabled())
-                {
-                  events.push_back(ev);
-                }
-                else
-                {
-                  if (ipc.checkBrakeRequest())
-                  {
-                    wheel_smoother.stop();
-                  }
-
-                  if (auto ev_wheel = wheel_smoother.handleEvent(ev.time, ev.value > 0, ev.code == REL_HWHEEL))
-                  {
-                    events.push_back(*ev_wheel);
-                  }
-
-                  ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
-                  ipc.setAutoScroll(wheel_smoother.auto_scroll());
-                  ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(),
-                                          wheel_smoother.auto_scroll_offset_y());
-                }
-                break;
-
-              case REL_WHEEL_HI_RES:
-              case REL_HWHEEL_HI_RES:
-                if (num_passthrough || ipc.isForcePassthroughEnabled())
-                {
-                  events.push_back(ev);
-                }
-                break;
-
-              case REL_X:
-                if (wheel_smoother.handleRelXEvent(ev))
-                {
-                  events.push_back(ev);
-                }
-                break;
-
-              case REL_Y:
-                if (wheel_smoother.handleRelYEvent(ev))
-                {
-                  events.push_back(ev);
-                }
-                break;
-
-              default:
-                events.push_back(ev);
-                break;
-            }
-            break;
-
-          case EV_KEY: {
-            if (ev.code == auto_scroll_button)
-            {
-              const auto result = wheel_smoother.handleAutoScrollButton(ev.time, ev.code, ev.value);
-              if (result == WheelSmoother::ButtonResult::ReplayClick)
-              {
-                struct input_event press_event = ev;
-                press_event.value = 1;
-                events.push_back(press_event);
-                events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
-                events.push_back(ev);
-              }
-              else if (result == WheelSmoother::ButtonResult::Passthrough)
-              {
-                events.push_back(ev);
-              }
-
-              ipc.setSpeed(0, false, false);
-              ipc.setAutoScroll(wheel_smoother.auto_scroll());
-              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-            }
-            else if (ev.code == drag_view_button)
-            {
-              const auto result = wheel_smoother.handleDragViewButton(ev.time, ev.value);
-              if (result == WheelSmoother::ButtonResult::ReplayClick)
-              {
-                struct input_event press_event = ev;
-                press_event.value = 1;
-                events.push_back(press_event);
-                events.push_back({ ev.time, EV_SYN, SYN_REPORT, 0 });
-                events.push_back(ev);
-              }
-              else if (result == WheelSmoother::ButtonResult::Passthrough)
-              {
-                events.push_back(ev);
-              }
-
-              ipc.setSpeed(0, false, false);
-              ipc.setAutoScroll(wheel_smoother.auto_scroll());
-              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-              ipc.setDragView(wheel_smoother.drag_view());
-            }
-            else if (ev.code == free_spin_button)
-            {
-              if (!wheel_smoother.handleFreeSpinButton(ev.value))
-              {
-                events.push_back(ev);
-              }
-              ipc.setFreeSpin(wheel_smoother.free_spin());
-            }
-            else
-            {
-              const auto result = wheel_smoother.handleOrdinaryButton(ev.code, ev.value);
-              if (result == WheelSmoother::ButtonResult::Passthrough)
-              {
-                events.push_back(ev);
-              }
-
-              ipc.setSpeed(0, false, false);
-              ipc.setAutoScroll(wheel_smoother.auto_scroll());
-              ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-            }
-            break;
-          }
-
-          case EV_MSC:
-            break;
-
-          case EV_SYN:
-            if (ev.code == SYN_REPORT)
-            {
-              switch (wheel_smoother.handleReportEvent(ev.time))
-              {
-                case WheelSmoother::ReportResult::ScrollStopped:
-                  ipc.setSpeed(0, false, false);
-                  break;
-                case WheelSmoother::ReportResult::AutoScrollOffsetChanged:
-                  ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-                  break;
-                case WheelSmoother::ReportResult::None:
-                  break;
-              }
-
-              if (!write_events(ev.time))
-              {
-                SPDLOG_ERROR("Write uinput failed");
-                cleanup();
-                return -1;
-              }
-            }
-            break;
-
-          default:
-            events.push_back(ev);
-            break;
-        }
-      }
-
-      if (result == -ENODEV)
-      {
-        SPDLOG_ERROR("Mouse device lost");
-        cleanup();
-        return -1;
-      }
-    }
-
-    if (auto next_tick_time = wheel_smoother.next_tick_time())
-    {
-      std::chrono::microseconds event_time =
-          std::chrono::seconds{ ev.time.tv_sec } + std::chrono::microseconds{ ev.time.tv_usec };
-      if (event_time > *next_tick_time)
-      {
-        if (ipc.checkBrakeRequest())
-        {
-          wheel_smoother.stop();
-          ipc.setSpeed(0, false, false);
-          ipc.setAutoScroll(wheel_smoother.auto_scroll());
-          ipc.setAutoScrollOffset(wheel_smoother.auto_scroll_offset_x(), wheel_smoother.auto_scroll_offset_y());
-        }
-        else
-        {
-          const auto tick_result = wheel_smoother.tick();
-          for (std::size_t i = 0; i < tick_result.count; ++i)
-          {
-            events.push_back(tick_result.events[i]);
-          }
-          if (tick_result.count > 0)
-          {
-            if (!write_events(tick_result.events[0].time))
-            {
-              SPDLOG_ERROR("Write uinput failed");
-              cleanup();
-              return -1;
-            }
-          }
-          ipc.setSpeed(wheel_smoother.speed(), wheel_smoother.positive(), wheel_smoother.horizontal());
-        }
-      }
-    }
+    if (result == Session::RunResult::Shutdown)
+      break;
+    if (result == Session::RunResult::InputOutputError)
+      return -1;
   }
 
-  cleanup();
   return 0;
 }

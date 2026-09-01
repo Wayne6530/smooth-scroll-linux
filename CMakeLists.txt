@@ -45,6 +45,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(tomlplusplus)
 
 find_package(fmt REQUIRED)
+find_package(Threads REQUIRED)
+find_path(UDEV_INCLUDE_DIR libudev.h)
+find_library(UDEV_LIBRARY udev)
+if(NOT UDEV_INCLUDE_DIR OR NOT UDEV_LIBRARY)
+  message(FATAL_ERROR "libudev development files were not found")
+endif()
 
 file(GLOB SOURCES "src/*.cpp")
 add_executable(smooth-scroll ${SOURCES})
@@ -54,8 +60,9 @@ target_include_directories(smooth-scroll
     ${CMAKE_SOURCE_DIR}/include
     ${tomlplusplus_SOURCE_DIR}/include
     ${CMAKE_BINARY_DIR}/generated
+    ${UDEV_INCLUDE_DIR}
 )
-target_link_libraries(smooth-scroll fmt::fmt evdev)
+target_link_libraries(smooth-scroll fmt::fmt evdev ${UDEV_LIBRARY} Threads::Threads)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -68,6 +75,28 @@ if(BUILD_TESTING)
   target_include_directories(wheel-smoother-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(wheel-smoother-test fmt::fmt)
   add_test(NAME wheel-smoother-test COMMAND wheel-smoother-test)
+
+  add_executable(device-config-test
+    tests/device_config_test.cpp
+    src/config.cpp
+    src/input_device.cpp
+  )
+  target_compile_definitions(device-config-test PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+  target_include_directories(device-config-test
+    PRIVATE
+      ${CMAKE_SOURCE_DIR}/src
+      ${tomlplusplus_SOURCE_DIR}/include
+  )
+  target_link_libraries(device-config-test fmt::fmt evdev)
+  add_test(
+    NAME device-config-test
+    COMMAND device-config-test
+      ${CMAKE_SOURCE_DIR}/tests/ignored-device-models.toml
+      ${CMAKE_SOURCE_DIR}/tests/empty-ignored-devices.toml
+      ${CMAKE_SOURCE_DIR}/tests/invalid-ignored-device.toml
+      ${CMAKE_SOURCE_DIR}/tests/invalid-pointer-braking-key.toml
+      ${CMAKE_SOURCE_DIR}/tests/invalid-pointer-passthrough-key.toml
+  )
 
   add_test(
     NAME conflicting-mode-buttons

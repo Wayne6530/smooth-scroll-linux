@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 7;
+  const CONFIG_VERSION = 8;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -18,6 +18,8 @@ const ParamSchema = (() => {
   };
 
   const KEY_CNT = 768;
+  const BTN_MOUSE = 272;
+  const BTN_TASK = 279;
 
   const KEY_CODES = {
     29: 'KEY_LEFTCTRL',
@@ -163,17 +165,32 @@ const ParamSchema = (() => {
   const params = [
     // --- Device ---
     {
-      key: 'device',
-      value: '/dev/input/event9',
-      defaultValue: '/dev/input/event9',
-      commented: true,
-      'label-en': 'Device Path',
-      'label-zh': '设备路径',
-      'desc-en': 'Input device path, e.g. /dev/input/event9. If omitted, auto-detects the first active mouse.',
-      'desc-zh': '输入设备路径，例如 /dev/input/event9。如果省略，将自动检测第一个活跃的鼠标设备。',
-      type: 'string',
+      key: 'device_event_debounce_milliseconds',
+      value: 500,
+      defaultValue: 500,
+      'label-en': 'Device Event Debounce',
+      'label-zh': '设备事件防抖',
+      'desc-en': 'Merges related mouse and keyboard event nodes before restarting the input session.',
+      'desc-zh': '在重启输入会话前，将连续创建的相关鼠标和键盘 input event 节点合并处理。',
+      type: 'int',
+      min: 0,
+      max: 5000,
+      step: 50,
+      unit: 'ms',
       group: 'device',
     },
+    {
+      key: 'ignored_devices',
+      value: [],
+      defaultValue: [],
+      'label-en': 'Ignored Device Models',
+      'label-zh': '忽略的设备型号',
+      'desc-en': 'Select unrelated or unstable HID device models to exclude by vendor/product ID. Empty means every compatible mouse and keyboard is discovered automatically. Browser security may hide standard-only devices.',
+      'desc-zh': '按厂商/产品 ID 选择需要排除的无关或不稳定 HID 设备型号。为空时自动发现所有兼容鼠标和键盘。受浏览器安全限制，只有标准接口的设备可能不会显示。',
+      type: 'hid-device-list',
+      group: 'device',
+    },
+    // --- Scroll ---
     {
       key: 'free_spin_button',
       value: 273,
@@ -186,43 +203,10 @@ const ParamSchema = (() => {
       min: 0,
       max: 276,
       step: 1,
-      group: 'device',
+      group: 'scroll',
       enum: [0, 272, 273, 274, 275, 276],
       codeMap: 'button',
     },
-    {
-      key: 'drag_view_button',
-      value: 274,
-      defaultValue: 274,
-      'label-en': 'Drag View Button',
-      'label-zh': 'Drag View 按键',
-      'desc-en': 'Mouse button code for Drag View mode. Set to 0 to disable. Availability is controlled by drag_view_activation_mode.',
-      'desc-zh': 'Drag View 模式的鼠标按键代码。设为 0 以禁用。是否可进入该模式由 drag_view_activation_mode 控制。',
-      type: 'int',
-      min: 0,
-      max: 276,
-      step: 1,
-      group: 'device',
-      enum: [0, 272, 273, 274, 275, 276],
-      codeMap: 'button',
-    },
-    {
-      key: 'auto_scroll_button',
-      value: 0,
-      defaultValue: 0,
-      'label-en': 'Auto Scroll Button',
-      'label-zh': 'Auto Scroll 按键',
-      'desc-en': 'Mouse button code for hands-free Auto Scroll. Set to 0 to disable. It must not conflict with the Free Spin or Drag View button.',
-      'desc-zh': '免手持 Auto Scroll 模式的鼠标按键代码。设为 0 以禁用，且不得与 Free Spin 或 Drag View 按键冲突。',
-      type: 'int',
-      min: 0,
-      max: 276,
-      step: 1,
-      group: 'device',
-      enum: [0, 272, 273, 274, 275, 276],
-      codeMap: 'button',
-    },
-    // --- Scroll ---
     {
       key: 'smooth_mode',
       value: 2,
@@ -454,8 +438,8 @@ const ParamSchema = (() => {
       defaultValue: [42, 54],
       'label-en': 'Keyboard Braking Keys',
       'label-zh': '键盘制动键',
-      'desc-en': 'Key codes that immediately stop scrolling when pressed or released. Default: Left Shift (42) and Right Shift (54).',
-      'desc-zh': '按下或释放时立即停止滚动的键码。默认：左 Shift (42) 和右 Shift (54)。',
+      'desc-en': 'Keyboard key codes that immediately stop scrolling when pressed or released. Pointer button codes 272-279 are not allowed. Default: Left Shift (42) and Right Shift (54).',
+      'desc-zh': '按下或释放时立即停止滚动的键盘键码。不允许使用指针按键码 272-279。默认：左 Shift (42) 和右 Shift (54)。',
       type: 'int-array',
       group: 'braking',
       codeMap: 'key',
@@ -467,14 +451,30 @@ const ParamSchema = (() => {
       defaultValue: [29, 97, 125, 126],
       'label-en': 'Keyboard Passthrough Keys',
       'label-zh': '键盘直通键',
-      'desc-en': 'Key codes that enable passthrough mode while held. Their press and release edges also brake inertia; held pointer gestures remain owned. Default: Ctrl and Super keys.',
-      'desc-zh': '按住时启用直通模式的键码。按下和松开边沿也会制动惯性，但仍按住的指针手势会保留所有权。默认：Ctrl 和 Super 键。',
+      'desc-en': 'Keyboard key codes that enable passthrough mode while held. Their press and release edges also brake inertia; pointer button codes 272-279 are not allowed. Default: Ctrl and Super keys.',
+      'desc-zh': '按住时启用直通模式的键盘键码。按下和松开边沿也会制动惯性；不允许使用指针按键码 272-279。默认：Ctrl 和 Super 键。',
       type: 'int-array',
       group: 'braking',
       codeMap: 'key',
       presets: KEY_PRESETS,
     },
     // --- Drag View ---
+    {
+      key: 'drag_view_button',
+      value: 274,
+      defaultValue: 274,
+      'label-en': 'Drag View Button',
+      'label-zh': 'Drag View 按键',
+      'desc-en': 'Mouse button code for Drag View mode. Set to 0 to disable. Availability is controlled by drag_view_activation_mode.',
+      'desc-zh': 'Drag View 模式的鼠标按键代码。设为 0 以禁用。是否可进入该模式由 drag_view_activation_mode 控制。',
+      type: 'int',
+      min: 0,
+      max: 276,
+      step: 1,
+      group: 'drag-view',
+      enum: [0, 272, 273, 274, 275, 276],
+      codeMap: 'button',
+    },
     {
       key: 'drag_view_activation_mode',
       value: 0,
@@ -551,6 +551,22 @@ const ParamSchema = (() => {
       group: 'drag-view',
     },
     // --- Auto Scroll ---
+    {
+      key: 'auto_scroll_button',
+      value: 0,
+      defaultValue: 0,
+      'label-en': 'Auto Scroll Button',
+      'label-zh': 'Auto Scroll 按键',
+      'desc-en': 'Mouse button code for hands-free Auto Scroll. Set to 0 to disable. It must not conflict with the Free Spin or Drag View button.',
+      'desc-zh': '免手持 Auto Scroll 模式的鼠标按键代码。设为 0 以禁用，且不得与 Free Spin 或 Drag View 按键冲突。',
+      type: 'int',
+      min: 0,
+      max: 276,
+      step: 1,
+      group: 'auto-scroll',
+      enum: [0, 272, 273, 274, 275, 276],
+      codeMap: 'button',
+    },
     {
       key: 'auto_scroll_activation_mode',
       value: 0,
@@ -795,13 +811,25 @@ const ParamSchema = (() => {
   function resolveCode(codeMapName, token) {
     const trimmed = token.trim();
     const map = getCodeMap(codeMapName);
+    let resolved = null;
     if (map) {
       for (const [code, name] of Object.entries(map)) {
-        if (name === trimmed) return Number(code);
+        if (name === trimmed) {
+          resolved = Number(code);
+          break;
+        }
       }
     }
-    const n = parseInt(trimmed, 10);
-    return isNaN(n) ? null : n;
+    if (resolved === null) {
+      const parsed = parseInt(trimmed, 10);
+      resolved = isNaN(parsed) ? null : parsed;
+    }
+    if (codeMapName === 'key' && isPointerButton(resolved)) return null;
+    return resolved;
+  }
+
+  function isPointerButton(code) {
+    return Number.isInteger(code) && code >= BTN_MOUSE && code <= BTN_TASK;
   }
 
   function getGroups(paramsList) {
@@ -824,5 +852,5 @@ const ParamSchema = (() => {
     return defaults;
   }
 
-  return { params, references: REFERENCES, getGroups, getCodeMap, resolveCode, getDefaultValues, BUTTON_CODES, KEY_CODES, KEY_LABELS, KEY_PRESETS, KEY_CNT, CONFIG_VERSION };
+  return { params, references: REFERENCES, getGroups, getCodeMap, resolveCode, isPointerButton, getDefaultValues, BUTTON_CODES, KEY_CODES, KEY_LABELS, KEY_PRESETS, KEY_CNT, CONFIG_VERSION };
 })();

@@ -1,0 +1,7 @@
+device_event_debounce_milliseconds = 750
+
+ignored_devices = [
+  { vendor_id = 0x046d, product_id = 0xc547 },
+  { vendor_id = 0x5678, product_id = 0xef01 },
+  { vendor_id = 0x046d, product_id = 0xc547 },
+]

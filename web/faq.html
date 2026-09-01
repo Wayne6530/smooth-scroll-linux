@@ -49,16 +49,13 @@ sudo ninja -C builddir install</code></pre>
         </article>
 
         <article class="qa-item">
-          <h2 class="qa-question lang-block lang-en">Why do key braking or key passthrough stop working after I plug in a keyboard?</h2>
-          <h2 class="qa-question lang-block lang-zh">为什么启动后再接入键盘，按键停止或按键透传不可用？</h2>
+          <h2 class="qa-question lang-block lang-en">What should I do if another input device interferes with Smooth Scroll?</h2>
+          <h2 class="qa-question lang-block lang-zh">其他输入设备干扰 Smooth Scroll 时怎么办？</h2>
           <div class="qa-answer">
-            <p class="lang-block lang-en">Smooth Scroll currently detects keyboard devices only when the daemon starts. If you plug in a keyboard later, features that depend on that keyboard, such as key braking and key passthrough, may not work for the newly connected device.</p>
-            <p class="lang-block lang-zh">Smooth Scroll 当前只在 daemon 启动时检测键盘设备。如果启动后再接入键盘，后续接入键盘上的相关功能可能不可用，例如按键停止和按键透传。</p>
-            <p class="lang-block lang-en">Restart the service after connecting the keyboard:</p>
-            <p class="lang-block lang-zh">接入键盘后重启服务即可恢复：</p>
-            <pre><code>sudo systemctl restart smooth-scroll.service</code></pre>
-            <p class="lang-block lang-en">The daemon does not monitor keyboard hot-plug events in real time because the design favors a lightweight, predictable input loop.</p>
-            <p class="lang-block lang-zh">daemon 不实时监听设备接入，是为了保持轻量，并让输入处理循环尽可能稳定、实时。</p>
+            <p class="lang-block lang-en">Some USB receivers, controllers, tablets, and other devices present mouse- or keyboard-compatible interfaces. If connecting one makes Smooth Scroll pause, wait for mouse movement, select the wrong mouse, or react repeatedly to an unstable device, add that model to <strong>Ignored Device Models</strong> in the <a href="config.html">Web Configurator</a>.</p>
+            <p class="lang-block lang-zh">某些 USB 接收器、游戏控制器、数位板或其他设备会提供兼容鼠标或键盘的接口。如果接入这类设备后 Smooth Scroll 暂停工作、等待鼠标移动、选错鼠标，或因设备不稳定而反复受到干扰，请在<a href="config.html">网页配置工具</a>的<strong>忽略的设备型号</strong>中添加该设备。</p>
+            <p class="lang-block lang-en">Smooth Scroll will then leave every device with the same vendor and product ID alone. Keep the list empty unless a device actually causes a problem.</p>
+            <p class="lang-block lang-zh">添加后，Smooth Scroll 将忽略具有相同厂商和产品 ID 的所有设备。如果没有遇到这类问题，保持列表为空即可。</p>
           </div>
         </article>
       </section>
