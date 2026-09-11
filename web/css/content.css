@@ -497,6 +497,29 @@
   margin-top: 13px;
 }
 
+.faq-steps {
+  margin-top: 10px;
+  padding-left: 24px;
+}
+
+.faq-steps > li {
+  padding-left: 3px;
+  margin-bottom: 7px;
+}
+
+.faq-steps > li::marker {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.faq-steps > li:last-child {
+  margin-bottom: 0;
+}
+
+.faq-steps + p {
+  margin-top: 13px;
+}
+
 .qa-answer .code-block {
   max-width: 720px;
   margin-top: 14px;

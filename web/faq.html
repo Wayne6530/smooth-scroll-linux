@@ -29,7 +29,7 @@
           </div>
         </article>
 
-        <article class="qa-item">
+        <article id="scroll-start-dead-zone" class="qa-item">
           <h2 class="qa-question lang-block lang-en">Why is there a dead zone at the start of scrolling?</h2>
           <h2 class="qa-question lang-block lang-zh">为什么开始滚动时有死区？</h2>
           <div class="qa-answer">
@@ -45,6 +45,31 @@ ninja -C builddir
 sudo ninja -C builddir install</code></pre>
             <p class="lang-block lang-en">Restart your desktop session after installation.</p>
             <p class="lang-block lang-zh">安装后请重启桌面会话。</p>
+            <p class="lang-block lang-en">If scrolling works in most applications and only one application has trouble, see the <a href="#application-wheel-compatibility">application compatibility steps below</a> instead.</p>
+            <p class="lang-block lang-zh">如果大多数应用都能正常滚动，只有某个应用出现问题，请改为参考下方的<a href="#application-wheel-compatibility">应用兼容性排查步骤</a>。</p>
+          </div>
+        </article>
+
+        <article id="application-wheel-compatibility" class="qa-item">
+          <h2 class="qa-question lang-block lang-en">Why does smooth scrolling or the first wheel step fail in some applications?</h2>
+          <h2 class="qa-question lang-block lang-zh">为什么某些应用滚动不顺畅，或第一次拨动滚轮没有反应？</h2>
+          <div class="qa-answer">
+            <p class="lang-block lang-en">Smooth Scroll's continuous motion requires applications to support high-resolution wheel input. If scrolling works in most applications but one application does not scroll, moves in jumps, or ignores the first wheel step, that application may be using an older whole-step input path.</p>
+            <p class="lang-block lang-zh">Smooth Scroll 的平滑滚动需要应用支持高精度滚轮输入。如果大多数应用滚动正常，只有某个应用不响应、出现跳动，或忽略第一次滚轮操作，该应用可能正在使用只按整格滚动的旧式输入方式。</p>
+            <p class="lang-block lang-en">Use this troubleshooting order:</p>
+            <p class="lang-block lang-zh">请按以下顺序排查：</p>
+            <ol class="faq-steps lang-block lang-en">
+              <li>If you added <code>GDK_CORE_DEVICE_EVENTS=1</code> to the application's launch command, shortcut, or environment settings, remove it, fully quit the application (including background processes), and reopen it. If you have not set this option, continue to the next step.</li>
+              <li>If scrolling still does not work, enable <strong>Force Passthrough</strong> for this application to restore normal wheel scrolling. Smooth Scroll will no longer smooth scrolling in that application; other applications are unaffected. Follow the <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME window rules</a> or <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE Force-Passthrough rules</a> guide for your desktop.</li>
+            </ol>
+            <ol class="faq-steps lang-block lang-zh">
+              <li>如果你曾在应用启动命令、快捷方式或环境设置中加入 <code>GDK_CORE_DEVICE_EVENTS=1</code>，请先移除它，完全退出应用（包括后台进程）后重新打开。如果没有设置过这一项，可以继续下一步。</li>
+              <li>如果仍然无法正常滚动，可以为该应用启用<strong>强制透传</strong>，恢复普通滚轮操作；该应用将不再使用 Smooth Scroll 的平滑滚动，其他应用不受影响。请按你的桌面环境查看 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME 窗口规则</a>或 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE 强制透传规则</a>说明。</li>
+            </ol>
+            <p class="lang-block lang-en">Smooth Scroll does not convert continuous motion into legacy whole-step events. That conversion can make a page look stationary while Smooth Scroll is still decelerating. For example, an opposite wheel step at that moment may only brake the hidden motion instead of scrolling immediately in the other direction. Free Spin, Drag View, and Auto Scroll also depend on whether scrolling is still active, so their response could become similarly unexpected. Force Passthrough avoids this mismatch by returning the application to its normal wheel behavior.</p>
+            <p class="lang-block lang-zh">Smooth Scroll 不会把平滑滚动转换成一格一格的旧式事件。这种转换会让页面看起来已经停下，但 Smooth Scroll 实际上仍在减速。例如，此时反向拨动滚轮可能只会刹车，而不会立即向反方向滚动。Free Spin、Drag View 和 Auto Scroll 也依赖当前是否仍在滚动，因此同样可能出现不符合直觉的响应。强制透传通过让应用恢复普通滚轮操作来避免这种状态错位。</p>
+            <p class="lang-block lang-en">If the problem persists, or you are unsure which path applies, please <a href="https://github.com/Wayne6530/smooth-scroll-linux/issues/new" target="_blank" rel="noopener noreferrer">report it</a> with the application and version, Linux distribution, desktop environment, and whether other applications are affected. Include relevant <code>libinput debug-events</code> output if available.</p>
+            <p class="lang-block lang-zh">如果问题仍然存在，或者你不确定该采用哪种处理方式，请<a href="https://github.com/Wayne6530/smooth-scroll-linux/issues/new" target="_blank" rel="noopener noreferrer">提交问题</a>，说明应用及版本、Linux 发行版、桌面环境，以及其他应用是否也有同样问题。如能提供相关的 <code>libinput debug-events</code> 输出，也请一并附上。</p>
           </div>
         </article>
 
