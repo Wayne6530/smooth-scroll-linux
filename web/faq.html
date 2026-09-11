@@ -51,8 +51,8 @@ sudo ninja -C builddir install</code></pre>
         </article>
 
         <article id="application-wheel-compatibility" class="qa-item">
-          <h2 class="qa-question lang-block lang-en">Why does smooth scrolling or the first wheel step fail in some applications?</h2>
-          <h2 class="qa-question lang-block lang-zh">为什么某些应用滚动不顺畅，或第一次拨动滚轮没有反应？</h2>
+          <h2 class="qa-question lang-block lang-en">Why do some applications have scrolling problems with Smooth Scroll?</h2>
+          <h2 class="qa-question lang-block lang-zh">为什么某些应用在使用 Smooth Scroll 时会出现滚动问题？</h2>
           <div class="qa-answer">
             <p class="lang-block lang-en">Smooth Scroll's continuous motion requires applications to support high-resolution wheel input. If scrolling works in most applications but one application does not scroll, moves in jumps, or ignores the first wheel step, that application may be using an older whole-step input path.</p>
             <p class="lang-block lang-zh">Smooth Scroll 的平滑滚动需要应用支持高精度滚轮输入。如果大多数应用滚动正常，只有某个应用不响应、出现跳动，或忽略第一次滚轮操作，该应用可能正在使用只按整格滚动的旧式输入方式。</p>
@@ -60,16 +60,32 @@ sudo ninja -C builddir install</code></pre>
             <p class="lang-block lang-zh">请按以下顺序排查：</p>
             <ol class="faq-steps lang-block lang-en">
               <li>If you added <code>GDK_CORE_DEVICE_EVENTS=1</code> to the application's launch command, shortcut, or environment settings, remove it, fully quit the application (including background processes), and reopen it. If you have not set this option, continue to the next step.</li>
-              <li>If scrolling still does not work, enable <strong>Force Passthrough</strong> for this application to restore normal wheel scrolling. Smooth Scroll will no longer smooth scrolling in that application; other applications are unaffected. Follow the <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME window rules</a> or <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE Force-Passthrough rules</a> guide for your desktop.</li>
+              <li>On GNOME or KDE, install the corresponding optional desktop extension, then enable <strong>Force Passthrough</strong> for this application to restore normal wheel scrolling. Smooth Scroll will no longer smooth scrolling in that application; other applications are unaffected. Follow the <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME window rules</a> or <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE Force-Passthrough rules</a> guide.</li>
             </ol>
             <ol class="faq-steps lang-block lang-zh">
               <li>如果你曾在应用启动命令、快捷方式或环境设置中加入 <code>GDK_CORE_DEVICE_EVENTS=1</code>，请先移除它，完全退出应用（包括后台进程）后重新打开。如果没有设置过这一项，可以继续下一步。</li>
-              <li>如果仍然无法正常滚动，可以为该应用启用<strong>强制透传</strong>，恢复普通滚轮操作；该应用将不再使用 Smooth Scroll 的平滑滚动，其他应用不受影响。请按你的桌面环境查看 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME 窗口规则</a>或 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE 强制透传规则</a>说明。</li>
+              <li>在 GNOME 或 KDE 上，请先安装对应的可选桌面扩展，再为该应用启用<strong>强制透传</strong>，恢复普通滚轮操作；该应用将不再使用 Smooth Scroll 的平滑滚动，其他应用不受影响。请查看 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/gnome#window-rules" target="_blank" rel="noopener noreferrer">GNOME 窗口规则</a>或 <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions/kde#force-passthrough-rules" target="_blank" rel="noopener noreferrer">KDE 强制透传规则</a>说明。</li>
             </ol>
-            <p class="lang-block lang-en">Smooth Scroll does not convert continuous motion into legacy whole-step events. That conversion can make a page look stationary while Smooth Scroll is still decelerating. For example, an opposite wheel step at that moment may only brake the hidden motion instead of scrolling immediately in the other direction. Free Spin, Drag View, and Auto Scroll also depend on whether scrolling is still active, so their response could become similarly unexpected. Force Passthrough avoids this mismatch by returning the application to its normal wheel behavior.</p>
-            <p class="lang-block lang-zh">Smooth Scroll 不会把平滑滚动转换成一格一格的旧式事件。这种转换会让页面看起来已经停下，但 Smooth Scroll 实际上仍在减速。例如，此时反向拨动滚轮可能只会刹车，而不会立即向反方向滚动。Free Spin、Drag View 和 Auto Scroll 也依赖当前是否仍在滚动，因此同样可能出现不符合直觉的响应。强制透传通过让应用恢复普通滚轮操作来避免这种状态错位。</p>
+            <p class="lang-block lang-en">Per-application passthrough integration is currently available only for GNOME and KDE. On other desktops, you will need to wait for a corresponding desktop extension. If you are interested in adding support, contributions to the project's <a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions" target="_blank" rel="noopener noreferrer">desktop extensions</a> are welcome.</p>
+            <p class="lang-block lang-zh">目前只有 GNOME 和 KDE 提供按应用透传集成。使用其他桌面环境时，需要等待对应的桌面扩展；如果你有兴趣提供支持，欢迎为项目的<a href="https://github.com/Wayne6530/smooth-scroll-linux/tree/main/extensions" target="_blank" rel="noopener noreferrer">桌面扩展</a>贡献代码。</p>
             <p class="lang-block lang-en">If the problem persists, or you are unsure which path applies, please <a href="https://github.com/Wayne6530/smooth-scroll-linux/issues/new" target="_blank" rel="noopener noreferrer">report it</a> with the application and version, Linux distribution, desktop environment, and whether other applications are affected. Include relevant <code>libinput debug-events</code> output if available.</p>
             <p class="lang-block lang-zh">如果问题仍然存在，或者你不确定该采用哪种处理方式，请<a href="https://github.com/Wayne6530/smooth-scroll-linux/issues/new" target="_blank" rel="noopener noreferrer">提交问题</a>，说明应用及版本、Linux 发行版、桌面环境，以及其他应用是否也有同样问题。如能提供相关的 <code>libinput debug-events</code> 输出，也请一并附上。</p>
+          </div>
+        </article>
+
+        <article id="reverse-scroll-braking" class="qa-item">
+          <h2 class="qa-question lang-block lang-en">Why can opposite wheel input brake the current scroll instead of reversing it immediately?</h2>
+          <h2 class="qa-question lang-block lang-zh">为什么反向拨动滚轮时会先制动当前滚动，而不是立即反转？</h2>
+          <div class="qa-answer">
+            <p class="lang-block lang-en"><strong>Reverse Scroll Braking</strong> is enabled by default. If you turn the wheel in the opposite direction while inertial scrolling is still active, Smooth Scroll interprets the initial input as a request to stop the current glide instead of immediately starting a new motion in the other direction. This makes a short opposite gesture act like a brake and helps suppress accidental direction jitter.</p>
+            <p class="lang-block lang-zh"><strong>反向滚动制动</strong>默认开启。如果在惯性滚动尚未结束时反向拨动滚轮，Smooth Scroll 会先把初始输入理解为“停止当前滑行”，而不是立即发起相反方向的新运动。这样，一次短促的反向操作可以作为刹车，也能减少方向切换时的意外抖动。</p>
+            <p class="lang-block lang-en">If you promptly keep turning the wheel in the new direction, Smooth Scroll recognizes a deliberate reversal and begins scrolling the other way. The braking time, count, and intent settings distinguish a brief brake from one continued reverse gesture. Once recognized as that continued gesture, the absorbed input contributes to the following motion instead of simply being lost. In short: a short opposite gesture means <em>stop</em>; a continued opposite gesture means <em>reverse</em>.</p>
+            <p class="lang-block lang-zh">如果紧接着继续向新方向拨动滚轮，Smooth Scroll 会识别出明确的反向意图并开始反向滚动。制动时间、次数和意图设置用于区分短促刹车与一次连续的反向手势；识别为连续手势后，制动期间吸收的输入会参与后续运动，而不是被简单丢弃。简而言之：短促反向表示<strong>停止</strong>，持续反向表示<strong>反转</strong>。</p>
+            <p class="lang-block lang-en">If you prefer every opposite wheel step to reverse immediately, disable <strong>Reverse Scroll Braking</strong> in the <a href="config.html">Web Configurator</a>, or set:</p>
+            <p class="lang-block lang-zh">如果你希望每次反向拨动都立即开始反向滚动，请在<a href="config.html">网页配置工具</a>中关闭<strong>反向滚动制动</strong>，或设置：</p>
+            <pre><code>use_reverse_scroll_braking = false</code></pre>
+            <p class="lang-block lang-en">Restart the daemon after changing the configuration.</p>
+            <p class="lang-block lang-zh">修改配置后请重启守护进程。</p>
           </div>
         </article>
 
