@@ -65,6 +65,8 @@ const PhysicsEngine = (() => {
       this.brakingTimes_ = 0;
       this.relX_ = 0;
       this.relY_ = 0;
+      this.dragViewDeviationX_ = 0;
+      this.dragViewDeviationY_ = 0;
       this.freeSpin_ = false;
       this.dragView_ = false;
     }
@@ -99,6 +101,8 @@ const PhysicsEngine = (() => {
     handleDragViewButton(eventTimeUs, value) {
       if (!this.dragView_ && value === 1 &&
           (this.scrollActive() || Number(this.options.drag_view_activation_mode ?? 0) === DRAG_VIEW_ACTIVATION_ALWAYS)) {
+        this.dragViewDeviationX_ = 0;
+        this.dragViewDeviationY_ = 0;
         this.dragView_ = true;
         this.dragViewPressTime = eventTimeUs;
         this.stopScroll();
@@ -121,7 +125,10 @@ const PhysicsEngine = (() => {
     // handleRelXEvent (wheel_smoother.cpp:317-327)
     handleRelXEvent(value) {
       if (this.dragView_) {
-        return { code: 'REL_HWHEEL_HI_RES', value: this.options.drag_view_speed * value };
+        const delta = this.options.drag_view_speed * value + this.dragViewDeviationX_;
+        const output = Math.trunc(delta);
+        this.dragViewDeviationX_ = delta - output;
+        return output === 0 ? null : { code: 'REL_HWHEEL_HI_RES', value: output };
       }
       this.relX_ = value;
       return null;
@@ -130,7 +137,10 @@ const PhysicsEngine = (() => {
     // handleRelYEvent (wheel_smoother.cpp:329-339)
     handleRelYEvent(value) {
       if (this.dragView_) {
-        return { code: 'REL_WHEEL_HI_RES', value: -this.options.drag_view_speed * value };
+        const delta = -this.options.drag_view_speed * value + this.dragViewDeviationY_;
+        const output = Math.trunc(delta);
+        this.dragViewDeviationY_ = delta - output;
+        return output === 0 ? null : { code: 'REL_WHEEL_HI_RES', value: output };
       }
       this.relY_ = value;
       return null;

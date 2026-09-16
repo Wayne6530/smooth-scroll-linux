@@ -115,7 +115,7 @@ public:
 
     DragViewActivationMode drag_view_activation_mode = DragViewActivationMode::Scrolling;
     int drag_view_click_timeout_milliseconds = 200;
-    int drag_view_speed = 3;
+    double drag_view_speed = 3;
 
     AutoScrollActivationMode auto_scroll_activation_mode = AutoScrollActivationMode::Scrolling;
     AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Vertical;
@@ -297,6 +297,8 @@ private:
   int rel_y_ = 0;
   int64_t auto_scroll_offset_x_ = 0;
   int64_t auto_scroll_offset_y_ = 0;
+  double drag_view_deviation_x_ = 0;
+  double drag_view_deviation_y_ = 0;
   double auto_scroll_deviation_x_ = 0;
   double auto_scroll_deviation_y_ = 0;
   bool free_spin_ = false;

@@ -87,6 +87,8 @@ void WheelSmoother::hardReset() noexcept
   free_spin_ = false;
   free_spin_deviation_ = 0;
   drag_view_ = false;
+  drag_view_deviation_x_ = 0;
+  drag_view_deviation_y_ = 0;
   rel_x_ = 0;
   rel_y_ = 0;
 }
@@ -160,6 +162,8 @@ WheelSmoother::ButtonResult WheelSmoother::handleDragViewButton(const struct tim
 
   stopAutoScroll();
   stopScroll();
+  drag_view_deviation_x_ = 0;
+  drag_view_deviation_y_ = 0;
   drag_view_ = true;
   drag_view_press_time_ = std::chrono::seconds{ time.tv_sec } + std::chrono::microseconds{ time.tv_usec };
   return ButtonResult::Handled;
@@ -1154,8 +1158,10 @@ bool WheelSmoother::handleRelXEvent(struct input_event& ev) noexcept
   if (drag_view_)
   {
     ev.code = REL_HWHEEL_HI_RES;
-    ev.value = options_.drag_view_speed * ev.value;
-    return true;
+    const double delta = options_.drag_view_speed * ev.value + drag_view_deviation_x_;
+    ev.value = static_cast<int>(std::trunc(delta));
+    drag_view_deviation_x_ = delta - ev.value;
+    return ev.value != 0;
   }
 
   rel_x_ += ev.value;
@@ -1176,8 +1182,10 @@ bool WheelSmoother::handleRelYEvent(struct input_event& ev) noexcept
   if (drag_view_)
   {
     ev.code = REL_WHEEL_HI_RES;
-    ev.value = -options_.drag_view_speed * ev.value;
-    return true;
+    const double delta = -options_.drag_view_speed * ev.value + drag_view_deviation_y_;
+    ev.value = static_cast<int>(std::trunc(delta));
+    drag_view_deviation_y_ = delta - ev.value;
+    return ev.value != 0;
   }
 
   rel_y_ += ev.value;

@@ -476,6 +476,59 @@ void testDragOwnershipAndHardReset()
   assert(smoother.speed() == 0);
 }
 
+void testDragViewFractionalOutput()
+{
+  auto options = autoOptions();
+  options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Always;
+  options.drag_view_speed = 0.25;
+  WheelSmoother smoother{ options };
+
+  assert(smoother.handleDragViewButton(atMilliseconds(0), 1) ==
+         WheelSmoother::ButtonResult::Handled);
+
+  for (int i = 0; i < 3; ++i)
+  {
+    auto ev = relativeEvent(REL_X, 1, i + 1);
+    assert(!smoother.handleRelXEvent(ev));
+  }
+  auto x = relativeEvent(REL_X, 1, 4);
+  assert(smoother.handleRelXEvent(x));
+  assert(x.code == REL_HWHEEL_HI_RES);
+  assert(x.value == 1);
+
+  auto y1 = relativeEvent(REL_Y, 2, 5);
+  assert(!smoother.handleRelYEvent(y1));
+  auto y2 = relativeEvent(REL_Y, 2, 6);
+  assert(smoother.handleRelYEvent(y2));
+  assert(y2.code == REL_WHEEL_HI_RES);
+  assert(y2.value == -1);
+
+  smoother.handleDragViewButton(atMilliseconds(7), 0);
+  assert(smoother.handleDragViewButton(atMilliseconds(8), 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  auto reset_x = relativeEvent(REL_X, 1, 9);
+  assert(!smoother.handleRelXEvent(reset_x));
+
+  assert(smoother.handleDragViewButton(atMilliseconds(10), 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  auto repeated_press_x = relativeEvent(REL_X, 3, 11);
+  assert(smoother.handleRelXEvent(repeated_press_x));
+  assert(repeated_press_x.value == 1);
+
+  smoother.hardReset();
+  assert(!smoother.drag_view());
+
+  options.drag_view_speed = -0.5;
+  WheelSmoother reversed{ options };
+  assert(reversed.handleDragViewButton(atMilliseconds(20), 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  auto reversed_x1 = relativeEvent(REL_X, 1, 21);
+  assert(!reversed.handleRelXEvent(reversed_x1));
+  auto reversed_x2 = relativeEvent(REL_X, 1, 22);
+  assert(reversed.handleRelXEvent(reversed_x2));
+  assert(reversed_x2.value == -1);
+}
+
 }  // namespace
 
 int main()
@@ -490,6 +543,7 @@ int main()
   testButtonsAndBraking();
   testPreActivationBrakeAndWheelIsolation();
   testDragOwnershipAndHardReset();
+  testDragViewFractionalOutput();
   testLatchedWheelActions();
   testAnyButtonHeldExit();
   testModeButtonOrdinaryFallback();
