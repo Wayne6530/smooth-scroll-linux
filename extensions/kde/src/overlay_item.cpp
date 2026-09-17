@@ -39,6 +39,12 @@ void OverlayItem::setDotConfig(const DotVisualConfig& config)
   update();
 }
 
+void OverlayItem::setFreeSpinConfig(const FreeSpinVisualConfig& config)
+{
+  m_freeSpin = config;
+  update();
+}
+
 void OverlayItem::setArrowConfig(const ArrowVisualConfig& config)
 {
   m_arrow = config;
@@ -65,6 +71,30 @@ void OverlayItem::setVisualSize(int size)
   }
 
   m_visualSize = std::max(0, size);
+  update();
+}
+
+void OverlayItem::setMainOpacity(double opacity)
+{
+  const double normalizedOpacity = std::clamp(opacity, 0.0, 1.0);
+  if (qFuzzyCompare(m_mainOpacity, normalizedOpacity))
+  {
+    return;
+  }
+
+  m_mainOpacity = normalizedOpacity;
+  update();
+}
+
+void OverlayItem::setStateIndicators(bool freeSpinRingVisible, bool compatibilityPending)
+{
+  if (m_freeSpinRingVisible == freeSpinRingVisible && m_compatibilityPending == compatibilityPending)
+  {
+    return;
+  }
+
+  m_freeSpinRingVisible = freeSpinRingVisible;
+  m_compatibilityPending = compatibilityPending;
   update();
 }
 
@@ -112,7 +142,7 @@ QSGNode* OverlayItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
 
 void OverlayItem::paint(QPainter* painter)
 {
-  if (m_mode == IndicatorMode::Hidden)
+  if (m_mode == IndicatorMode::Hidden && !m_freeSpinRingVisible)
   {
     return;
   }
@@ -124,55 +154,72 @@ void OverlayItem::paint(QPainter* painter)
     return;
   }
 
-  painter->translate((width() - m_visualSize) / 2.0, (height() - m_visualSize) / 2.0);
-
   if (m_mode == IndicatorMode::AutoScrollDot)
   {
+    painter->translate((width() - m_visualSize) / 2.0, (height() - m_visualSize) / 2.0);
     drawAutoScrollDot(painter);
     return;
   }
 
-  if (m_mode == IndicatorMode::AutoScroll)
+  if (m_freeSpinRingVisible)
   {
-    drawAutoScroll(painter);
-    return;
+    drawFreeSpinRing(painter);
   }
 
-  QColor shadow(0, 0, 0);
-  shadow.setAlphaF(0.28);
-  painter->setPen(Qt::NoPen);
-  painter->setBrush(shadow);
-  if (m_mode == IndicatorMode::Arrow)
+  if (m_mode != IndicatorMode::Hidden)
   {
-    drawArrow(painter, 1);
-  }
-  else if (m_mode == IndicatorMode::Passthrough)
-  {
-    drawPassthrough(painter, 1);
-  }
-  else
-  {
-    drawDot(painter, 1);
-  }
+    painter->save();
+    painter->setOpacity(m_mainOpacity);
+    painter->translate((width() - m_visualSize) / 2.0, (height() - m_visualSize) / 2.0);
 
-  painter->setPen(Qt::NoPen);
-  painter->setBrush(colorForMode());
-  if (m_mode == IndicatorMode::Arrow)
-  {
-    drawArrow(painter, 0);
-  }
-  else if (m_mode == IndicatorMode::Passthrough)
-  {
-    drawPassthrough(painter, 0);
-  }
-  else
-  {
-    drawDot(painter, 0);
+    if (m_mode == IndicatorMode::AutoScroll)
+    {
+      drawAutoScroll(painter);
+    }
+    else
+    {
+      if (m_mode == IndicatorMode::Arrow || m_mode == IndicatorMode::Passthrough)
+      {
+        QColor shadow(0, 0, 0);
+        shadow.setAlphaF(0.28);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(shadow);
+        if (m_mode == IndicatorMode::Arrow)
+        {
+          drawArrow(painter, 1);
+        }
+        else
+        {
+          drawPassthrough(painter, 1);
+        }
+      }
+
+      painter->setPen(Qt::NoPen);
+      painter->setBrush(colorForMode());
+      if (m_mode == IndicatorMode::Arrow)
+      {
+        drawArrow(painter, 0);
+      }
+      else if (m_mode == IndicatorMode::Passthrough)
+      {
+        drawPassthrough(painter, 0);
+      }
+      else
+      {
+        drawDot(painter, 0);
+      }
+    }
+    painter->restore();
   }
 }
 
 QColor OverlayItem::colorForMode() const
 {
+  if (m_compatibilityPending && m_mode != IndicatorMode::AutoScroll)
+  {
+    return m_passthrough.color;
+  }
+
   if (m_mode == IndicatorMode::Passthrough)
   {
     return m_passthrough.color;
@@ -257,7 +304,7 @@ void OverlayItem::drawAutoScrollDot(QPainter* painter)
   painter->setPen(Qt::NoPen);
   painter->setBrush(shadow);
   painter->drawEllipse(QPointF(radius + 1.0, radius + 1.0), radius, radius);
-  painter->setBrush(m_autoScroll.dotColor);
+  painter->setBrush(m_compatibilityPending ? m_passthrough.color : m_autoScroll.dotColor);
   painter->drawEllipse(QPointF(radius, radius), radius, radius);
 }
 
@@ -277,6 +324,18 @@ void OverlayItem::drawPassthrough(QPainter* painter, int shadowOffset)
   painter->drawLine(QPointF(start, start), QPointF(end, end));
   painter->drawLine(QPointF(end, start), QPointF(start, end));
   painter->setPen(Qt::NoPen);
+}
+
+void OverlayItem::drawFreeSpinRing(QPainter* painter)
+{
+  painter->save();
+  painter->setOpacity(m_freeSpin.alpha);
+  const QColor color = m_compatibilityPending ? m_passthrough.color : m_freeSpin.color;
+  painter->setPen(QPen(color, m_freeSpin.ringWidth));
+  painter->setBrush(Qt::NoBrush);
+  const double radius = m_visualSize / 2.0 + m_freeSpin.ringGap + m_freeSpin.ringWidth / 2.0;
+  painter->drawEllipse(QPointF(width() / 2.0, height() / 2.0), radius, radius);
+  painter->restore();
 }
 
 void OverlayItem::fillTriangle(QPainter* painter, const QPointF& point, double head, double widthScale,

@@ -10,6 +10,13 @@
     "max_alpha": 0.9,
     "max_alpha_speed": 3200
   },
+  "free_spin": {
+    "enabled": true,
+    "color": "#4ea1ff",
+    "alpha": 0.9,
+    "ring_gap": 1,
+    "ring_width": 2
+  },
   "arrow": {
     "enabled": true,
     "offset_x": 12,
@@ -37,7 +44,7 @@
   },
   "passthrough": {
     "enabled": true,
-    "force_when_no_regular_window": true,
+    "compatibility_when_no_regular_window": true,
     "offset_x": 12,
     "offset_y": 0,
     "size": 12,
@@ -52,6 +59,6 @@
     "stop_on_pointer_leave_window": true,
     "poll_interval_ms": 4
   },
-  "force_passthrough_rules": [
+  "compatibility_passthrough_rules": [
   ]
 }

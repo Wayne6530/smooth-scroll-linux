@@ -32,6 +32,15 @@ struct DotVisualConfig
   int maxAlphaSpeed = 3200;
 };
 
+struct FreeSpinVisualConfig
+{
+  bool enabled = true;
+  QColor color = QColor(QStringLiteral("#4ea1ff"));
+  double alpha = 0.9;
+  int ringGap = 1;
+  int ringWidth = 2;
+};
+
 struct ArrowVisualConfig
 {
   bool enabled = true;
@@ -64,7 +73,7 @@ struct AutoScrollVisualConfig
 struct PassthroughVisualConfig
 {
   bool enabled = true;
-  bool forceWhenNoRegularWindow = true;
+  bool compatibilityWhenNoRegularWindow = true;
   int offsetX = 12;
   int offsetY = 0;
   int size = 12;
@@ -85,10 +94,13 @@ public:
 
   void setMode(IndicatorMode mode);
   void setDotConfig(const DotVisualConfig& config);
+  void setFreeSpinConfig(const FreeSpinVisualConfig& config);
   void setArrowConfig(const ArrowVisualConfig& config);
   void setAutoScrollConfig(const AutoScrollVisualConfig& config);
   void setPassthroughConfig(const PassthroughVisualConfig& config);
   void setVisualSize(int size);
+  void setMainOpacity(double opacity);
+  void setStateIndicators(bool freeSpinRingVisible, bool compatibilityPending);
   void setRenderDevicePixelRatio(qreal devicePixelRatio);
 
 protected:
@@ -102,15 +114,20 @@ private:
   void drawAutoScroll(QPainter* painter);
   void drawAutoScrollDot(QPainter* painter);
   void drawPassthrough(QPainter* painter, int shadowOffset);
+  void drawFreeSpinRing(QPainter* painter);
   static void fillTriangle(QPainter* painter, const QPointF& point, double head, double widthScale,
                            Qt::ArrowType direction);
 
   IndicatorMode m_mode = IndicatorMode::Hidden;
   DotVisualConfig m_dot;
+  FreeSpinVisualConfig m_freeSpin;
   ArrowVisualConfig m_arrow;
   AutoScrollVisualConfig m_autoScroll;
   PassthroughVisualConfig m_passthrough;
   int m_visualSize = 0;
+  double m_mainOpacity = 1.0;
+  bool m_freeSpinRingVisible = false;
+  bool m_compatibilityPending = false;
   qreal m_renderDevicePixelRatio = 1.0;
 };
 

@@ -6,12 +6,13 @@ session-aware behavior in KDE Plasma.
 
 It provides:
 
-- forced passthrough when the pointer is not over a regular application window
-- per-application force-passthrough rules
+- compatibility passthrough when the pointer is not over a regular application
+  window
+- per-application compatibility-passthrough rules
 - inertial scrolling stop when the pointer leaves the window where scrolling
   started
-- pointer-side indicators for inertial scrolling, Drag View, Auto Scroll, and
-  forced passthrough
+- pointer-side indicators for inertial scrolling, Free Spin, Drag View, Auto
+  Scroll, and compatibility passthrough
 
 The effect talks to the daemon through Smooth Scroll Linux's shared-memory IPC
 file:
@@ -127,8 +128,16 @@ cp config.example.json ~/.config/smooth-scroll-kde-effect/config.json
 
 The effect reloads the file when it changes.
 
-`dot`, `arrow`, `auto_scroll`, and `passthrough` control the pointer-side
-indicators.
+`dot`, `free_spin`, `arrow`, `auto_scroll`, and `passthrough` control the
+pointer-side indicators. `passthrough.compatibility_when_no_regular_window`
+requests compatibility passthrough over Plasma surfaces and other
+non-application windows.
+
+`free_spin` controls the ring drawn around the current indicator while Free
+Spin is active. `color` and `alpha` control its normal appearance; `ring_gap`
+is the transparent gap outside the current indicator and `ring_width` is the
+stroke width. The ring remains visible by itself when Free Spin reaches zero
+speed. It uses the `dot` placement when no other indicator is active.
 
 `auto_scroll` controls the Auto Scroll origin marker independently from the
 other indicators. The circle and four unconnected triangles remain fixed while
@@ -142,10 +151,23 @@ to the configured maximum Auto Scroll speed.
 state. The default is 4ms for lower indicator latency. Increasing it reduces
 compositor-thread wakeups, but makes the indicators feel less responsive.
 
-## Force-Passthrough Rules
+The Free Spin ring remains visible while Free Spin is active, including when
+its scroll speed reaches zero. If compatibility passthrough is requested while
+Free Spin, Drag View, or Auto Scroll is active, the current special-mode
+indicator turns red until that interaction ends; the normal full-size X then
+indicates that compatibility passthrough is ready. Auto Scroll keeps its
+neutral origin frame and recolors only its moving dot.
 
-Do not start by editing `force_passthrough_rules` manually. The easiest and most
-reliable workflow is to let KWin identify the window for you:
+`passthrough.enabled = false` disables both the full X and the pending warning
+color. `passthrough.color` controls both appearances.
+
+Keyboard-triggered scroll passthrough does not display the compatibility
+indicator.
+
+## Compatibility-Passthrough Rules
+
+Do not start by editing `compatibility_passthrough_rules` manually. The easiest
+and most reliable workflow is to let KWin identify the window for you:
 
 ```bash
 smooth-scroll-kde-rule pick
@@ -171,16 +193,21 @@ smooth-scroll-kde-rule pick --delay 5
 
 - `preview` prints the rule without writing it.
 - `info` prints the window ids KWin sees under the pointer.
-- `pick --disable` writes `force_passthrough=false` for the selected app/window.
+- `pick --disable` writes `compatibility_passthrough=false` for the selected
+  app/window.
 - `pick --title` creates a title-specific override under the app rule.
 - `pick --delay 5` gives you five seconds to move the pointer.
 
 Use `--title` only when one window title should behave differently from the rest
 of the same application.
 
-For manual edits, `force_passthrough_rules` accepts application/window rules.
-`app` matches KWin's `desktopFileName()` first and also falls back to the window
-class. Use `class` only when you need to match the window class directly.
+For manual edits, `compatibility_passthrough_rules` accepts application/window
+rules. `app` matches KWin's `desktopFileName()` first and also falls back to the
+window class. Use `class` only when you need to match the window class directly.
+
+Rules and title overrides use the `compatibility_passthrough` boolean. The old
+`force_passthrough_rules`, `force_passthrough`, and
+`force_when_no_regular_window` names are not read or migrated.
 
 ## Troubleshooting
 

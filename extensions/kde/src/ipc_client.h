@@ -15,9 +15,9 @@ struct IpcSnapshot
   bool valid = false;
   uint32_t pid = 0;
   uint32_t scrollId = 0;
-  uint32_t forcePassthrough = 0;
+  bool compatibilityPassthroughRequested = false;
   bool connected = false;
-  bool passthrough = false;
+  bool keyboardPassthrough = false;
   bool dragView = false;
   bool freeSpin = false;
   bool autoScroll = false;
@@ -41,7 +41,7 @@ public:
 
   IpcSnapshot readSnapshot();
   bool requestStop(const IpcSnapshot& snapshot);
-  bool setForcePassthrough(bool enabled);
+  bool setCompatibilityPassthroughRequested(bool enabled);
   void close();
 
 private:

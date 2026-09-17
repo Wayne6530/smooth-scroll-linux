@@ -157,7 +157,7 @@ QString exactTitleRegex(const QString& title)
   return QStringLiteral("^%1$").arg(QRegularExpression::escape(title));
 }
 
-QJsonObject makeRuleObject(const WindowInfo& info, bool forcePassthrough, bool includeTitle)
+QJsonObject makeRuleObject(const WindowInfo& info, bool compatibilityPassthrough, bool includeTitle)
 {
   const RuleMatcher matcher = ruleMatcherForInfo(info);
   QJsonObject rule;
@@ -168,14 +168,14 @@ QJsonObject makeRuleObject(const WindowInfo& info, bool forcePassthrough, bool i
 
   rule.insert(QStringLiteral("enabled"), true);
   rule.insert(matcher.key, matcher.value);
-  rule.insert(QStringLiteral("force_passthrough"), includeTitle ? false : forcePassthrough);
+  rule.insert(QStringLiteral("compatibility_passthrough"), includeTitle ? false : compatibilityPassthrough);
 
   if (includeTitle && !info.title.isEmpty())
   {
     QJsonObject titleRule;
     titleRule.insert(QStringLiteral("enabled"), true);
     titleRule.insert(QStringLiteral("title"), exactTitleRegex(info.title));
-    titleRule.insert(QStringLiteral("force_passthrough"), forcePassthrough);
+    titleRule.insert(QStringLiteral("compatibility_passthrough"), compatibilityPassthrough);
     rule.insert(QStringLiteral("titles"), QJsonArray{ titleRule });
   }
 
@@ -219,7 +219,7 @@ int findMatchingRuleIndex(const QJsonArray& rules, const RuleMatcher& matcher)
   return -1;
 }
 
-bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, bool forcePassthrough)
+bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, bool compatibilityPassthrough)
 {
   bool updated = false;
   QJsonArray titles = rule.value(QStringLiteral("titles")).toArray();
@@ -236,7 +236,7 @@ bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, bool forceP
     }
 
     titleObject.insert(QStringLiteral("enabled"), true);
-    titleObject.insert(QStringLiteral("force_passthrough"), forcePassthrough);
+    titleObject.insert(QStringLiteral("compatibility_passthrough"), compatibilityPassthrough);
     titles.replace(i, titleObject);
     updated = true;
     break;
@@ -247,7 +247,7 @@ bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, bool forceP
     QJsonObject titleObject;
     titleObject.insert(QStringLiteral("enabled"), true);
     titleObject.insert(QStringLiteral("title"), titlePattern);
-    titleObject.insert(QStringLiteral("force_passthrough"), forcePassthrough);
+    titleObject.insert(QStringLiteral("compatibility_passthrough"), compatibilityPassthrough);
     titles.append(titleObject);
   }
 
@@ -291,7 +291,7 @@ SmoothScrollEffect::~SmoothScrollEffect()
   m_timer.stop();
   unregisterDbus();
   hideOverlay();
-  m_ipc.setForcePassthrough(false);
+  m_ipc.setCompatibilityPassthroughRequested(false);
   m_ipc.close();
 }
 
@@ -339,6 +339,9 @@ void SmoothScrollEffect::recreateOverlayViewsForScaleChange()
   m_autoScrollDotVisible = false;
   m_autoScrollDotContentDirty = false;
   m_overlayMode = IndicatorMode::Hidden;
+  m_overlayLayoutMode = IndicatorMode::Hidden;
+  m_freeSpinRingVisible = false;
+  m_compatibilityPending = false;
   m_overlaySize = 0;
   m_overlayViewSize = 0;
   m_autoScrollDotViewSize = 0;
@@ -432,11 +435,13 @@ QVariantMap SmoothScrollEffect::currentWindowInfo() const
   map.insert(QStringLiteral("recommended_rule_key"), matcher.key);
   map.insert(QStringLiteral("recommended_rule_value"), matcher.value);
   map.insert(QStringLiteral("recommended_rule_source"), matcher.source);
-  map.insert(QStringLiteral("force_passthrough_now"), shouldForcePassthrough(window, info));
+  map.insert(QStringLiteral("compatibility_passthrough_requested_now"),
+             shouldRequestCompatibilityPassthrough(window, info));
   return map;
 }
 
-QString SmoothScrollEffect::suggestedRuleForCurrentWindow(bool forcePassthrough, bool includeTitle) const
+QString SmoothScrollEffect::suggestedCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+                                                                                   bool includeTitle) const
 {
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
@@ -445,7 +450,7 @@ QString SmoothScrollEffect::suggestedRuleForCurrentWindow(bool forcePassthrough,
   }
 
   const WindowInfo info = infoForWindow(window);
-  const QJsonObject rule = makeRuleObject(info, forcePassthrough, includeTitle);
+  const QJsonObject rule = makeRuleObject(info, compatibilityPassthrough, includeTitle);
   if (rule.isEmpty())
   {
     return QStringLiteral("ERROR: the window does not expose a usable app or class id");
@@ -454,7 +459,8 @@ QString SmoothScrollEffect::suggestedRuleForCurrentWindow(bool forcePassthrough,
   return indentedJson(rule);
 }
 
-QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePassthrough, bool includeTitle)
+QString SmoothScrollEffect::setCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+                                                                             bool includeTitle)
 {
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
@@ -488,12 +494,12 @@ QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePa
     root = document.object();
   }
 
-  QJsonArray rules = root.value(QStringLiteral("force_passthrough_rules")).toArray();
+  QJsonArray rules = root.value(QStringLiteral("compatibility_passthrough_rules")).toArray();
   const int existingRuleIndex = findMatchingRuleIndex(rules, matcher);
   const bool ruleExists = existingRuleIndex >= 0;
   bool titleRuleUpdated = false;
   QJsonObject rule =
-      ruleExists ? rules.at(existingRuleIndex).toObject() : makeRuleObject(info, forcePassthrough, includeTitle);
+      ruleExists ? rules.at(existingRuleIndex).toObject() : makeRuleObject(info, compatibilityPassthrough, includeTitle);
 
   rule.insert(QStringLiteral("enabled"), true);
   rule.insert(matcher.key, matcher.value);
@@ -504,15 +510,15 @@ QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePa
     {
       return QStringLiteral("ERROR: the window title is empty; use includeTitle=false");
     }
-    if (!rule.contains(QStringLiteral("force_passthrough")))
+    if (!rule.contains(QStringLiteral("compatibility_passthrough")))
     {
-      rule.insert(QStringLiteral("force_passthrough"), false);
+      rule.insert(QStringLiteral("compatibility_passthrough"), false);
     }
-    titleRuleUpdated = upsertTitleRule(rule, exactTitleRegex(info.title), forcePassthrough);
+    titleRuleUpdated = upsertTitleRule(rule, exactTitleRegex(info.title), compatibilityPassthrough);
   }
   else
   {
-    rule.insert(QStringLiteral("force_passthrough"), forcePassthrough);
+    rule.insert(QStringLiteral("compatibility_passthrough"), compatibilityPassthrough);
   }
 
   if (ruleExists)
@@ -523,7 +529,7 @@ QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePa
   {
     rules.append(rule);
   }
-  root.insert(QStringLiteral("force_passthrough_rules"), rules);
+  root.insert(QStringLiteral("compatibility_passthrough_rules"), rules);
 
   const QFileInfo configInfo(m_configPath);
   if (!QDir().mkpath(configInfo.absolutePath()))
@@ -550,8 +556,9 @@ QString SmoothScrollEffect::setForcePassthroughRuleForCurrentWindow(bool forcePa
   const QString action = ruleExists ? (includeTitle && !titleRuleUpdated ? QStringLiteral("Added title override") :
                                                                            QStringLiteral("Updated")) :
                                       QStringLiteral("Added");
-  return QStringLiteral("%1 %2=%3 force_passthrough=%4 in %5\n%6")
-      .arg(action, matcher.key, matcher.value, forcePassthrough ? QStringLiteral("true") : QStringLiteral("false"),
+  return QStringLiteral("%1 %2=%3 compatibility_passthrough=%4 in %5\n%6")
+      .arg(action, matcher.key, matcher.value,
+           compatibilityPassthrough ? QStringLiteral("true") : QStringLiteral("false"),
            m_configPath, compactJson(rule));
 }
 
@@ -569,7 +576,7 @@ void SmoothScrollEffect::tick()
   if (m_lastPid != snapshot.pid)
   {
     resetScrollAnchor();
-    m_haveLastForcePassthrough = false;
+    m_haveLastCompatibilityPassthroughRequested = false;
     m_lastPid = snapshot.pid;
   }
 
@@ -578,17 +585,31 @@ void SmoothScrollEffect::tick()
   KWin::EffectWindow* pointerWindow = shellOverview ? nullptr : windowAt(pointer);
   const WindowInfo pointerInfo = infoForWindow(pointerWindow);
 
-  const bool forcePassthrough = shellOverview || shouldForcePassthrough(pointerWindow, pointerInfo);
-  setForcePassthrough(forcePassthrough);
-  updateOverlay(snapshot, pointer, forcePassthrough);
+  const bool compatibilityPassthroughRequested =
+      shellOverview || shouldRequestCompatibilityPassthrough(pointerWindow, pointerInfo);
+  IpcSnapshot effectiveSnapshot = snapshot;
+  if (setCompatibilityPassthroughRequested(compatibilityPassthroughRequested))
+  {
+    effectiveSnapshot.compatibilityPassthroughRequested = compatibilityPassthroughRequested;
+  }
 
-  if (forcePassthrough)
+  if (!effectiveSnapshot.connected)
+  {
+    resetScrollAnchor();
+    hideOverlay();
+    m_lastSpeed = 0;
+    return;
+  }
+
+  updateOverlay(effectiveSnapshot, pointer);
+
+  if (effectiveSnapshot.compatibilityPassthroughRequested)
   {
     resetScrollAnchor();
   }
   else
   {
-    updatePointerLeaveBrake(snapshot, pointerWindow);
+    updatePointerLeaveBrake(effectiveSnapshot, pointerWindow);
   }
 
   m_lastSpeed = snapshot.speed;
@@ -619,6 +640,7 @@ void SmoothScrollEffect::loadConfig()
 
   const QJsonObject root = document.object();
   const QJsonObject dot = root.value(QStringLiteral("dot")).toObject();
+  const QJsonObject freeSpin = root.value(QStringLiteral("free_spin")).toObject();
   const QJsonObject arrow = root.value(QStringLiteral("arrow")).toObject();
   const QJsonObject autoScroll = root.value(QStringLiteral("auto_scroll")).toObject();
   const QJsonObject passthroughVisual = root.value(QStringLiteral("passthrough")).toObject();
@@ -633,6 +655,12 @@ void SmoothScrollEffect::loadConfig()
   next.dot.minAlphaSpeed = readInt(dot, QStringLiteral("min_alpha_speed"), next.dot.minAlphaSpeed, 0, 65535);
   next.dot.maxAlpha = readDouble(dot, QStringLiteral("max_alpha"), next.dot.maxAlpha, 0.0, 1.0);
   next.dot.maxAlphaSpeed = readInt(dot, QStringLiteral("max_alpha_speed"), next.dot.maxAlphaSpeed, 0, 65535);
+
+  next.freeSpin.enabled = readBool(freeSpin, QStringLiteral("enabled"), next.freeSpin.enabled);
+  next.freeSpin.color = readColor(freeSpin, QStringLiteral("color"), next.freeSpin.color);
+  next.freeSpin.alpha = readDouble(freeSpin, QStringLiteral("alpha"), next.freeSpin.alpha, 0.0, 1.0);
+  next.freeSpin.ringGap = readInt(freeSpin, QStringLiteral("ring_gap"), next.freeSpin.ringGap, 0, 32);
+  next.freeSpin.ringWidth = readInt(freeSpin, QStringLiteral("ring_width"), next.freeSpin.ringWidth, 1, 16);
 
   next.arrow.enabled = readBool(arrow, QStringLiteral("enabled"), next.arrow.enabled);
   next.arrow.offsetX = readInt(arrow, QStringLiteral("offset_x"), next.arrow.offsetX, -10000, 10000);
@@ -660,8 +688,9 @@ void SmoothScrollEffect::loadConfig()
   next.autoScroll.dotSize = readInt(autoScroll, QStringLiteral("dot_size"), next.autoScroll.dotSize, 2, 64);
 
   next.passthrough.enabled = readBool(passthroughVisual, QStringLiteral("enabled"), next.passthrough.enabled);
-  next.passthrough.forceWhenNoRegularWindow = readBool(
-      passthroughVisual, QStringLiteral("force_when_no_regular_window"), next.passthrough.forceWhenNoRegularWindow);
+  next.passthrough.compatibilityWhenNoRegularWindow =
+      readBool(passthroughVisual, QStringLiteral("compatibility_when_no_regular_window"),
+               next.passthrough.compatibilityWhenNoRegularWindow);
   next.passthrough.offsetX =
       readInt(passthroughVisual, QStringLiteral("offset_x"), next.passthrough.offsetX, -10000, 10000);
   next.passthrough.offsetY =
@@ -683,7 +712,7 @@ void SmoothScrollEffect::loadConfig()
   next.pollIntervalMs =
       readInt(scroll, QStringLiteral("poll_interval_ms"), next.pollIntervalMs, MinPollIntervalMs, MaxPollIntervalMs);
 
-  const QJsonArray rules = root.value(QStringLiteral("force_passthrough_rules")).toArray();
+  const QJsonArray rules = root.value(QStringLiteral("compatibility_passthrough_rules")).toArray();
   for (const QJsonValue& ruleValue : rules)
   {
     if (!ruleValue.isObject())
@@ -692,11 +721,12 @@ void SmoothScrollEffect::loadConfig()
     }
 
     const QJsonObject ruleObject = ruleValue.toObject();
-    ForcePassthroughRule rule;
+    CompatibilityPassthroughRule rule;
     rule.enabled = readBool(ruleObject, QStringLiteral("enabled"), true);
     rule.app = readString(ruleObject, QStringLiteral("app"));
     rule.windowClass = readString(ruleObject, QStringLiteral("class"));
-    rule.forcePassthrough = readBool(ruleObject, QStringLiteral("force_passthrough"), false);
+    rule.compatibilityPassthrough =
+        readBool(ruleObject, QStringLiteral("compatibility_passthrough"), false);
 
     const QJsonArray titleRules = ruleObject.value(QStringLiteral("titles")).toArray();
     for (const QJsonValue& titleValue : titleRules)
@@ -715,7 +745,8 @@ void SmoothScrollEffect::loadConfig()
 
       TitleRule titleRule;
       titleRule.enabled = readBool(titleObject, QStringLiteral("enabled"), true);
-      titleRule.forcePassthrough = readBool(titleObject, QStringLiteral("force_passthrough"), rule.forcePassthrough);
+      titleRule.compatibilityPassthrough =
+          readBool(titleObject, QStringLiteral("compatibility_passthrough"), rule.compatibilityPassthrough);
       titleRule.title = QRegularExpression(pattern);
       if (!titleRule.title.isValid())
       {
@@ -726,7 +757,7 @@ void SmoothScrollEffect::loadConfig()
       rule.titles.append(titleRule);
     }
 
-    next.forcePassthroughRules.append(rule);
+    next.compatibilityPassthroughRules.append(rule);
   }
 
   m_config = next;
@@ -737,12 +768,14 @@ void SmoothScrollEffect::applyOverlayConfig()
   if (m_overlayItem)
   {
     m_overlayItem->setDotConfig(m_config.dot);
+    m_overlayItem->setFreeSpinConfig(m_config.freeSpin);
     m_overlayItem->setArrowConfig(m_config.arrow);
     m_overlayItem->setAutoScrollConfig(m_config.autoScroll);
     m_overlayItem->setPassthroughConfig(m_config.passthrough);
-    const int viewSize =
-        std::max({ m_config.dot.size, m_config.arrow.size, m_config.autoScroll.size, m_config.passthrough.size }) +
-        OverlayCanvasMargin * 2;
+    const int mainSize =
+        std::max({ m_config.dot.size, m_config.arrow.size, m_config.autoScroll.size, m_config.passthrough.size });
+    const int ringSpace = 2 * (m_config.freeSpin.ringGap + m_config.freeSpin.ringWidth);
+    const int viewSize = mainSize + ringSpace + OverlayCanvasMargin * 2;
     if (m_overlayViewSize != viewSize)
     {
       m_overlayItem->setWidth(viewSize);
@@ -755,6 +788,7 @@ void SmoothScrollEffect::applyOverlayConfig()
   if (m_autoScrollDotItem)
   {
     m_autoScrollDotItem->setAutoScrollConfig(m_config.autoScroll);
+    m_autoScrollDotItem->setPassthroughConfig(m_config.passthrough);
     m_autoScrollDotItem->setVisualSize(m_config.autoScroll.dotSize);
     m_autoScrollDotContentDirty = true;
     requestOverlayRepaint(m_autoScrollDotGeometry);
@@ -852,14 +886,15 @@ WindowInfo SmoothScrollEffect::infoForWindow(KWin::EffectWindow* window)
   return info;
 }
 
-bool SmoothScrollEffect::shouldForcePassthrough(KWin::EffectWindow* window, const WindowInfo& info) const
+bool SmoothScrollEffect::shouldRequestCompatibilityPassthrough(KWin::EffectWindow* window,
+                                                                const WindowInfo& info) const
 {
   if (!isRegularApplicationWindow(window))
   {
-    return m_config.passthrough.forceWhenNoRegularWindow;
+    return m_config.passthrough.compatibilityWhenNoRegularWindow;
   }
 
-  for (const ForcePassthroughRule& rule : m_config.forcePassthroughRules)
+  for (const CompatibilityPassthroughRule& rule : m_config.compatibilityPassthroughRules)
   {
     if (!ruleMatches(rule, info))
     {
@@ -876,17 +911,17 @@ bool SmoothScrollEffect::shouldForcePassthrough(KWin::EffectWindow* window, cons
       const QRegularExpressionMatch match = titleRule.title.match(info.title);
       if (match.hasMatch())
       {
-        return titleRule.forcePassthrough;
+        return titleRule.compatibilityPassthrough;
       }
     }
 
-    return rule.forcePassthrough;
+    return rule.compatibilityPassthrough;
   }
 
   return false;
 }
 
-bool SmoothScrollEffect::ruleMatches(const ForcePassthroughRule& rule, const WindowInfo& info) const
+bool SmoothScrollEffect::ruleMatches(const CompatibilityPassthroughRule& rule, const WindowInfo& info) const
 {
   if (!rule.enabled)
   {
@@ -908,32 +943,45 @@ bool SmoothScrollEffect::ruleMatches(const ForcePassthroughRule& rule, const Win
   return false;
 }
 
-void SmoothScrollEffect::setForcePassthrough(bool enabled)
+bool SmoothScrollEffect::setCompatibilityPassthroughRequested(bool enabled)
 {
-  if (m_haveLastForcePassthrough && m_lastForcePassthrough == enabled)
+  if (m_haveLastCompatibilityPassthroughRequested && m_lastCompatibilityPassthroughRequested == enabled)
   {
-    return;
+    return false;
   }
 
-  if (m_ipc.setForcePassthrough(enabled))
+  if (m_ipc.setCompatibilityPassthroughRequested(enabled))
   {
-    m_lastForcePassthrough = enabled;
-    m_haveLastForcePassthrough = true;
+    m_lastCompatibilityPassthroughRequested = enabled;
+    m_haveLastCompatibilityPassthroughRequested = true;
+    return true;
   }
+  return false;
 }
 
-void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer, bool forcePassthroughActive)
+void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer)
 {
   if (!m_overlayView || !m_overlayItem || !m_autoScrollDotView || !m_autoScrollDotItem)
   {
     return;
   }
 
-  const IndicatorMode mode = overlayModeForState(m_config, snapshot, forcePassthroughActive);
-  if (mode == IndicatorMode::Hidden)
+  const bool specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
+  const bool compatibilityPassthroughReady = snapshot.compatibilityPassthroughRequested && !specialActive;
+  const bool freeSpinRingVisible = snapshot.freeSpin && m_config.freeSpin.enabled;
+  const bool compatibilityPending =
+      snapshot.compatibilityPassthroughRequested && specialActive && m_config.passthrough.enabled;
+  const IndicatorMode mode = overlayModeForState(m_config, snapshot, compatibilityPassthroughReady);
+  if (mode == IndicatorMode::Hidden && !freeSpinRingVisible)
   {
     hideOverlay();
     return;
+  }
+
+  IndicatorMode layoutMode = mode;
+  if (layoutMode == IndicatorMode::Hidden)
+  {
+    layoutMode = IndicatorMode::Dot;
   }
 
 #if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
@@ -960,6 +1008,16 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
     overlayModeChanged = true;
 #endif
   }
+  m_overlayLayoutMode = layoutMode;
+  if (m_freeSpinRingVisible != freeSpinRingVisible || m_compatibilityPending != compatibilityPending)
+  {
+    m_overlayItem->setStateIndicators(freeSpinRingVisible, compatibilityPending);
+    m_autoScrollDotItem->setStateIndicators(false, compatibilityPending);
+    m_freeSpinRingVisible = freeSpinRingVisible;
+    m_compatibilityPending = compatibilityPending;
+    m_overlayContentDirty = true;
+    m_autoScrollDotContentDirty = true;
+  }
   if (m_overlaySize != size)
   {
     m_overlayItem->setVisualSize(size);
@@ -968,13 +1026,8 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
   }
   if (std::abs(m_overlayOpacity - alpha) > 0.001)
   {
-#if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
-    m_overlayItem->setOpacity(alpha);
+    m_overlayItem->setMainOpacity(alpha);
     m_overlayContentDirty = true;
-#else
-    m_overlayView->setOpacity(alpha);
-    requestOverlayRepaint(m_overlayGeometry);
-#endif
     m_overlayOpacity = alpha;
   }
 
@@ -1060,12 +1113,12 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
 
 void SmoothScrollEffect::syncOverlayGeometry(const QPointF& pointer)
 {
-  if (!m_overlayView || m_overlayMode == IndicatorMode::Hidden || m_overlayViewSize <= 0)
+  if (!m_overlayView || m_overlayLayoutMode == IndicatorMode::Hidden || m_overlayViewSize <= 0)
   {
     return;
   }
 
-  const QRect nextGeometry = overlayGeometryForPointer(pointer, m_overlayMode, m_overlayViewSize);
+  const QRect nextGeometry = overlayGeometryForPointer(pointer, m_overlayLayoutMode, m_overlayViewSize);
   if (m_overlayGeometry != nextGeometry)
   {
     const QRect oldGeometry = m_overlayGeometry;
@@ -1179,12 +1232,20 @@ void SmoothScrollEffect::hideOverlay()
   m_overlayVisible = false;
   m_overlayContentDirty = false;
   m_overlayMode = IndicatorMode::Hidden;
+  m_overlayLayoutMode = IndicatorMode::Hidden;
+  m_freeSpinRingVisible = false;
+  m_compatibilityPending = false;
   m_overlaySize = 0;
   m_overlayOpacity = -1.0;
   m_overlayGeometry = QRect();
   if (m_overlayItem)
   {
     m_overlayItem->setMode(IndicatorMode::Hidden);
+    m_overlayItem->setStateIndicators(false, false);
+  }
+  if (m_autoScrollDotItem)
+  {
+    m_autoScrollDotItem->setStateIndicators(false, false);
   }
   if (m_overlayView)
   {
@@ -1232,9 +1293,9 @@ void SmoothScrollEffect::hideAutoScrollDot()
 }
 
 IndicatorMode SmoothScrollEffect::overlayModeForState(const Config& config, const IpcSnapshot& snapshot,
-                                                      bool forcePassthroughActive)
+                                                      bool compatibilityPassthroughReady)
 {
-  if (forcePassthroughActive && config.passthrough.enabled)
+  if (compatibilityPassthroughReady && config.passthrough.enabled)
   {
     return IndicatorMode::Passthrough;
   }
@@ -1368,7 +1429,7 @@ void SmoothScrollEffect::resetScrollAnchor()
 void SmoothScrollEffect::resetState()
 {
   resetScrollAnchor();
-  setForcePassthrough(false);
+  setCompatibilityPassthroughRequested(false);
   hideOverlay();
   m_lastSpeed = 0;
   m_lastPid = 0;

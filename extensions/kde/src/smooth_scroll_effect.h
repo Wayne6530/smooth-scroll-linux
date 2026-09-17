@@ -30,15 +30,15 @@ namespace SmoothScrollKWin
 struct TitleRule
 {
   QRegularExpression title;
-  bool forcePassthrough = false;
+  bool compatibilityPassthrough = false;
   bool enabled = true;
 };
 
-struct ForcePassthroughRule
+struct CompatibilityPassthroughRule
 {
   QString app;
   QString windowClass;
-  bool forcePassthrough = false;
+  bool compatibilityPassthrough = false;
   bool enabled = true;
   QList<TitleRule> titles;
 };
@@ -46,12 +46,13 @@ struct ForcePassthroughRule
 struct Config
 {
   DotVisualConfig dot;
+  FreeSpinVisualConfig freeSpin;
   ArrowVisualConfig arrow;
   AutoScrollVisualConfig autoScroll;
   PassthroughVisualConfig passthrough;
   bool stopOnPointerLeaveWindow = true;
   int pollIntervalMs = 4;
-  QList<ForcePassthroughRule> forcePassthroughRules;
+  QList<CompatibilityPassthroughRule> compatibilityPassthroughRules;
 };
 
 struct WindowInfo
@@ -82,8 +83,10 @@ public:
 
 public Q_SLOTS:
   Q_SCRIPTABLE QVariantMap currentWindowInfo() const;
-  Q_SCRIPTABLE QString suggestedRuleForCurrentWindow(bool forcePassthrough, bool includeTitle) const;
-  Q_SCRIPTABLE QString setForcePassthroughRuleForCurrentWindow(bool forcePassthrough, bool includeTitle);
+  Q_SCRIPTABLE QString suggestedCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+                                                                               bool includeTitle) const;
+  Q_SCRIPTABLE QString setCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+                                                                         bool includeTitle);
 
 private:
   void tick();
@@ -94,14 +97,14 @@ private:
   KWin::EffectWindow* windowAt(const QPointF& pos) const;
   static bool isRegularApplicationWindow(KWin::EffectWindow* window);
   static WindowInfo infoForWindow(KWin::EffectWindow* window);
-  bool shouldForcePassthrough(KWin::EffectWindow* window, const WindowInfo& info) const;
-  bool ruleMatches(const ForcePassthroughRule& rule, const WindowInfo& info) const;
-  void setForcePassthrough(bool enabled);
+  bool shouldRequestCompatibilityPassthrough(KWin::EffectWindow* window, const WindowInfo& info) const;
+  bool ruleMatches(const CompatibilityPassthroughRule& rule, const WindowInfo& info) const;
+  bool setCompatibilityPassthroughRequested(bool enabled);
   void initializeOverlayViews();
 #if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
   void recreateOverlayViewsForScaleChange();
 #endif
-  void updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer, bool forcePassthroughActive);
+  void updateOverlay(const IpcSnapshot& snapshot, const QPointF& pointer);
   void syncOverlayGeometry(const QPointF& pointer);
   void syncAutoScrollDotGeometry();
 #if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
@@ -114,7 +117,7 @@ private:
   void hideOverlay();
   void hideAutoScrollDot();
   static IndicatorMode overlayModeForState(const Config& config, const IpcSnapshot& snapshot,
-                                           bool forcePassthroughActive);
+                                           bool compatibilityPassthroughReady);
   static int visualSizeForMode(const Config& config, IndicatorMode mode);
   static QPoint visualOffsetForMode(const Config& config, IndicatorMode mode);
   static double alphaForMode(const Config& config, IndicatorMode mode, uint32_t speed);
@@ -142,6 +145,9 @@ private:
   bool m_autoScrollDotVisible = false;
   bool m_autoScrollDotContentDirty = false;
   IndicatorMode m_overlayMode = IndicatorMode::Hidden;
+  IndicatorMode m_overlayLayoutMode = IndicatorMode::Hidden;
+  bool m_freeSpinRingVisible = false;
+  bool m_compatibilityPending = false;
   int m_overlaySize = 0;
   int m_overlayViewSize = 0;
   int m_autoScrollDotViewSize = 0;
@@ -156,8 +162,8 @@ private:
   bool m_stopRequestedForAnchor = false;
   uint32_t m_lastSpeed = 0;
   uint32_t m_lastPid = 0;
-  bool m_lastForcePassthrough = false;
-  bool m_haveLastForcePassthrough = false;
+  bool m_lastCompatibilityPassthroughRequested = false;
+  bool m_haveLastCompatibilityPassthroughRequested = false;
   bool m_dbusServiceRegistered = false;
   bool m_dbusObjectRegistered = false;
 };

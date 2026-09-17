@@ -36,9 +36,10 @@ IpcSnapshot IpcClient::readSnapshot()
   snapshot.valid = true;
   snapshot.pid = pid;
   snapshot.scrollId = m_ipc->scroll_id.load(std::memory_order_relaxed);
-  snapshot.forcePassthrough = m_ipc->compatibility_passthrough_requested.load(std::memory_order_relaxed);
+  snapshot.compatibilityPassthroughRequested =
+      m_ipc->compatibility_passthrough_requested.load(std::memory_order_relaxed) != 0;
   snapshot.connected = (stateBits & smooth_scroll::IPC_STATE_CONNECTED) != 0;
-  snapshot.passthrough = (stateBits & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH) != 0;
+  snapshot.keyboardPassthrough = (stateBits & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH) != 0;
   snapshot.dragView = (stateBits & smooth_scroll::IPC_STATE_DRAG_VIEW) != 0;
   snapshot.freeSpin = (stateBits & smooth_scroll::IPC_STATE_FREE_SPIN) != 0;
   snapshot.autoScroll = (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL) != 0;
@@ -66,7 +67,7 @@ bool IpcClient::requestStop(const IpcSnapshot& snapshot)
   return true;
 }
 
-bool IpcClient::setForcePassthrough(bool enabled)
+bool IpcClient::setCompatibilityPassthroughRequested(bool enabled)
 {
   if (!connect() || !isMappedValid())
   {
