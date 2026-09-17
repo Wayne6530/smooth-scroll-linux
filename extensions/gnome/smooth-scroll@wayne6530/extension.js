@@ -15,7 +15,7 @@ const IPC_OFFSET_MAGIC = 0x00;
 const IPC_OFFSET_DAEMON_PID = 0x04;
 const IPC_OFFSET_STATE_BITS = 0x08;
 const IPC_OFFSET_SCROLL_ID = 0x0c;
-const IPC_OFFSET_FORCE_PASSTHROUGH = 0x10;
+const IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED = 0x10;
 const IPC_OFFSET_AUTO_SCROLL = 0x14;
 
 const CONFIG_DIR_NAME = 'smooth-scroll-gnome-extension';
@@ -32,6 +32,13 @@ const DEFAULT_CONFIG = {
         min_alpha_speed: 100,
         max_alpha: 0.9,
         max_alpha_speed: 3200,
+    },
+    free_spin: {
+        enabled: true,
+        color: '#4ea1ff',
+        alpha: 0.9,
+        ring_gap: 1,
+        ring_width: 2,
     },
     arrow: {
         enabled: true,
@@ -79,7 +86,7 @@ const DEFAULT_CONFIG = {
         interval_ms: 4,
         event_fresh_ms: 6,
     },
-    force_passthrough_rules: [],
+    compatibility_passthrough_rules: [],
 };
 
 function clamp(value, min, max) {
@@ -195,6 +202,8 @@ function normalizeConfig(config) {
 
     if (!isPlainObject(config.dot))
         config.dot = {};
+    if (!isPlainObject(config.free_spin))
+        config.free_spin = {};
     if (!isPlainObject(config.arrow))
         config.arrow = {};
     if (!isPlainObject(config.auto_scroll))
@@ -216,6 +225,15 @@ function normalizeConfig(config) {
     config.dot.max_alpha = numberValue(config.dot.max_alpha, fallback.dot.max_alpha, 0, 1);
     config.dot.min_alpha_speed = numberValue(config.dot.min_alpha_speed, fallback.dot.min_alpha_speed, 0, 65535);
     config.dot.max_alpha_speed = numberValue(config.dot.max_alpha_speed, fallback.dot.max_alpha_speed, 0, 65535);
+
+    config.free_spin.enabled = boolValue(config.free_spin.enabled, fallback.free_spin.enabled);
+    config.free_spin.color = typeof config.free_spin.color === 'string' && config.free_spin.color !== ''
+        ? config.free_spin.color
+        : fallback.free_spin.color;
+    config.free_spin.alpha = numberValue(config.free_spin.alpha, fallback.free_spin.alpha, 0, 1);
+    config.free_spin.ring_gap = numberValue(config.free_spin.ring_gap, fallback.free_spin.ring_gap, 0, 32);
+    config.free_spin.ring_width = numberValue(
+        config.free_spin.ring_width, fallback.free_spin.ring_width, 1, 16);
 
     config.arrow.enabled = boolValue(config.arrow.enabled, fallback.arrow.enabled);
     config.arrow.offset_x = numberValue(config.arrow.offset_x, fallback.arrow.offset_x, -256, 256);
@@ -283,14 +301,14 @@ function normalizeConfig(config) {
         0,
         1000));
 
-    if (!Array.isArray(config.force_passthrough_rules))
-        config.force_passthrough_rules = fallback.force_passthrough_rules;
+    if (!Array.isArray(config.compatibility_passthrough_rules))
+        config.compatibility_passthrough_rules = fallback.compatibility_passthrough_rules;
 
-    config.force_passthrough_rules = config.force_passthrough_rules
+    config.compatibility_passthrough_rules = config.compatibility_passthrough_rules
         .filter(rule => isPlainObject(rule) && typeof rule.app === 'string' && rule.app !== '')
         .map(rule => {
             rule.enabled = rule.enabled !== false;
-            rule.force_passthrough = rule.force_passthrough !== false;
+            rule.compatibility_passthrough = rule.compatibility_passthrough !== false;
 
             if (!Array.isArray(rule.titles))
                 rule.titles = [];
@@ -303,7 +321,7 @@ function normalizeConfig(config) {
                 ))
                 .map(titleRule => {
                     titleRule.enabled = titleRule.enabled !== false;
-                    titleRule.force_passthrough = titleRule.force_passthrough !== false;
+                    titleRule.compatibility_passthrough = titleRule.compatibility_passthrough !== false;
                     titleRule._titleRegex = compileRegex(titleRule.title);
                     titleRule._invalidRegex = !titleRule._titleRegex;
                     return titleRule;
@@ -369,7 +387,8 @@ class SmoothScrollIpcClient {
 
             const stateBits = view.getUint32(IPC_OFFSET_STATE_BITS, true);
             const scrollId = view.getUint32(IPC_OFFSET_SCROLL_ID, true);
-            const forcePassthrough = view.getUint32(IPC_OFFSET_FORCE_PASSTHROUGH, true);
+            const compatibilityPassthroughRequested = view.getUint32(
+                IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED, true);
             const autoScrollOffsetX = view.getInt16(IPC_OFFSET_AUTO_SCROLL, true);
             const autoScrollOffsetY = view.getInt16(IPC_OFFSET_AUTO_SCROLL + 2, true);
 
@@ -380,7 +399,7 @@ class SmoothScrollIpcClient {
                 valid: true,
                 pid,
                 connected: (stateBits & (1 << 0)) !== 0,
-                passthrough: (stateBits & (1 << 1)) !== 0,
+                keyboardPassthrough: (stateBits & (1 << 1)) !== 0,
                 dragView: (stateBits & (1 << 2)) !== 0,
                 freeSpin: (stateBits & (1 << 3)) !== 0,
                 horizontal: (stateBits & (1 << 4)) !== 0,
@@ -392,7 +411,7 @@ class SmoothScrollIpcClient {
                 autoScrollOffsetY,
                 speed: stateBits >>> 16,
                 scrollId,
-                forcePassthrough,
+                compatibilityPassthroughRequested,
             };
         } catch (error) {
             this._closeReadStream();
@@ -408,8 +427,8 @@ class SmoothScrollIpcClient {
         return this._writeU32(IPC_OFFSET_SCROLL_ID, (state.scrollId + 1) >>> 0);
     }
 
-    setForcePassthrough(enabled) {
-        return this._writeU32(IPC_OFFSET_FORCE_PASSTHROUGH, enabled ? 1 : 0);
+    setCompatibilityPassthroughRequested(enabled) {
+        return this._writeU32(IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED, enabled ? 1 : 0);
     }
 
     _invalidSnapshot() {
@@ -420,7 +439,7 @@ class SmoothScrollIpcClient {
             valid: false,
             pid: 0,
             connected: false,
-            passthrough: false,
+            keyboardPassthrough: false,
             dragView: false,
             freeSpin: false,
             autoScroll: false,
@@ -432,7 +451,7 @@ class SmoothScrollIpcClient {
             positive: false,
             speed: 0,
             scrollId: 0,
-            forcePassthrough: 0,
+            compatibilityPassthroughRequested: 0,
         };
     }
 
@@ -732,13 +751,20 @@ class DotOverlay {
             can_focus: false,
         });
         this._mode = 'dot';
+        this._anchorMode = 'dot';
+        this._mainSize = DEFAULT_CONFIG.dot.size;
         this._currentSize = DEFAULT_CONFIG.dot.size;
+        this._contentPadding = 0;
+        this._mainAlpha = DEFAULT_CONFIG.dot.max_alpha;
+        this._freeSpinRingVisible = false;
+        this._compatibilityPending = false;
         this._autoScrollDotSize = DEFAULT_CONFIG.auto_scroll.dot_size;
         this._lastX = null;
         this._lastY = null;
         this._lastAutoScrollDotX = null;
         this._lastAutoScrollDotY = null;
         this._dotColor = parseColor(DEFAULT_CONFIG.dot.color);
+        this._freeSpinColor = parseColor(DEFAULT_CONFIG.free_spin.color);
         this._arrowColor = parseColor(DEFAULT_CONFIG.arrow.color);
         this._autoScrollColor = parseColor(DEFAULT_CONFIG.auto_scroll.color);
         this._autoScrollDotColor = parseColor(DEFAULT_CONFIG.auto_scroll.dot_color);
@@ -776,6 +802,7 @@ class DotOverlay {
 
         this._config = config;
         this._dotColor = parseColor(config.dot.color);
+        this._freeSpinColor = parseColor(config.free_spin.color);
         this._arrowColor = parseColor(config.arrow.color);
         this._autoScrollColor = parseColor(config.auto_scroll.color);
         this._autoScrollDotColor = parseColor(config.auto_scroll.dot_color);
@@ -786,39 +813,64 @@ class DotOverlay {
         this._autoScrollDotActor.queue_repaint();
     }
 
-    update(snapshot, x, y, forcePassthroughActive = false) {
+    update(snapshot, x, y, compatibilityPassthroughRequested = false) {
         if (!this._actor) {
             this.hide();
             return false;
         }
 
-        const nextMode = this._modeForSnapshot(snapshot, forcePassthroughActive);
-        if (!nextMode) {
+        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
+        const compatibilityReady = compatibilityPassthroughRequested && !specialActive;
+        const compatibilityPending = Boolean(
+            compatibilityPassthroughRequested && specialActive && this._config.passthrough.enabled);
+        const freeSpinRingVisible = Boolean(snapshot.freeSpin && this._config.free_spin.enabled);
+        const nextMode = this._modeForSnapshot(snapshot, compatibilityReady);
+        if (!nextMode && !freeSpinRingVisible) {
             this.hide();
             return false;
         }
 
-        const nextSize = this._visualSize(nextMode);
+        const nextAnchorMode = nextMode || this._anchorModeForSnapshot(snapshot);
+        const nextMainSize = nextMode ? this._visualSize(nextMode) : 0;
+        const anchorSize = this._visualSize(nextAnchorMode);
+        const nextPadding = freeSpinRingVisible
+            ? Math.ceil(this._config.free_spin.ring_gap + this._config.free_spin.ring_width)
+            : 0;
+        const nextSize = anchorSize + nextPadding * 2;
+        const nextMainAlpha = nextMode ? this._alphaForMode(nextMode, snapshot) : 0;
         const geometryChanged =
-            !this._actor.visible || nextMode !== this._mode || nextSize !== this._currentSize;
+            !this._actor.visible || nextMode !== this._mode ||
+            nextAnchorMode !== this._anchorMode || nextMainSize !== this._mainSize ||
+            nextSize !== this._currentSize || nextPadding !== this._contentPadding;
+        const visualChanged = geometryChanged ||
+            nextMainAlpha !== this._mainAlpha ||
+            freeSpinRingVisible !== this._freeSpinRingVisible ||
+            compatibilityPending !== this._compatibilityPending;
 
         this._mode = nextMode;
+        this._anchorMode = nextAnchorMode;
+        this._mainSize = nextMainSize;
         this._currentSize = nextSize;
+        this._contentPadding = nextPadding;
+        this._freeSpinRingVisible = freeSpinRingVisible;
+        this._compatibilityPending = compatibilityPending;
         this._autoScrollOffsetX = snapshot.autoScrollOffsetX;
         this._autoScrollOffsetY = snapshot.autoScrollOffsetY;
 
-        const alpha = this._alphaForMode(nextMode, snapshot);
+        this._mainAlpha = nextMainAlpha;
 
         if (geometryChanged)
             this._actor.set_size(this._currentSize, this._currentSize);
 
-        this._actor.opacity = Math.round(alpha * 255);
-        this._autoScrollDotActor.opacity = Math.round(alpha * 255);
+        this._actor.opacity = 255;
+        this._autoScrollDotActor.opacity = Math.round(this._mainAlpha * 255);
         this._setPointerPosition(x, y);
         this._raiseTop();
 
-        if (geometryChanged)
+        if (visualChanged) {
             this._actor.queue_repaint();
+            this._autoScrollDotActor.queue_repaint();
+        }
 
         this._actor.show();
         if (nextMode === 'auto-scroll')
@@ -874,7 +926,7 @@ class DotOverlay {
 
     _setPointerPosition(x, y) {
         const size = this._currentSize;
-        const offset = this._offsetForMode(this._mode);
+        const offset = this._offsetForMode(this._anchorMode);
         const actorX = Math.round(x + offset.x - size / 2);
         const actorY = Math.round(y + offset.y - size / 2);
 
@@ -899,8 +951,8 @@ class DotOverlay {
         }
     }
 
-    _modeForSnapshot(snapshot, forcePassthroughActive) {
-        if (forcePassthroughActive && this._config.passthrough.enabled)
+    _modeForSnapshot(snapshot, compatibilityPassthroughReady) {
+        if (compatibilityPassthroughReady && this._config.passthrough.enabled)
             return 'passthrough';
 
         if (snapshot.autoScroll)
@@ -913,6 +965,16 @@ class DotOverlay {
             return this._config.dot.enabled ? 'dot' : null;
 
         return null;
+    }
+
+    _anchorModeForSnapshot(snapshot) {
+        if (snapshot.autoScroll)
+            return 'auto-scroll';
+
+        if (snapshot.dragView)
+            return 'arrow';
+
+        return 'dot';
     }
 
     _alphaForMode(mode, snapshot) {
@@ -985,37 +1047,47 @@ class DotOverlay {
 
     _draw(area) {
         const cr = area.get_context();
-        const size = this._currentSize;
+        const size = this._mainSize;
 
-        if (this._mode === 'auto-scroll') {
-            this._drawAutoScroll(cr, size);
-            if (cr.$dispose)
-                cr.$dispose();
-            return;
+        if (this._freeSpinRingVisible)
+            this._drawFreeSpinRing(cr);
+
+        if (this._mode) {
+            cr.save();
+            cr.translate(this._contentPadding, this._contentPadding);
+
+            if (this._mode === 'auto-scroll') {
+                this._drawAutoScroll(cr, size, this._mainAlpha);
+            } else {
+                if (this._mode === 'arrow' || this._mode === 'passthrough') {
+                    cr.setSourceRGBA(0, 0, 0, 0.28 * this._mainAlpha);
+                    if (this._mode === 'arrow')
+                        this._drawArrow(cr, size, 1);
+                    else
+                        this._drawPassthrough(cr, size, 1);
+                }
+
+                const color = this._colorForMode(this._mode);
+                cr.setSourceRGBA(color.r, color.g, color.b, this._mainAlpha);
+                if (this._mode === 'arrow')
+                    this._drawArrow(cr, size, 0);
+                else if (this._mode === 'passthrough')
+                    this._drawPassthrough(cr, size, 0);
+                else
+                    this._drawDot(cr, size, 0);
+            }
+
+            cr.restore();
         }
-
-        cr.setSourceRGBA(0, 0, 0, 0.28);
-        if (this._mode === 'arrow')
-            this._drawArrow(cr, size, 1);
-        else if (this._mode === 'passthrough')
-            this._drawPassthrough(cr, size, 1);
-        else
-            this._drawDot(cr, size, 1);
-
-        const color = this._colorForMode(this._mode);
-        cr.setSourceRGBA(color.r, color.g, color.b, 1);
-        if (this._mode === 'arrow')
-            this._drawArrow(cr, size, 0);
-        else if (this._mode === 'passthrough')
-            this._drawPassthrough(cr, size, 0);
-        else
-            this._drawDot(cr, size, 0);
 
         if (cr.$dispose)
             cr.$dispose();
     }
 
     _colorForMode(mode) {
+        if (this._compatibilityPending && mode !== 'auto-scroll')
+            return this._passthroughColor;
+
         if (mode === 'passthrough')
             return this._passthroughColor;
 
@@ -1058,7 +1130,7 @@ class DotOverlay {
         this._fillTriangle(cr, size - pad + shadowOffset, center, head, arrow.head_width_scale, 'right');
     }
 
-    _drawAutoScroll(cr, size) {
+    _drawAutoScroll(cr, size, alpha) {
         const center = size / 2;
         const ringWidth = Math.max(1, Math.round(size * 0.05));
         const radius = Math.max(1, (size - ringWidth - 4) / 2);
@@ -1103,10 +1175,24 @@ class DotOverlay {
                 'right');
         };
 
-        cr.setSourceRGBA(0, 0, 0, 0.32);
+        cr.setSourceRGBA(0, 0, 0, 0.32 * alpha);
         drawFrame(1);
-        cr.setSourceRGBA(this._autoScrollColor.r, this._autoScrollColor.g, this._autoScrollColor.b, 1);
+        cr.setSourceRGBA(
+            this._autoScrollColor.r, this._autoScrollColor.g, this._autoScrollColor.b, alpha);
         drawFrame(0);
+    }
+
+    _drawFreeSpinRing(cr) {
+        const freeSpin = this._config.free_spin;
+        const center = this._currentSize / 2;
+        const anchorSize = this._currentSize - this._contentPadding * 2;
+        const radius = anchorSize / 2 + freeSpin.ring_gap + freeSpin.ring_width / 2;
+        const color = this._compatibilityPending ? this._passthroughColor : this._freeSpinColor;
+
+        cr.setSourceRGBA(color.r, color.g, color.b, freeSpin.alpha);
+        cr.setLineWidth(freeSpin.ring_width);
+        cr.arc(center, center, radius, 0, Math.PI * 2);
+        cr.stroke();
     }
 
     _drawAutoScrollDot(area) {
@@ -1115,7 +1201,8 @@ class DotOverlay {
         cr.setSourceRGBA(0, 0, 0, 0.32);
         cr.arc(radius + 1, radius + 1, radius, 0, Math.PI * 2);
         cr.fill();
-        cr.setSourceRGBA(this._autoScrollDotColor.r, this._autoScrollDotColor.g, this._autoScrollDotColor.b, 1);
+        const color = this._compatibilityPending ? this._passthroughColor : this._autoScrollDotColor;
+        cr.setSourceRGBA(color.r, color.g, color.b, 1);
         cr.arc(radius, radius, radius, 0, Math.PI * 2);
         cr.fill();
 
@@ -1178,7 +1265,7 @@ class DotOverlay {
     }
 }
 
-function forcePassthroughForWindow(rules, info) {
+function compatibilityPassthroughForWindow(rules, info) {
     if (!info)
         return false;
 
@@ -1191,10 +1278,10 @@ function forcePassthroughForWindow(rules, info) {
                 continue;
 
             if (titleRule._titleRegex.test(info.title))
-                return titleRule.force_passthrough;
+                return titleRule.compatibility_passthrough;
         }
 
-        return rule.force_passthrough;
+        return rule.compatibility_passthrough;
     }
 
     return false;
@@ -1215,7 +1302,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._stopRequestedForAnchor = false;
         this._lastSpeed = 0;
         this._lastPid = 0;
-        this._lastForcePassthrough = null;
+        this._lastCompatibilityPassthroughRequested = null;
         this._lastSnapshot = null;
         this._pendingPointerStateSourceId = 0;
         this._pendingPointerX = null;
@@ -1264,7 +1351,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._setUnredirectDisabled(false);
 
         if (this._ipc)
-            this._ipc.setForcePassthrough(false);
+            this._ipc.setCompatibilityPassthroughRequested(false);
 
         if (this._ipc)
             this._ipc.close();
@@ -1278,7 +1365,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._ipc = null;
         this._resolver = null;
         this._anchorWindowKey = null;
-        this._lastForcePassthrough = null;
+        this._lastCompatibilityPassthroughRequested = null;
         this._lastSnapshot = null;
         this._pendingPointerX = null;
         this._pendingPointerY = null;
@@ -1322,7 +1409,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         if (!snapshot.valid) {
             this._resetScrollAnchor();
-            this._setForcePassthrough(false);
+            this._setCompatibilityPassthroughRequested(false);
             this._hideDot();
             this._lastSpeed = 0;
             this._lastPid = 0;
@@ -1331,7 +1418,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         if (this._lastPid !== snapshot.pid) {
             this._resetScrollAnchor();
-            this._lastForcePassthrough = null;
+            this._lastCompatibilityPassthroughRequested = null;
             this._lastPid = snapshot.pid;
         }
 
@@ -1350,9 +1437,17 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         const [x, y] = global.get_pointer();
         this._lastPointerEventTimeMs = monotonicMillis();
         const snapshot = this._lastSnapshot;
-        const forcePassthroughActive = this._isForcePassthroughActive(snapshot);
 
-        if (!this._stopRequestedForAnchor || forcePassthroughActive)
+        if (!snapshot.connected) {
+            this._schedulePointerState(x, y);
+            return false;
+        }
+
+        const compatibilityPassthroughRequested =
+            this._isCompatibilityPassthroughRequested(snapshot);
+        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
+
+        if (!this._stopRequestedForAnchor || compatibilityPassthroughRequested || specialActive)
             this._dot.moveTo(x, y);
 
         this._schedulePointerState(x, y);
@@ -1370,7 +1465,8 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._pendingPointerStateSourceId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._pendingPointerStateSourceId = 0;
 
-            if (!this._lastSnapshot?.valid || this._pendingPointerX === null || this._pendingPointerY === null)
+            if (!this._lastSnapshot?.valid ||
+                this._pendingPointerX === null || this._pendingPointerY === null)
                 return GLib.SOURCE_REMOVE;
 
             const pendingX = this._pendingPointerX;
@@ -1387,21 +1483,36 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
     _handlePointerState(snapshot, x, y, dotAlreadyUpdated = false) {
         const pointerWindow = this._resolver.windowAt(x, y);
         const pointerWindowInfo = this._resolver.infoForWindow(pointerWindow);
-        const wasForcePassthroughActive = this._isForcePassthroughActive(snapshot);
-        const forcePassthroughActive = this._updateForcePassthrough(pointerWindow, pointerWindowInfo, x, y);
-        if (forcePassthroughActive)
+        const wasCompatibilityPassthroughRequested =
+            this._isCompatibilityPassthroughRequested(snapshot);
+        const compatibilityPassthroughRequested = this._updateCompatibilityPassthroughRequested(
+            pointerWindow, pointerWindowInfo, x, y);
+
+        if (!snapshot.connected) {
+            this._resetScrollAnchor();
+            this._hideDot();
+            return;
+        }
+
+        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
+        if (compatibilityPassthroughRequested)
             this._resetScrollAnchor();
         else
             this._updatePointerLeaveBrake(snapshot, pointerWindow);
 
-        if ((!this._stopRequestedForAnchor || forcePassthroughActive) &&
-            (!dotAlreadyUpdated || wasForcePassthroughActive !== forcePassthroughActive || !this._dot?.isVisible()))
-            this._updateDot(snapshot, x, y, forcePassthroughActive);
+        if ((!this._stopRequestedForAnchor || compatibilityPassthroughRequested || specialActive) &&
+            (!dotAlreadyUpdated ||
+             wasCompatibilityPassthroughRequested !== compatibilityPassthroughRequested ||
+             !this._dot?.isVisible()))
+            this._updateDot(snapshot, x, y, compatibilityPassthroughRequested);
     }
 
-    _updateDot(snapshot, x, y, forcePassthroughActive) {
+    _updateDot(snapshot, x, y, compatibilityPassthroughRequested) {
+        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
+        const compatibilityReady = compatibilityPassthroughRequested && !specialActive;
         const canShowIndicator = Boolean(
-            (forcePassthroughActive && this._config?.passthrough?.enabled) ||
+            (compatibilityReady && this._config?.passthrough?.enabled) ||
+            (snapshot.freeSpin && this._config?.free_spin?.enabled) ||
             (snapshot.autoScroll && this._config?.auto_scroll?.enabled) ||
             (snapshot.dragView && this._config?.arrow?.enabled) ||
             (snapshot.speed > 0 && this._config?.dot?.enabled)
@@ -1412,7 +1523,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         let visible = false;
         try {
-            visible = this._dot.update(snapshot, x, y, forcePassthroughActive);
+            visible = this._dot.update(snapshot, x, y, compatibilityPassthroughRequested);
         } finally {
             if (!visible || !canShowIndicator)
                 this._setUnredirectDisabled(false);
@@ -1534,35 +1645,37 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._stopRequestedForAnchor = false;
     }
 
-    _shouldForcePassthrough(pointerWindow, pointerWindowInfo, x, y) {
+    _shouldRequestCompatibilityPassthrough(pointerWindow, pointerWindowInfo, x, y) {
         if (this._resolver.shellInteractionActive(x, y))
             return true;
 
         if (!pointerWindow)
             return true;
 
-        return forcePassthroughForWindow(this._config.force_passthrough_rules, pointerWindowInfo);
+        return compatibilityPassthroughForWindow(
+            this._config.compatibility_passthrough_rules, pointerWindowInfo);
     }
 
-    _updateForcePassthrough(pointerWindow, pointerWindowInfo, x, y) {
-        return this._setForcePassthrough(
-            this._shouldForcePassthrough(pointerWindow, pointerWindowInfo, x, y)
+    _updateCompatibilityPassthroughRequested(pointerWindow, pointerWindowInfo, x, y) {
+        return this._setCompatibilityPassthroughRequested(
+            this._shouldRequestCompatibilityPassthrough(pointerWindow, pointerWindowInfo, x, y)
         );
     }
 
-    _isForcePassthroughActive(snapshot) {
+    _isCompatibilityPassthroughRequested(snapshot) {
         return Boolean(
-            (this._lastForcePassthrough === true || snapshot.forcePassthrough !== 0)
+            (this._lastCompatibilityPassthroughRequested === true ||
+             snapshot.compatibilityPassthroughRequested !== 0)
         );
     }
 
-    _setForcePassthrough(enabled) {
-        if (this._lastForcePassthrough === enabled)
-            return this._lastForcePassthrough === true;
+    _setCompatibilityPassthroughRequested(enabled) {
+        if (this._lastCompatibilityPassthroughRequested === enabled)
+            return this._lastCompatibilityPassthroughRequested === true;
 
-        if (this._ipc.setForcePassthrough(enabled))
-            this._lastForcePassthrough = enabled;
+        if (this._ipc.setCompatibilityPassthroughRequested(enabled))
+            this._lastCompatibilityPassthroughRequested = enabled;
 
-        return this._lastForcePassthrough === true;
+        return this._lastCompatibilityPassthroughRequested === true;
     }
 }

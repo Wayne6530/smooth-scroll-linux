@@ -10,6 +10,13 @@
     "max_alpha": 0.9,
     "max_alpha_speed": 3200
   },
+  "free_spin": {
+    "enabled": true,
+    "color": "#4ea1ff",
+    "alpha": 0.9,
+    "ring_gap": 1,
+    "ring_width": 2
+  },
   "arrow": {
     "enabled": true,
     "offset_x": 12,
@@ -56,5 +63,5 @@
     "interval_ms": 4,
     "event_fresh_ms": 6
   },
-  "force_passthrough_rules": []
+  "compatibility_passthrough_rules": []
 }
