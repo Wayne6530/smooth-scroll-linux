@@ -44,7 +44,7 @@ ss-status
 Example output:
 
 ```json
-{"pid":12345,"connected":true,"passthrough":false,"drag_view":false,"free_spin":false,"auto_scroll":true,"auto_scroll_horizontal_enabled":true,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":12,"auto_scroll_offset_y":-24,"horizontal":false,"direction":"negative","speed":0}
+{"pid":12345,"connected":true,"keyboard_passthrough":false,"compatibility_passthrough_requested":false,"drag_view":false,"free_spin":false,"auto_scroll":true,"auto_scroll_horizontal_enabled":true,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":12,"auto_scroll_offset_y":-24,"horizontal":false,"direction":"negative","speed":0}
 ```
 
 `ss-stop` brakes ordinary inertia and either re-anchors a held Auto Scroll gesture or exits latched Auto Scroll:

@@ -15,6 +15,7 @@ int main()
 
   uint32_t last_state = 0xFFFFFFFF;
   uint32_t last_auto_scroll_offset = 0xFFFFFFFF;
+  uint32_t last_compatibility_passthrough_requested = 0xFFFFFFFF;
 
   while (true)
   {
@@ -26,11 +27,15 @@ int main()
 
     uint32_t current_state = ipc->state_bits.load(std::memory_order_relaxed);
     uint32_t current_auto_scroll_offset = ipc->auto_scroll_offset.load(std::memory_order_relaxed);
+    uint32_t current_compatibility_passthrough_requested =
+        ipc->compatibility_passthrough_requested.load(std::memory_order_relaxed);
 
-    if (current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset)
+    if (current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset ||
+        current_compatibility_passthrough_requested != last_compatibility_passthrough_requested)
     {
       bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
-      bool passthrough = current_state & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH;
+      bool keyboard_passthrough = current_state & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH;
+      bool compatibility_passthrough_requested = current_compatibility_passthrough_requested != 0;
       bool drag_view = current_state & smooth_scroll::IPC_STATE_DRAG_VIEW;
       bool free_spin = current_state & smooth_scroll::IPC_STATE_FREE_SPIN;
       bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;
@@ -46,7 +51,9 @@ int main()
       std::cout << "{"
                 << "\"pid\":" << pid << ","
                 << "\"connected\":" << (connected ? "true" : "false") << ","
-                << "\"passthrough\":" << (passthrough ? "true" : "false") << ","
+                << "\"keyboard_passthrough\":" << (keyboard_passthrough ? "true" : "false") << ","
+                << "\"compatibility_passthrough_requested\":"
+                << (compatibility_passthrough_requested ? "true" : "false") << ","
                 << "\"drag_view\":" << (drag_view ? "true" : "false") << ","
                 << "\"free_spin\":" << (free_spin ? "true" : "false") << ","
                 << "\"auto_scroll\":" << (auto_scroll ? "true" : "false") << ","
@@ -63,6 +70,7 @@ int main()
 
       last_state = current_state;
       last_auto_scroll_offset = current_auto_scroll_offset;
+      last_compatibility_passthrough_requested = current_compatibility_passthrough_requested;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(16));
