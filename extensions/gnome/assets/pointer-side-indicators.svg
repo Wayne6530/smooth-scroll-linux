@@ -69,6 +69,6 @@
       <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#000000" stroke-width="7" stroke-linecap="round" opacity="0.24"/>
       <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#ff5c5c" stroke-width="7" stroke-linecap="round"/>
     </g>
-    <text x="-42" y="186" class="label">PASSTHROUGH</text>
+    <text x="-80" y="186" class="label">COMPAT PASSTHROUGH</text>
   </g>
 </svg>

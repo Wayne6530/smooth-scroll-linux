@@ -161,8 +161,7 @@ neutral origin frame and recolors only its moving dot.
 `passthrough.enabled = false` disables both the full X and the pending warning
 color. `passthrough.color` controls both appearances.
 
-Keyboard-triggered scroll passthrough does not display the compatibility
-indicator.
+Keyboard passthrough does not display the compatibility indicator.
 
 ## Compatibility-Passthrough Rules
 
@@ -215,8 +214,9 @@ If `smooth-scroll-kde-rule` reports that `org.smooth_scroll.KWinEffect` is not
 available, the running KWin process has not loaded this effect yet. Enable the
 effect in System Settings, then log out and back in or restart KWin.
 
-If the indicators appear but the daemon does not react to passthrough changes,
-check that the Smooth Scroll daemon is running and has created:
+If the indicators appear but the daemon does not react to
+compatibility-passthrough requests, check that the Smooth Scroll daemon is
+running and has created:
 
 ```text
 /dev/shm/smooth_scroll_shm

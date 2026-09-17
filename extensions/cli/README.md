@@ -58,9 +58,9 @@ takes effect after any active Free Spin, Drag View, or Auto Scroll interaction
 finishes:
 
 ```bash
-ss-passthrough       # Toggle state
-ss-passthrough 1     # Enable passthrough
-ss-passthrough off   # Disable passthrough
+ss-passthrough       # Toggle the compatibility-passthrough request
+ss-passthrough 1     # Request compatibility passthrough
+ss-passthrough off   # Clear the compatibility-passthrough request
 ```
 
 The daemon must be running before these commands can connect to `/dev/shm/smooth_scroll_shm`.

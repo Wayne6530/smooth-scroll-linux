@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="130" viewBox="0 0 1600 260" role="img" aria-labelledby="title desc">
-  <title id="title">GNOME pointer-side indicators</title>
+  <title id="title">Pointer-side indicators</title>
   <desc id="desc">Five pointer-side indicator states: scrolling dot, Free Spin outer ring, Drag View four-way arrow, Auto Scroll origin and moving dot, and compatibility passthrough X.</desc>
   <defs>
     <style>
@@ -69,6 +69,6 @@
       <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#000000" stroke-width="7" stroke-linecap="round" opacity="0.24"/>
       <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#ff5c5c" stroke-width="7" stroke-linecap="round"/>
     </g>
-    <text x="-42" y="186" class="label">PASSTHROUGH</text>
+    <text x="-80" y="186" class="label">COMPAT PASSTHROUGH</text>
   </g>
 </svg>

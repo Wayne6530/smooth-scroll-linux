@@ -95,7 +95,7 @@ sudo dnf install ./smooth-scroll-*.rpm</code></pre>
             </div>
           </li>
           <li>
-            <h3>Passthrough</h3>
+            <h3>Keyboard Passthrough</h3>
             <p class="doc-copy lang-block lang-en">Hold a passthrough key when the application should receive raw wheel events, for example browser zoom or editor shortcuts. Pressing or releasing it also brakes inertia, while a held pointer gesture keeps ownership. Defaults: <code>Ctrl</code> and <code>Super</code>, both customizable.</p>
             <p class="doc-copy lang-block lang-zh">当应用需要接收原始滚轮事件时，按住透传按键，例如浏览器缩放或编辑器快捷操作。按下或松开也会制动惯性，但仍按住的指针手势会保留所有权。默认按键：<code>Ctrl</code> 和 <code>Super</code>，都可以自定义。</p>
             <p class="input-line"><span class="input-label lang-block lang-en">Input</span><span class="input-label lang-block lang-zh">输入</span><span class="move-token token-key lang-block lang-en">Hold Ctrl / Super</span><span class="move-token token-key lang-block lang-zh">按住 Ctrl / Super</span><span class="move-arrow">&gt;</span><span class="move-token token-wheel lang-block lang-en">Wheel action</span><span class="move-token token-wheel lang-block lang-zh">滚轮动作</span></p>
@@ -124,20 +124,20 @@ sudo dnf install ./smooth-scroll-*.rpm</code></pre>
       <section class="doc-section extensions-section">
         <h2 class="doc-heading lang-block lang-en">Extensions</h2>
         <h2 class="doc-heading lang-block lang-zh">扩展</h2>
-        <p class="doc-copy lang-block lang-en">Install the extension for your desktop if you want to see the current scroll state near the pointer, stop inertia when you leave a window, or set windows that should always receive raw wheel events.</p>
-        <p class="doc-copy lang-block lang-zh">如果你想在指针旁看到当前滚动状态、离开窗口时自动停止惯性，或设置哪些窗口始终接收原始滚轮事件，请安装对应桌面环境的扩展。</p>
+        <p class="doc-copy lang-block lang-en">Install the extension for your desktop if you want to see the current scroll state near the pointer, stop inertia when you leave a window, or configure application windows that should use compatibility passthrough.</p>
+        <p class="doc-copy lang-block lang-zh">如果你想在指针旁看到当前滚动状态、离开窗口时自动停止惯性，或设置哪些应用窗口需要使用兼容性透传，请安装对应桌面环境的扩展。</p>
 
         <figure class="extension-figure">
           <img class="extension-indicators" src="assets/pointer-side-indicators.svg" alt="Pointer-side indicators for scrolling, Free Spin, Drag View, Auto Scroll, and compatibility passthrough">
         </figure>
 
         <ul class="extension-features">
-          <li class="lang-block lang-en">See whether Smooth Scroll is scrolling, in Drag View or Auto Scroll, or passing wheel events through.</li>
-          <li class="lang-block lang-zh">看清当前是平滑滚动、Drag View、Auto Scroll，还是滚轮事件透传。</li>
+          <li class="lang-block lang-en">See whether Smooth Scroll is scrolling, holding Free Spin, in Drag View or Auto Scroll, or using or waiting to enter compatibility passthrough.</li>
+          <li class="lang-block lang-zh">看清当前是平滑滚动、保持 Free Spin、处于 Drag View 或 Auto Scroll，还是兼容性透传已生效或正在等待生效。</li>
           <li class="lang-block lang-en">Stop the current glide automatically when the pointer moves out of the window.</li>
           <li class="lang-block lang-zh">指针移出当前窗口时，自动停止正在进行的惯性滚动。</li>
-          <li class="lang-block lang-en">Add window rules for places where smoothing should always be bypassed.</li>
-          <li class="lang-block lang-zh">为需要始终绕过平滑处理的窗口添加规则。</li>
+          <li class="lang-block lang-en">Add compatibility-passthrough rules for applications that cannot handle Smooth Scroll's high-resolution wheel output.</li>
+          <li class="lang-block lang-zh">为无法处理 Smooth Scroll 高精度滚轮输出的应用添加兼容性透传规则。</li>
         </ul>
 
         <div class="extension-actions">

@@ -52,7 +52,7 @@ Row      Workspace item                                  Status       Horizontal
 01       Kernel notes                                    Read         evdev, uinput, virtual device, high resolution wheel events
 02       Editor buffer                                   Active       long line preview, diagnostics, change markers, branch comparison
 03       File manager                                    Open         deeply nested folders, wide filenames, modified timestamps, permissions
-04       Settings panel                                  Tuned        damping, acceleration, braking, free spin, drag view, passthrough
+04       Settings panel                                  Tuned        damping, acceleration, braking, free spin, drag view, keyboard passthrough
 05       Terminal output                                 Running      package build logs, compiler diagnostics, release artifacts, checksums
 06       Browser article                                 Reading      paragraphs, tables, code snippets, release notes, references
 07       Spreadsheet                                     Wide         columns A through Z, frozen labels, imported measurements, chart data

@@ -1,8 +1,8 @@
 # Smooth Scroll IPC Companion
 
-This GNOME Shell extension adds visual indicators and per-window passthrough
-rules for Smooth Scroll Linux. It communicates with the daemon through the
-shared-memory IPC file:
+This GNOME Shell extension adds visual indicators and per-window
+compatibility-passthrough rules for Smooth Scroll Linux. It communicates with
+the daemon through the shared-memory IPC file:
 
 ```text
 /dev/shm/smooth_scroll_shm
@@ -11,7 +11,7 @@ shared-memory IPC file:
 While this extension is enabled, avoid running other tools that write Smooth
 Scroll IPC control fields, including the bundled CLI control commands. Competing
 writes to `scroll_id` or `compatibility_passthrough_requested` can make
-passthrough or braking behavior unpredictable.
+compatibility-passthrough or braking behavior unpredictable.
 
 ## Features
 
@@ -135,7 +135,7 @@ Spin, Drag View, or Auto Scroll interaction continues first with its indicator
 recolored to the configured passthrough color.
 
 Use `compatibility_passthrough_rules` when a specific application window should
-also receive normal wheel events. The old `force_passthrough_rules` and
+use compatibility passthrough. The old `force_passthrough_rules` and
 `force_passthrough` names are not read or migrated. Each app rule must include:
 
 - `app`: exact app id from Looking Glass, for example

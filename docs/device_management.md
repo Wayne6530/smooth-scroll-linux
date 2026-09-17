@@ -49,7 +49,7 @@ lost; it can still cause one harmless restart if it arrives immediately after th
 `remove` events never request a restart:
 
 - loss of the active mouse is reported directly by libevdev as `-ENODEV`, which ends the Session;
-- loss of a keyboard is handled inside the Session by removing that keyboard handle and updating passthrough
+- loss of a keyboard is handled inside the Session by removing that keyboard handle and updating keyboard-passthrough
   state;
 - loss of any inactive device has no effect on the active input path.
 
@@ -58,7 +58,7 @@ outside the monitor's recovery policy and can be excluded with `ignored_devices`
 
 A manager-requested restart is graceful. The Session latches the request and continues through the normal input
 path until the physical mouse has no pressed keys and the pending output frame is empty. The event-transformation
-contract guarantees that no virtual key can remain pressed at this boundary: passthrough presses have matching
+contract guarantees that no virtual key can remain pressed at this boundary: keyboard-passthrough presses have matching
 releases, handled buttons do not create a virtual press, and replayed clicks emit their press and release together.
 Session therefore does not separately track or query virtual key state. It then stops the smoother and returns
 without a timeout or synthetic releases, so every forwarded press and release remains paired while the physical

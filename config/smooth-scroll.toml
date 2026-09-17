@@ -267,9 +267,9 @@ mouse_movement_delay_microseconds = 100000
 keyboard_braking_keys = [42, 54]
 
 # @label-en: Keyboard Passthrough Keys
-# @label-zh: 键盘直通键
-# @desc-en: Keyboard key codes that enable passthrough mode while held. Their press and release edges also brake inertia; pointer button codes 272-279 are not allowed. Default: Ctrl and Super keys.
-# @desc-zh: 按住时启用直通模式的键盘键码。按下和松开边沿也会制动惯性；不允许使用指针按键码 272-279。默认：Ctrl 和 Super 键。
+# @label-zh: 键盘透传键
+# @desc-en: Keyboard key codes that enable keyboard passthrough while held. Their press and release edges also brake inertia; pointer button codes 272-279 are not allowed. Default: Ctrl and Super keys.
+# @desc-zh: 按住时启用键盘透传的键盘键码。按下和松开边沿也会制动惯性；不允许使用指针按键码 272-279。默认：Ctrl 和 Super 键。
 # @type: int-array
 # @group: braking
 keyboard_passthrough_keys = [29, 97, 125, 126]
