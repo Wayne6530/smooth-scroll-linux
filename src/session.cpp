@@ -144,7 +144,7 @@ Session::CreateResult Session::initialize(const std::atomic_bool& shutdown)
   }
 
   ipc_.setConnected();
-  ipc_.setPassthrough(num_passthrough_ > 0);
+  ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
   ipc_.setAutoScrollAxes(wheel_smoother_.auto_scroll_horizontal_enabled(),
                          wheel_smoother_.auto_scroll_vertical_enabled());
   return CreateResult::Success;
@@ -240,7 +240,7 @@ void Session::handleObservedKey(unsigned int code, int value, std::array<bool, K
     --source_num_passthrough;
     --num_passthrough_;
   }
-  ipc_.setPassthrough(num_passthrough_ > 0);
+  ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
 }
 
 void Session::stopMotion()
@@ -248,6 +248,19 @@ void Session::stopMotion()
   wheel_smoother_.stop();
   ipc_.setSpeed(0, false, false);
   updateAutoScrollIpc();
+}
+
+WheelSmoother::ProcessingMode Session::prepareProcessing() noexcept
+{
+  const auto mode = wheel_smoother_.prepareProcessing(ipc_.isCompatibilityPassthroughRequested());
+  if (mode == WheelSmoother::ProcessingMode::CompatibilityPassthrough)
+  {
+    // Compatibility mode has already stopped ordinary motion, so a brake that
+    // is pending at this processing point is satisfied and can be acknowledged.
+    static_cast<void>(ipc_.checkBrakeRequest());
+    ipc_.setSpeed(0, false, false);
+  }
+  return mode;
 }
 
 void Session::updateAutoScrollIpc()
@@ -276,7 +289,6 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
   };
   rebuildDescriptors();
   bool restart_pending = false;
-
   while (!shutdown.load(std::memory_order_relaxed))
   {
     fd_set read_fds = descriptors;
@@ -296,7 +308,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
       {
         stopMotion();
       }
-      else
+      else if (prepareProcessing() == WheelSmoother::ProcessingMode::Process)
       {
         const auto tick_result = wheel_smoother_.tick();
         for (std::size_t i = 0; i < tick_result.count; ++i)
@@ -354,7 +366,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
       {
         SPDLOG_WARN("Keyboard device lost: {}", iterator->device.info().path);
         num_passthrough_ -= iterator->num_passthrough;
-        ipc_.setPassthrough(num_passthrough_ > 0);
+        ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
         iterator = keyboards_.erase(iterator);
         rebuildDescriptors();
       }
@@ -404,6 +416,9 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           break;
 
         last_input_event_time = event.time;
+        const auto processing_mode = prepareProcessing();
+        const bool compatibility_passthrough =
+          processing_mode == WheelSmoother::ProcessingMode::CompatibilityPassthrough;
         switch (event.type)
         {
           case EV_REL:
@@ -411,7 +426,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
             {
               case REL_WHEEL:
               case REL_HWHEEL:
-                if (num_passthrough_ || ipc_.isForcePassthroughEnabled())
+                if (num_passthrough_ || compatibility_passthrough)
                 {
                   events_.push_back(event);
                 }
@@ -428,7 +443,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
                 break;
               case REL_WHEEL_HI_RES:
               case REL_HWHEEL_HI_RES:
-                if (num_passthrough_ || ipc_.isForcePassthroughEnabled())
+                if (num_passthrough_ || compatibility_passthrough)
                   events_.push_back(event);
                 break;
               case REL_X:
@@ -451,6 +466,11 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
             // grabbed event node. Forward those keys, but do not reinterpret
             // them as pointer buttons that can control mouse-only modes.
             if (!isPointerButton(event.code))
+            {
+              events_.push_back(event);
+              break;
+            }
+            if (compatibility_passthrough)
             {
               events_.push_back(event);
               break;
@@ -562,7 +582,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           {
             stopMotion();
           }
-          else
+          else if (prepareProcessing() == WheelSmoother::ProcessingMode::Process)
           {
             const auto tick_result = wheel_smoother_.tick();
             for (std::size_t i = 0; i < tick_result.count; ++i)

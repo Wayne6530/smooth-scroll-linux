@@ -28,6 +28,12 @@ class WheelSmoother
   };
 
 public:
+  enum class ProcessingMode
+  {
+    Process,
+    CompatibilityPassthrough,
+  };
+
   enum class SmoothMode
   {
     Speed = 0,
@@ -137,6 +143,8 @@ public:
 
   void stop() noexcept;
 
+  [[nodiscard]] ProcessingMode prepareProcessing(bool compatibility_passthrough_requested) noexcept;
+
   void hardReset() noexcept;
 
   bool handleFreeSpinButton(int value) noexcept;
@@ -189,6 +197,11 @@ public:
   [[nodiscard]] bool auto_scroll() const noexcept
   {
     return auto_scroll_state_ != AutoScrollState::Inactive;
+  }
+
+  [[nodiscard]] bool specialModeActive() const noexcept
+  {
+    return free_spin_ || drag_view_ || auto_scroll();
   }
 
   [[nodiscard]] int64_t auto_scroll_offset_x() const noexcept

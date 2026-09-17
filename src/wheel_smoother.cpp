@@ -79,6 +79,17 @@ void WheelSmoother::stop() noexcept
   }
 }
 
+WheelSmoother::ProcessingMode WheelSmoother::prepareProcessing(bool compatibility_passthrough_requested) noexcept
+{
+  if (!compatibility_passthrough_requested || specialModeActive())
+  {
+    return ProcessingMode::Process;
+  }
+
+  stop();
+  return ProcessingMode::CompatibilityPassthrough;
+}
+
 void WheelSmoother::hardReset() noexcept
 {
   stopScroll();

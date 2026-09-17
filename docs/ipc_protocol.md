@@ -31,8 +31,8 @@ struct alignas(32) SmoothScrollIPC {
     // [0x0C] Control: Scroll ID (UI -> Daemon)
     std::atomic<uint32_t> scroll_id;     
     
-    // [0x10] Control: Force Passthrough (UI -> Daemon)
-    std::atomic<uint32_t> force_passthrough; 
+    // [0x10] Control: Compatibility Passthrough Request (UI -> Daemon)
+    std::atomic<uint32_t> compatibility_passthrough_requested;
     
     // [0x14] Status: packed signed Auto Scroll offsets (Daemon -> UI)
     std::atomic<uint32_t> auto_scroll_offset;
@@ -64,7 +64,7 @@ static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size mismatch");
 - **Purpose:** Real-time daemon state broadcast. Compressed into a single 32-bit bitfield.
 - **Bit Layout:**
   - `Bit 0`: **Connected** (1 = Mouse device acquired, 0 = Lost/Searching)
-  - `Bit 1`: **Passthrough** (1 = Currently in passthrough mode, 0 = Active interception)
+  - `Bit 1`: **KeyboardPassthrough** (1 = a configured keyboard passthrough key is held)
   - `Bit 2`: **DragView** (1 = Drag View mode active)
   - `Bit 3`: **FreeSpin** (1 = Free Spin mode active)
   - `Bit 4`: **Horizontal** (ordinary scrolling only; 1 = horizontal, 0 = vertical)
@@ -90,12 +90,14 @@ The daemon publishes these configuration bits once during initialization. They r
 - **Purpose:** Asynchronous brake trigger (UI writes, Daemon reads).
 - **Interaction:** To brake scrolling from the UI, the client increments this ID or writes a randomized `uint32_t`. For ordinary inertia this stops motion. For Auto Scroll it re-anchors a held gesture, or exits the mode when it is latched hands-free.
 
-### 3.5 `force_passthrough` (Offset: 0x10)
+### 3.5 `compatibility_passthrough_requested` (Offset: 0x10)
 
-- **Purpose:** Global override for passthrough mode (UI writes, Daemon reads).
+- **Purpose:** Requests application-compatibility passthrough (UI writes, Daemon reads).
 - **Interaction:**
-  - `0`: Normal operation (Daemon governs interception).
-  - `> 0`: Forced wheel passthrough. Physical vertical and horizontal wheel events are forwarded unchanged. The enabling edge brakes ordinary inertia and latched Auto Scroll. A held Auto Scroll gesture is re-anchored without losing ownership, and held Drag View remains active.
+  - `0`: Normal operation.
+  - `> 0`: Request compatibility passthrough. If Free Spin, Drag View, or Auto Scroll is active, the request remains pending and the current interaction continues unchanged. Once all three modes are inactive, the daemon stops ordinary inertia, forwards the device's physical vertical and horizontal wheel events unchanged, and forwards pointer buttons without interpreting the configured feature buttons.
+- **Boundary:** The daemon samples the request once before each normal mouse event and generated tick. The current event completes under that decision; state changes caused by it are visible to the next event. `SYN_REPORT` still settles accumulated pointer movement and commits output, but does not freeze routing for the whole input frame. Sync-recovery events are handled separately.
+- **Visualization:** Clients may combine this request with the `FreeSpin`, `DragView`, and `AutoScroll` state bits to present waiting/ready hints. Such hints reflect the client's latest snapshots, not a daemon acknowledgement.
 
 ### 3.6 `auto_scroll_offset` (Offset: 0x14)
 

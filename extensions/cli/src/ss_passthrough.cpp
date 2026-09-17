@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
   if (!ipc)
     return 1;
 
-  uint32_t current_val = ipc->force_passthrough.load(std::memory_order_relaxed);
+  uint32_t current_val = ipc->compatibility_passthrough_requested.load(std::memory_order_relaxed);
   uint32_t new_val = 0;
 
   if (argc > 1)
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     new_val = (current_val > 0) ? 0 : 1;
   }
 
-  ipc->force_passthrough.store(new_val, std::memory_order_relaxed);
+  ipc->compatibility_passthrough_requested.store(new_val, std::memory_order_relaxed);
 
   munmap(ipc, sizeof(smooth_scroll::SmoothScrollIPC));
   return 0;

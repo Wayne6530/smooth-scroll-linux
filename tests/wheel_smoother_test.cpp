@@ -529,6 +529,82 @@ void testDragViewFractionalOutput()
   assert(reversed_x2.value == -1);
 }
 
+void testSpecialModeActive()
+{
+  WheelSmoother free_spin{ WheelSmoother::Options{} };
+  assert(!free_spin.specialModeActive());
+  static_cast<void>(free_spin.handleEvent(atMilliseconds(0), true, false));
+  assert(free_spin.handleFreeSpinButton(1));
+  assert(free_spin.specialModeActive());
+  free_spin.stop();
+  assert(free_spin.specialModeActive());
+  assert(free_spin.handleFreeSpinButton(0));
+  assert(!free_spin.specialModeActive());
+
+  auto drag_options = autoOptions();
+  drag_options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Always;
+  WheelSmoother drag_view{ drag_options };
+  assert(drag_view.handleDragViewButton(atMilliseconds(0), 1) == WheelSmoother::ButtonResult::Handled);
+  assert(drag_view.specialModeActive());
+  assert(drag_view.handleDragViewButton(atMilliseconds(1), 0) == WheelSmoother::ButtonResult::ReplayClick);
+  assert(!drag_view.specialModeActive());
+
+  WheelSmoother auto_scroll{ autoOptions() };
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  assert(auto_scroll.specialModeActive());
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(1), BTN_MIDDLE, 0) ==
+         WheelSmoother::ButtonResult::ReplayClick);
+  assert(!auto_scroll.specialModeActive());
+}
+
+void testProcessingMode()
+{
+  WheelSmoother smoother{ WheelSmoother::Options{} };
+  static_cast<void>(smoother.handleEvent(atMilliseconds(0), true, false));
+  assert(smoother.speed() > 0);
+  assert(smoother.prepareProcessing(false) == WheelSmoother::ProcessingMode::Process);
+  assert(smoother.speed() > 0);
+  assert(smoother.prepareProcessing(true) == WheelSmoother::ProcessingMode::CompatibilityPassthrough);
+  assert(smoother.speed() == 0);
+  assert(!smoother.next_tick_time());
+  assert(smoother.prepareProcessing(true) == WheelSmoother::ProcessingMode::CompatibilityPassthrough);
+
+  WheelSmoother free_spin{ WheelSmoother::Options{} };
+  static_cast<void>(free_spin.handleEvent(atMilliseconds(0), true, false));
+  assert(free_spin.handleFreeSpinButton(1));
+  assert(free_spin.prepareProcessing(true) == WheelSmoother::ProcessingMode::Process);
+  assert(free_spin.free_spin());
+  assert(free_spin.speed() > 0);
+  assert(free_spin.next_tick_time());
+  assert(free_spin.handleFreeSpinButton(0));
+  assert(free_spin.prepareProcessing(true) == WheelSmoother::ProcessingMode::CompatibilityPassthrough);
+
+  auto drag_options = autoOptions();
+  drag_options.drag_view_activation_mode = WheelSmoother::DragViewActivationMode::Always;
+  WheelSmoother drag_view{ drag_options };
+  assert(drag_view.handleDragViewButton(atMilliseconds(0), 1) == WheelSmoother::ButtonResult::Handled);
+  assert(drag_view.prepareProcessing(true) == WheelSmoother::ProcessingMode::Process);
+  assert(drag_view.handleDragViewButton(atMilliseconds(1), 0) == WheelSmoother::ButtonResult::ReplayClick);
+  assert(drag_view.prepareProcessing(true) == WheelSmoother::ProcessingMode::CompatibilityPassthrough);
+
+  WheelSmoother auto_scroll{ autoOptions() };
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  move(auto_scroll, 12, 0, 1);
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(2), BTN_MIDDLE, 0) ==
+         WheelSmoother::ButtonResult::Handled);
+  assert(auto_scroll.prepareProcessing(true) == WheelSmoother::ProcessingMode::Process);
+  assert(auto_scroll.auto_scroll());
+  assert(auto_scroll.auto_scroll_offset_x() == 12);
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(3), BTN_MIDDLE, 1) ==
+         WheelSmoother::ButtonResult::Handled);
+  assert(auto_scroll.prepareProcessing(true) == WheelSmoother::ProcessingMode::Process);
+  assert(auto_scroll.handleAutoScrollButton(atMilliseconds(4), BTN_MIDDLE, 0) ==
+         WheelSmoother::ButtonResult::Handled);
+  assert(auto_scroll.prepareProcessing(true) == WheelSmoother::ProcessingMode::CompatibilityPassthrough);
+}
+
 }  // namespace
 
 int main()
@@ -547,6 +623,8 @@ int main()
   testLatchedWheelActions();
   testAnyButtonHeldExit();
   testModeButtonOrdinaryFallback();
+  testSpecialModeActive();
+  testProcessingMode();
   std::cout << "wheel_smoother_test: all tests passed\n";
   return 0;
 }

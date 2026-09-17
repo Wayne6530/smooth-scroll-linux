@@ -64,6 +64,7 @@ private:
   [[nodiscard]] bool writeEvents(const timeval& time);
   void handleObservedKey(unsigned int code, int value, std::array<bool, KEY_CNT>& passthrough_pressed,
                          int& source_num_passthrough);
+  [[nodiscard]] WheelSmoother::ProcessingMode prepareProcessing() noexcept;
   void stopMotion();
   void updateAutoScrollIpc();
 

@@ -28,7 +28,7 @@ public:
 
   void setDisconnected() noexcept;
 
-  void setPassthrough(bool passthrough) noexcept;
+  void setKeyboardPassthrough(bool passthrough) noexcept;
 
   void setDragView(bool drag_view) noexcept;
 
@@ -46,7 +46,7 @@ public:
 
   [[nodiscard]] bool checkBrakeRequest() noexcept;
 
-  [[nodiscard]] bool isForcePassthroughEnabled() const noexcept;
+  [[nodiscard]] bool isCompatibilityPassthroughRequested() const noexcept;
 
 private:
   void cleanup() noexcept;
@@ -57,7 +57,6 @@ private:
 
   uint32_t state_{ 0 };
   uint32_t scroll_id_{ 0 };
-  bool force_passthrough_enabled_{ false };
 };
 
 }  // namespace smooth_scroll

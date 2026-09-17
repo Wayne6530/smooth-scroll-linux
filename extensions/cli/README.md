@@ -53,7 +53,9 @@ Example output:
 ss-stop
 ```
 
-`ss-passthrough` toggles or sets force-passthrough mode:
+`ss-passthrough` toggles or sets compatibility-passthrough mode. The request
+takes effect after any active Free Spin, Drag View, or Auto Scroll interaction
+finishes:
 
 ```bash
 ss-passthrough       # Toggle state

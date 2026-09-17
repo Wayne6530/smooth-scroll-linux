@@ -30,7 +30,7 @@ int main()
     if (current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset)
     {
       bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
-      bool passthrough = current_state & smooth_scroll::IPC_STATE_PASSTHROUGH;
+      bool passthrough = current_state & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH;
       bool drag_view = current_state & smooth_scroll::IPC_STATE_DRAG_VIEW;
       bool free_spin = current_state & smooth_scroll::IPC_STATE_FREE_SPIN;
       bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;

@@ -76,6 +76,18 @@ if(BUILD_TESTING)
   target_link_libraries(wheel-smoother-test fmt::fmt)
   add_test(NAME wheel-smoother-test COMMAND wheel-smoother-test)
 
+  add_executable(ipc-server-test
+    tests/ipc_server_test.cpp
+    src/ipc_server.cpp
+  )
+  target_include_directories(ipc-server-test
+    PRIVATE
+      ${CMAKE_SOURCE_DIR}/include
+      ${CMAKE_SOURCE_DIR}/src
+  )
+  target_link_libraries(ipc-server-test fmt::fmt)
+  add_test(NAME ipc-server-test COMMAND ipc-server-test)
+
   add_executable(device-config-test
     tests/device_config_test.cpp
     src/config.cpp
