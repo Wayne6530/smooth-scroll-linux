@@ -39,68 +39,83 @@ After installation, **smooth-scroll.service** will start automatically and enabl
 
 ## Build from Source
 
-### DEB
+The core daemon requires CMake 3.14+, a C++17 compiler, and a Linux system using systemd.
+CMake downloads tomlplusplus during configuration, so an internet connection is required.
 
-1. Install dependencies:
+### Install Dependencies
 
-   ```bash
-   sudo apt install build-essential cmake libspdlog-dev libevdev-dev libudev-dev
-   ```
+#### Ubuntu / Debian / Linux Mint
 
-2. Clone and build:
+```bash
+sudo apt update
+sudo apt install build-essential cmake git libfmt-dev libspdlog-dev libevdev-dev libudev-dev
+```
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
-   cd build
-   make package
-   ```
+#### Fedora
 
-### RPM
+```bash
+sudo dnf install gcc-c++ make cmake git fmt-devel spdlog-devel libevdev-devel systemd-devel
+```
 
-1. Install dependencies:
+#### Arch Linux / Manjaro / CachyOS
 
-   ```bash
-   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel systemd-devel rpm-build
-   ```
+```bash
+sudo pacman -S --needed base-devel cmake git fmt spdlog libevdev systemd-libs
+```
 
-2. Clone and build:
+After installing dependencies, clone the repository and choose either direct installation or package building below:
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
-   cd build
-   make package
-   ```
+```bash
+git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+cd smooth-scroll-linux
+```
 
-### Arch Linux / Manjaro
+### Build and Install
 
-1. Install dependencies:
+These steps apply to any systemd-based Linux distribution with the required dependencies installed.
+Run them from the repository root:
 
-   ```bash
-   sudo pacman -S base-devel cmake git spdlog libevdev systemd-libs
-   ```
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 
-2. Clone and build:
+# Install to /usr/bin, /usr/lib/systemd/system, and /etc/smooth-scroll
+sudo cmake --build build --target install
+sudo systemctl daemon-reload
+sudo systemctl enable --now smooth-scroll
+```
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
-   cd build
-   make
+### Build Packages
 
-   # Install to /usr/bin, /usr/lib/systemd/system, and /etc/smooth-scroll
-   sudo make install
-   ```
+To generate an installable package instead of installing directly, use the matching section below.
+Run each build from the repository root. The current packaging configuration targets x86_64.
 
-3. Enable service:
+#### DEB
 
-   ```bash
-   sudo systemctl enable --now smooth-scroll
-   ```
+On Ubuntu / Debian / Linux Mint:
+
+```bash
+cmake -S . -B build-deb -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
+cmake --build build-deb --parallel
+cd build-deb
+cpack -G DEB
+sudo apt install ./smooth-scroll_*.deb
+```
+
+#### RPM
+
+On Fedora, install the additional packaging tools first:
+
+```bash
+sudo dnf install rpm-build
+cmake -S . -B build-rpm -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
+cmake --build build-rpm --parallel
+cd build-rpm
+cpack -G RPM
+sudo dnf install ./smooth-scroll-*.rpm
+```
+
+The DEB and RPM packages start the service automatically and enable it at boot.
 
 ## Extensions
 

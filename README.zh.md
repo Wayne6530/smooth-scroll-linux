@@ -37,68 +37,83 @@ sudo dnf install ./smooth-scroll-*.rpm
 
 ## 从源码编译
 
-### DEB
+核心守护进程需要 CMake 3.14+、支持 C++17 的编译器，以及使用 systemd 的 Linux 系统。
+CMake 会在配置阶段下载 tomlplusplus，因此需要联网。
 
-1. 安装依赖
+### 安装依赖
 
-   ```bash
-   sudo apt install build-essential cmake libspdlog-dev libevdev-dev libudev-dev
-   ```
+#### Ubuntu / Debian / Linux Mint
 
-2. 下载源码并编译
+```bash
+sudo apt update
+sudo apt install build-essential cmake git libfmt-dev libspdlog-dev libevdev-dev libudev-dev
+```
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
-   cd build
-   make package
-   ```
+#### Fedora
 
-### RPM
+```bash
+sudo dnf install gcc-c++ make cmake git fmt-devel spdlog-devel libevdev-devel systemd-devel
+```
 
-1. 安装依赖
+#### Arch Linux / Manjaro / CachyOS
 
-   ```bash
-   sudo dnf install gcc-c++ cmake spdlog-devel libevdev-devel systemd-devel rpm-build
-   ```
+```bash
+sudo pacman -S --needed base-devel cmake git fmt spdlog libevdev systemd-libs
+```
 
-2. 下载源码并编译
+安装依赖后，下载源码，再选择下方的直接安装或生成安装包流程：
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
-   cd build
-   make package
-   ```
+```bash
+git clone https://github.com/Wayne6530/smooth-scroll-linux.git
+cd smooth-scroll-linux
+```
 
-### Arch Linux / Manjaro
+### 编译并安装
 
-1. 安装依赖
+以下步骤适用于已安装所需依赖、使用 systemd 的 Linux 发行版。
+请在仓库根目录执行：
 
-   ```bash
-   sudo pacman -S base-devel cmake git spdlog libevdev systemd-libs
-   ```
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 
-2. 下载源码并编译安装
+# 安装至 /usr/bin、/usr/lib/systemd/system 和 /etc/smooth-scroll
+sudo cmake --build build --target install
+sudo systemctl daemon-reload
+sudo systemctl enable --now smooth-scroll
+```
 
-   ```bash
-   git clone https://github.com/Wayne6530/smooth-scroll-linux.git
-   cd smooth-scroll-linux
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
-   cd build
-   make
+### 生成安装包
 
-   # 安装至 /usr/bin、/usr/lib/systemd/system 和 /etc/smooth-scroll
-   sudo make install
-   ```
+如果希望生成安装包而非直接安装，请选择下方对应流程。
+每种打包流程均从仓库根目录开始执行。当前打包配置面向 x86_64 架构。
 
-3. 启用服务
+#### DEB
 
-   ```bash
-   sudo systemctl enable --now smooth-scroll
-   ```
+在 Ubuntu / Debian / Linux Mint 上执行：
+
+```bash
+cmake -S . -B build-deb -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="DEB"
+cmake --build build-deb --parallel
+cd build-deb
+cpack -G DEB
+sudo apt install ./smooth-scroll_*.deb
+```
+
+#### RPM
+
+在 Fedora 上，先安装额外的打包工具：
+
+```bash
+sudo dnf install rpm-build
+cmake -S . -B build-rpm -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR="RPM"
+cmake --build build-rpm --parallel
+cd build-rpm
+cpack -G RPM
+sudo dnf install ./smooth-scroll-*.rpm
+```
+
+DEB 和 RPM 安装包会自动启动服务并启用开机自启。
 
 ## 扩展
 
