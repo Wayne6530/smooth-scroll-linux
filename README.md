@@ -1,10 +1,12 @@
 # Smooth Scroll Linux
 
-[](https://github.com/user-attachments/assets/9398989b-ec77-4d03-ab3d-4967d37600db)
+![Core features: smooth scrolling, speed adaptive, Free Spin, Drag View and Auto Scroll](docs/assets/features.svg)
 
 <p align="center"><strong>Smooth Scroll Linux</strong> is a system-level smooth scrolling daemon that brings physics-based inertial scrolling to any regular mouse on Linux.</p>
 
 <p align="center">
+  <a href="https://wayne6530.github.io/smooth-scroll-linux/">Features</a>
+  ·
   <a href="https://wayne6530.github.io/smooth-scroll-linux/quickstart.html"><strong>Quick Start</strong></a>
   ·
   <a href="https://wayne6530.github.io/smooth-scroll-linux/config.html">Web Configurator</a>
@@ -132,7 +134,7 @@ Current extensions:
   pointer-leave braking, per-application compatibility-passthrough rules, and a
   window-based rule picker for KDE Plasma.
 
-![GNOME pointer-side indicators](extensions/gnome/assets/pointer-side-indicators.svg)
+![GNOME pointer-side indicators](web/assets/pointer-side-indicators.svg)
 
 Each extension has its own README with detailed build, install, and usage
 instructions.

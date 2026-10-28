@@ -1,74 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="130" viewBox="0 0 1600 260" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="184" viewBox="0 0 1000 184" role="img" aria-labelledby="title desc">
   <title id="title">Pointer-side indicators</title>
-  <desc id="desc">Five pointer-side indicator states: scrolling dot, Free Spin outer ring, Drag View four-way arrow, Auto Scroll origin and moving dot, and compatibility passthrough X.</desc>
+  <desc id="desc">GNOME indicator geometry using the shipped example configuration: scrolling, Free Spin, Drag View, Auto Scroll, and compatibility passthrough. Each cursor and indicator is enlarged together.</desc>
+  <metadata>
+    Adapted from Yaru Cursors by Sam Hewitt and the Ubuntu Yaru contributors.
+    Source: https://github.com/ubuntu/yaru/blob/master/icons/src/cursors/source-cursors.svg
+    License: Creative Commons Attribution-ShareAlike 4.0 International
+    https://creativecommons.org/licenses/by-sa/4.0/
+    Changes: extracted the default pointer paths, normalized the viewport,
+    simplified the gradient, omitted the original shadow filters, and scaled
+    the pointer for this indicator overview.
+  </metadata>
+  <!-- Source: extensions/gnome/config.example.json and extension.js drawing methods.
+       One shared 2x scale per cursor/indicator group preserves all proportions.
+       Scrolling dots illustrate max_alpha_speed (3200); Auto Scroll offset is (18,-14).
+       Auto Scroll size=24 follows the shipped example (the no-config fallback is 48). -->
   <defs>
-    <style>
-      .label { fill: #1f2937; font: 700 20px sans-serif; letter-spacing: 0; }
-    </style>
-    <filter id="blue-glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#4ea1ff" flood-opacity="0.35"/>
-    </filter>
-    <filter id="red-glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#ff5c5c" flood-opacity="0.35"/>
-    </filter>
-    <g id="cursor">
-      <path d="M0 0 L0 72 L19 52 L35 84 L52 76 L36 46 L64 46 Z" fill="#ffffff" stroke="#111827" stroke-width="4" stroke-linejoin="round"/>
-      <path d="M6 12 L6 58 L19 44 L39 78" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>
-    </g>
-    <g id="arrow-indicator">
-      <path d="M-16 0 L16 0 M0 -16 L0 16" stroke="#4ea1ff" stroke-width="4" stroke-linecap="round"/>
-      <path d="M0 -28 L-8 -16 L8 -16 Z M0 28 L-8 16 L8 16 Z M-28 0 L-16 -8 L-16 8 Z M28 0 L16 -8 L16 8 Z" fill="#4ea1ff"/>
+    <style>.label { fill:#334155; font:600 14px Arial,sans-serif; text-anchor:middle; }</style>
+    <linearGradient id="yaru-cursor-fill" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#4d4d4d"/><stop offset="1" stop-color="#151515"/>
+    </linearGradient>
+    <g id="cursor" transform="translate(-26 367.72852)" fill-rule="evenodd">
+    <path fill="#fff" d="m 26,-367.72852 v 18 l 3.742187,-3.74023 1.53125,3.69727 c 0.223675,0.54007 0.671618,0.9677 1.169922,1.14453 0.498305,0.17682 1.010021,0.13312 1.449219,-0.0488 0.439208,-0.18193 0.83129,-0.51285 1.058594,-0.99024 0.227304,-0.47738 0.241155,-1.09464 0.01758,-1.63476 L 33.4375,-355 h 5.291016 z"/>
+    <path fill="url(#yaru-cursor-fill)" d="m 27.000343,-365.31445 -3.46e-4,13.17245 3.092946,-3.0926 2.1048,5.0813 c 0.517545,1.24943 2.365223,0.48404 1.8477,-0.7654 l -2.1047,-5.0813 4.3736,2.3e-4 z"/>
     </g>
   </defs>
-
-  <rect width="1600" height="260" fill="#f5f7fb"/>
-
-  <g transform="translate(70 52)">
-    <use href="#cursor" x="0" y="42"/>
-    <circle cx="80" cy="42" r="12" fill="#4ea1ff"/>
-    <text x="-28" y="186" class="label">SCROLLING</text>
+  <rect x="0.5" y="0.5" width="999" height="183" rx="16" fill="#fff" stroke="#e2e8f0"/>
+  <path d="M200 28V156M400 28V156M600 28V156M800 28V156" stroke="#edf0f3"/>
+  <g transform="translate(84 68) scale(2)">
+    <g transform="translate(12 0)"><circle r="4" fill="#4ea1ff" opacity="0.9"/></g>
+    <use href="#cursor"/>
   </g>
-
-  <g transform="translate(370 52)">
-    <use href="#cursor" x="0" y="42"/>
-    <circle cx="80" cy="42" r="12" fill="#4ea1ff"/>
-    <circle cx="80" cy="42" r="16" fill="none" stroke="#4ea1ff" stroke-width="4"/>
-    <text x="-24" y="186" class="label">FREE SPIN</text>
+  <text x="100" y="148" class="label">Scrolling</text>
+  <g transform="translate(281 68) scale(2)">
+    <g transform="translate(12 0)"><circle r="6" fill="none" stroke="#4ea1ff" stroke-width="2" opacity="0.9"/><circle r="4" fill="#4ea1ff" opacity="0.9"/></g>
+    <use href="#cursor"/>
   </g>
-
-  <g transform="translate(670 52)">
-    <use href="#cursor" x="0" y="42"/>
-    <g transform="translate(92 42)" filter="url(#blue-glow)">
-      <g transform="translate(2 2)" opacity="0.24">
-        <path d="M-16 0 L16 0 M0 -16 L0 16" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
-        <path d="M0 -28 L-8 -16 L8 -16 Z M0 28 L-8 16 L8 16 Z M-28 0 L-16 -8 L-16 8 Z M28 0 L16 -8 L16 8 Z" fill="#000000"/>
-      </g>
-      <use href="#arrow-indicator"/>
-    </g>
-    <text x="-28" y="186" class="label">DRAG VIEW</text>
+  <text x="300" y="148" class="label">Free Spin</text>
+  <g transform="translate(479 68) scale(2)">
+    <g transform="translate(12 0)"><g transform="translate(1 1)" color="#000" opacity="0.252"><path d="M-4 0H4M0 -4V4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M0 -8 -2 -4 2 -4Z M0 8 -2 4 2 4Z M-8 0 -4 -2 -4 2Z M8 0 4 -2 4 2Z" fill="currentColor"/></g><g color="#4ea1ff" opacity="0.9"><path d="M-4 0H4M0 -4V4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M0 -8 -2 -4 2 -4Z M0 8 -2 4 2 4Z M-8 0 -4 -2 -4 2Z M8 0 4 -2 4 2Z" fill="currentColor"/></g></g>
+    <use href="#cursor"/>
   </g>
-
-  <g transform="translate(970 52)">
-    <use href="#cursor" x="0" y="42"/>
-    <g transform="translate(92 42)">
-      <g transform="translate(2 2)" opacity="0.28">
-        <circle cx="0" cy="0" r="34" fill="none" stroke="#000000" stroke-width="5"/>
-        <path d="M0 -25 L-7 -15 L7 -15 Z M0 25 L-7 15 L7 15 Z M-25 0 L-15 -7 L-15 7 Z M25 0 L15 -7 L15 7 Z" fill="#000000"/>
-      </g>
-      <circle cx="0" cy="0" r="34" fill="none" stroke="#cbd5e1" stroke-width="5"/>
-      <path d="M0 -25 L-7 -15 L7 -15 Z M0 25 L-7 15 L7 15 Z M-25 0 L-15 -7 L-15 7 Z M25 0 L15 -7 L15 7 Z" fill="#cbd5e1"/>
-      <circle cx="48" cy="-28" r="7" fill="#000000" opacity="0.28" transform="translate(2 2)"/>
-      <circle cx="48" cy="-28" r="7" fill="#4ea1ff" filter="url(#blue-glow)"/>
-    </g>
-    <text x="-34" y="186" class="label">AUTO SCROLL</text>
+  <text x="500" y="148" class="label">Drag View</text>
+  <g transform="translate(666 68) scale(2)">
+    <g transform="translate(12 0)"><g transform="translate(1 1)" color="#000" opacity="0.304"><circle r="9.5" fill="none" stroke="currentColor" stroke-width="1"/><path d="M0 -6.5 -2 -2.5 2 -2.5Z M0 6.5 -2 2.5 2 2.5Z M-6.5 0 -2.5 -2 -2.5 2Z M6.5 0 2.5 -2 2.5 2Z" fill="currentColor"/></g><g color="#cbd5e1" opacity="0.95"><circle r="9.5" fill="none" stroke="currentColor" stroke-width="1"/><path d="M0 -6.5 -2 -2.5 2 -2.5Z M0 6.5 -2 2.5 2 2.5Z M-6.5 0 -2.5 -2 -2.5 2Z M6.5 0 2.5 -2 2.5 2Z" fill="currentColor"/></g><g transform="translate(18 -14)" opacity="0.95"><circle cx="1" cy="1" r="3" fill="#000" opacity="0.32"/><circle r="3" fill="#4ea1ff"/></g></g>
+    <use href="#cursor"/>
   </g>
-
-  <g transform="translate(1270 52)">
-    <use href="#cursor" x="0" y="42"/>
-    <g transform="translate(92 42)" filter="url(#red-glow)">
-      <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#000000" stroke-width="7" stroke-linecap="round" opacity="0.24"/>
-      <path d="M-17 -17 L17 17 M17 -17 L-17 17" stroke="#ff5c5c" stroke-width="7" stroke-linecap="round"/>
-    </g>
-    <text x="-80" y="186" class="label">COMPAT PASSTHROUGH</text>
+  <text x="700" y="148" class="label">Auto Scroll</text>
+  <g transform="translate(884 68) scale(2)">
+    <g transform="translate(12 0)"><g transform="translate(1 1)" color="#000" opacity="0.252"><path d="M-3 -3L3 3M3 -3L-3 3" stroke="currentColor" stroke-width="2"/></g><g color="#ff5c5c" opacity="0.9"><path d="M-3 -3L3 3M3 -3L-3 3" stroke="currentColor" stroke-width="2"/></g></g>
+    <use href="#cursor"/>
   </g>
+  <text x="900" y="139" class="label"><tspan x="900">Compatibility</tspan><tspan x="900" dy="18">passthrough</tspan></text>
 </svg>

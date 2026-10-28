@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc" xml:lang="zh">
+<title id="title">Smooth Scroll Linux — 一个鼠标，多种滚动方式。</title>
+<desc id="desc">平滑滚动 · 速度自适应 · Free Spin · 自由旋转 · Drag View · 拖拽视图 · Auto Scroll · 自动滚动</desc>
+<defs>
+ <style>text{font-family:Arial,'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif} .title{font-size:36px;font-weight:700;fill:#17283d} .heading{font-size:25px;font-weight:700;fill:#17283d} .body{font-size:19px;fill:#52657b} .small{font-size:17px;fill:#52657b} .label{font-size:16px;fill:#52657b} .blue{fill:#2879cc} .line{fill:none;stroke-linecap:round;stroke-linejoin:round}</style>
+ <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 8 4 0 8" fill="none" stroke="#2879cc" stroke-width="1.4"/></marker>
+ <symbol id="mouse" viewBox="0 0 44 64"><rect x="3" y="3" width="38" height="58" rx="19" fill="#fff" stroke="#9cacbd" stroke-width="2"/><path d="M3 25H41M22 3V23" stroke="#9cacbd" fill="none"/><rect x="19" y="10" width="6" height="13" rx="3" fill="#2879cc"/></symbol>
+</defs>
+<rect width="1200" height="760" rx="24" fill="#f3f7fc"/>
+<path d="M44 48h28" stroke="#2879cc" stroke-width="4" stroke-linecap="round"/>
+
+<text x="84" y="55" class="small" >Smooth Scroll Linux</text>
+<text x="44" y="106" class="title" >一个鼠标，多种滚动方式。</text>
+<text x="1156" y="55" class="small" text-anchor="end">Linux 系统级滚动体验</text>
+<rect x="44" y="140" width="546" height="260" rx="18" fill="#fff" stroke="#dce4ed"/>
+<rect x="610" y="140" width="546" height="260" rx="18" fill="#fff" stroke="#dce4ed"/>
+<text x="68" y="181" class="heading" >平滑滚动</text>
+<text x="68" y="213" class="body" >将滚轮的逐格跳动，变成自然滑动。</text>
+<path class="line" d="M76 358H551M76 250V358" stroke="#e5ebf2" stroke-width="2"/>
+<path class="line" d="M85 344H140V322H210V300H280V278H350V256H540" stroke="#a6b3c2" stroke-width="3"/>
+<path class="line" d="M85 344C112 344 124 337 140 326S190 312 210 303S260 290 280 283S330 268 350 265S435 256 540 256" stroke="#2879cc" stroke-width="4"/>
+<path d="M305 380h23" stroke="#a6b3c2" stroke-width="3"/>
+<text x="337" y="386" class="label" >原始滚轮</text>
+<path d="M431 380h23" stroke="#2879cc" stroke-width="4"/>
+<text x="463" y="386" class="label" >平滑输出</text>
+<text x="634" y="181" class="heading" >速度自适应</text>
+<text x="634" y="213" class="body" >慢拨精细移动，快拨跨越更远。</text>
+<text x="634" y="266" class="small" >慢速输入</text>
+<text x="634" y="336" class="small" >快速输入</text>
+<path d="M764 250v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M794 250v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M824 250v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M764 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M776 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M788 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M800 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M812 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path d="M824 320v16" stroke="#2879cc" stroke-width="3" stroke-linecap="round"/>
+<path class="line" d="M859 328h250" stroke="#2879cc" stroke-width="4" marker-end="url(#arrow)"/>
+<path class="line" d="M859 258h74" stroke="#2879cc" stroke-width="4" marker-end="url(#arrow)"/>
+<rect x="44" y="420" width="356" height="248" rx="18" fill="#fff" stroke="#dce4ed"/>
+<rect x="422" y="420" width="356" height="248" rx="18" fill="#fff" stroke="#dce4ed"/>
+<rect x="800" y="420" width="356" height="248" rx="18" fill="#fff" stroke="#dce4ed"/>
+<text x="68" y="462" class="heading" >Free Spin · 自由旋转</text>
+<text x="68" y="494" class="body" >保持当前速度，持续滚动。</text>
+<use href="#mouse" x="76" y="538" width="44" height="64"/>
+<circle cx="159" cy="558" r="4" fill="#2879cc"/><circle cx="159" cy="558" r="8" fill="none" stroke="#2879cc" stroke-width="2"/>
+<path class="line" d="M147 596H359" stroke="#e5ebf2" stroke-width="2"/><path class="line" d="M147 580H354" stroke="#2879cc" stroke-width="4" marker-end="url(#arrow)"/>
+<text x="446" y="462" class="heading" >Drag View · 拖拽视图</text>
+<text x="446" y="494" class="body" >移动鼠标，平移内容。</text>
+<rect x="474" y="524" width="102" height="106" rx="8" fill="#f3f7fc" stroke="#dce4ed"/><path d="M489 542h70M489 556h52M489 570h65M489 584h44M489 598h62M489 612h52" stroke="#c6d2df" stroke-width="3" stroke-linecap="round"/>
+<use href="#mouse" x="652" y="545" width="40" height="58"/>
+<path class="line" d="M615 570h-18" stroke="#2879cc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path class="line" d="M615 570h19" stroke="#2879cc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path class="line" d="M615 570v-19" stroke="#2879cc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path class="line" d="M615 570v19" stroke="#2879cc" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="824" y="462" class="heading" >Auto Scroll · 自动滚动</text>
+<text x="824" y="494" class="body" >选好速度，松手继续阅读。</text>
+<circle cx="863" cy="550" r="18" fill="#f3f7fc" stroke="#9cacbd" stroke-width="1.5"/><path d="M863 538l-3 5h6zM863 562l-3-5h6zM851 550l5-3v6zM875 550l-5-3v6z" fill="#9cacbd"/><path d="M863 571v20" stroke="#c6d2df" stroke-width="2" stroke-dasharray="3 4"/><circle cx="863" cy="601" r="5" fill="#2879cc"/>
+<path class="line" d="M900 578h24" stroke="#2879cc" stroke-width="2" marker-end="url(#arrow)"/><rect x="950" y="524" width="132" height="106" rx="8" fill="#f3f7fc" stroke="#dce4ed"/><path d="M965 542h98M965 558h70M965 574h90M965 590h78M965 606h96" stroke="#c6d2df" stroke-width="3" stroke-linecap="round"/><path class="line" d="M1110 536v81" stroke="#2879cc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M44 702h1112" stroke="#dce4ed"/>
+<text x="1156" y="735" class="small" text-anchor="end">可选集成：GNOME · KDE · CLI</text>
+</svg>

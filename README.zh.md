@@ -1,10 +1,12 @@
 # Smooth Scroll Linux
 
-[](https://github.com/user-attachments/assets/9398989b-ec77-4d03-ab3d-4967d37600db)
+![核心功能：平滑滚动、速度自适应、自由旋转、拖拽视图和自动滚动](docs/assets/features.zh.svg)
 
 <p align="center"><strong>Smooth Scroll Linux</strong> 是一个 Linux 系统级平滑滚动守护进程，让普通鼠标滚轮获得带物理惯性的顺滑滚动体验。</p>
 
 <p align="center">
+  <a href="https://wayne6530.github.io/smooth-scroll-linux/">功能介绍</a>
+  ·
   <a href="https://wayne6530.github.io/smooth-scroll-linux/quickstart.html"><strong>快速开始</strong></a>
   ·
   <a href="https://wayne6530.github.io/smooth-scroll-linux/config.html">网页配置工具</a>
@@ -125,7 +127,7 @@ DEB 和 RPM 安装包会自动启动服务并启用开机自启。
 - **GNOME Shell 扩展**（`extensions/gnome`）：为 GNOME 提供指针旁状态指示、离开窗口刹车，以及按窗口规则设置兼容性透传。
 - **KDE Plasma KWin effect**（`extensions/kde`）：为 KDE Plasma 提供指针旁状态指示、离开窗口刹车、按应用规则设置兼容性透传，以及基于窗口拾取的规则配置工具。
 
-![GNOME 指针旁状态指示](extensions/gnome/assets/pointer-side-indicators.svg)
+![GNOME 指针旁状态指示](web/assets/pointer-side-indicators.svg)
 
 每个扩展都有自己的 README，详细说明构建、安装和使用方式。
 
