@@ -7,6 +7,8 @@ const ConfigEditor = (() => {
   let currentValues = {};
   let onParamChange = null;
   let params = [];
+  let instant = false;
+  let savedSmoothValues = null;
 
   const GROUP_ORDER = ['device', 'scroll', 'braking', 'drag-view', 'auto-scroll', 'advanced'];
 
@@ -47,11 +49,59 @@ const ConfigEditor = (() => {
     for (const param of params) {
       currentValues[param.key] = param.commented ? undefined : param.value;
     }
+    instant = InstantScroll.matches(currentValues);
+    savedSmoothValues = null;
+    if (instant) InstantScroll.apply(currentValues);
     render();
+  }
+
+  function createScrollEffectControl() {
+    const wrap = document.createElement('div');
+    wrap.className = 'scroll-effect';
+    const row = document.createElement('div');
+    row.className = 'param-row';
+    const label = document.createElement('label');
+    label.className = 'param-label';
+    label.htmlFor = 'scroll-effect';
+    label.textContent = I18n.t('scroll.effect');
+    const select = document.createElement('select');
+    select.id = 'scroll-effect';
+    select.className = 'param-input select';
+    for (const value of ['smooth', 'instant']) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = I18n.t('scroll.' + value);
+      select.appendChild(option);
+    }
+    select.value = instant ? 'instant' : 'smooth';
+    select.addEventListener('change', () => {
+      instant = select.value === 'instant';
+      if (instant) {
+        savedSmoothValues = Object.fromEntries(InstantScroll.managedKeys.map(key => [key, currentValues[key]]));
+        InstantScroll.apply(currentValues);
+      } else {
+        const fallback = ParamSchema.getDefaultValues();
+        for (const key of InstantScroll.managedKeys) {
+          currentValues[key] = savedSmoothValues ? savedSmoothValues[key] : fallback[key];
+        }
+        savedSmoothValues = null;
+      }
+      render();
+      document.getElementById('scroll-effect').focus();
+      fireChange(null);
+    });
+    const controlWrap = document.createElement('div');
+    controlWrap.className = 'param-control';
+    controlWrap.append(select, createHelpTooltip(I18n.t(instant ? 'scroll.instant-description' : 'scroll.smooth-description')));
+    row.append(label, controlWrap);
+    wrap.appendChild(row);
+    return wrap;
   }
 
   function render() {
     const container = document.getElementById('editor-params');
+    const collapsed = new Map(Array.from(container.querySelectorAll('.param-group')).map(section =>
+      [section.dataset.group, section.querySelector('.group-content').classList.contains('collapsed')]));
     container.innerHTML = '';
     document.querySelectorAll('.param-tooltip').forEach(el => el.remove());
 
@@ -69,12 +119,18 @@ const ConfigEditor = (() => {
       const groupParams = groups.get(groupName);
       const section = createGroupSection(groupName, groupParams);
       container.appendChild(section);
+      if (collapsed.has(groupName)) {
+        section.querySelector('.group-content').classList.toggle('collapsed', collapsed.get(groupName));
+        section.querySelector('.group-header').classList.toggle('collapsed', collapsed.get(groupName));
+      }
     }
+    validateConstraints();
   }
 
   function createGroupSection(groupName, groupParams) {
     const section = document.createElement('div');
     section.className = 'param-group';
+    section.dataset.group = groupName;
 
     const header = document.createElement('div');
     header.className = 'group-header';
@@ -92,6 +148,7 @@ const ConfigEditor = (() => {
       header.classList.add('collapsed');
     }
 
+    if (groupName === 'scroll') content.appendChild(createScrollEffectControl());
     for (const param of groupParams) {
       content.appendChild(createParamRow(param));
     }
@@ -119,6 +176,7 @@ const ConfigEditor = (() => {
     const controlWrap = document.createElement('div');
     controlWrap.className = 'param-control';
 
+    const lockedActivation = instant && param.key.endsWith('_activation_mode');
     const control = createControl(param);
     controlWrap.appendChild(control);
 
@@ -131,30 +189,34 @@ const ConfigEditor = (() => {
     }
 
     // Description tooltip
-    const descText = I18n.desc(param);
-    if (descText) {
-      const helpBtn = document.createElement('span');
-      helpBtn.className = 'param-help';
-      helpBtn.textContent = '?';
-      const tooltip = document.createElement('div');
-      tooltip.className = 'param-tooltip';
-      tooltip.textContent = descText;
-      document.body.appendChild(tooltip);
-      helpBtn.addEventListener('mouseenter', () => {
-        const rect = helpBtn.getBoundingClientRect();
-        tooltip.style.top = (rect.bottom + 6) + 'px';
-        tooltip.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 256)) + 'px';
-        tooltip.classList.add('visible');
-      });
-      helpBtn.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-      controlWrap.appendChild(helpBtn);
-    }
+    const descText = lockedActivation ? I18n.t('scroll.always')
+      : instant && InstantScroll.disabledKeys.has(param.key)
+        ? I18n.t('scroll.preset-disabled') + ' ' + I18n.desc(param) : I18n.desc(param);
+    if (descText) controlWrap.appendChild(createHelpTooltip(descText));
 
     row.appendChild(labelEl);
     row.appendChild(controlWrap);
 
     updateParamState(row, param);
     return row;
+  }
+
+  function createHelpTooltip(text) {
+    const helpBtn = document.createElement('span');
+    helpBtn.className = 'param-help';
+    helpBtn.textContent = '?';
+    const tooltip = document.createElement('div');
+    tooltip.className = 'param-tooltip';
+    tooltip.textContent = text;
+    document.body.appendChild(tooltip);
+    helpBtn.addEventListener('mouseenter', () => {
+      const rect = helpBtn.getBoundingClientRect();
+      tooltip.style.top = (rect.bottom + 6) + 'px';
+      tooltip.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 256)) + 'px';
+      tooltip.classList.add('visible');
+    });
+    helpBtn.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+    return helpBtn;
   }
 
   function createControl(param) {
@@ -380,10 +442,13 @@ const ConfigEditor = (() => {
     slider.id = 'param-' + param.key;
     slider.className = 'param-slider';
     const controlMin = param.uiMin ?? param.min ?? 0;
-    const controlMax = param.uiMax ?? param.max ?? 100;
+    const controlMax = instant && ['min_deceleration', 'max_deceleration'].includes(param.key)
+      ? Math.max(param.max, getControlValue(param)) : param.uiMax ?? param.max ?? 100;
     slider.min = controlMin;
     slider.max = controlMax;
-    slider.step = param.step ?? 1;
+    const controlStep = instant && ['min_deceleration', 'max_deceleration'].includes(param.key)
+      ? 1 : param.step ?? 1;
+    slider.step = controlStep;
     slider.value = getControlValue(param);
     slider.dataset.key = param.key;
 
@@ -392,7 +457,7 @@ const ConfigEditor = (() => {
     input.className = 'param-input number';
     input.min = controlMin;
     input.max = controlMax;
-    input.step = param.step ?? 1;
+    input.step = controlStep;
     input.value = getControlValue(param);
     input.dataset.key = param.key;
 
@@ -654,17 +719,23 @@ const ConfigEditor = (() => {
   }
 
   function isParamActive(param) {
-    if (!isModeActive(param)) return false;
-    const dependsOn = param['depends-on'];
+    if (!isModeActive(param) || (instant && InstantScroll.disabledKeys.has(param.key))) return false;
+    const dependsOn = dependencyKey(param);
     if (!dependsOn) return true;
     return !!currentValues[dependsOn];
   }
 
+  function dependencyKey(param) {
+    if (param.group === 'drag-view' && param.key !== 'drag_view_button') return 'drag_view_button';
+    if (param.group === 'auto-scroll' && param.key !== 'auto_scroll_button') return 'auto_scroll_button';
+    return param['depends-on'];
+  }
+
   function updateParamState(row, param) {
-    const dependsOn = param['depends-on'];
+    const dependsOn = dependencyKey(param);
     const modeDisabled = !isModeActive(param);
     const dependencyDisabled = dependsOn ? !currentValues[dependsOn] : false;
-    const disabled = modeDisabled || dependencyDisabled;
+    const disabled = modeDisabled || dependencyDisabled || (instant && InstantScroll.disabledKeys.has(param.key));
     row.classList.toggle('disabled', disabled);
     const inputs = row.querySelectorAll('input, select');
     inputs.forEach(el => { el.disabled = disabled; });
@@ -680,6 +751,19 @@ const ConfigEditor = (() => {
   }
 
   function fireChange(key) {
+    if (instant) {
+      InstantScroll.apply(currentValues);
+      // Keep visible preset-managed values synchronized without rebuilding the
+      // editor (which would interrupt the distance/tick slider being dragged).
+      for (const managedKey of InstantScroll.managedKeys) {
+        document.querySelectorAll(`input[data-key="${managedKey}"], select[data-key="${managedKey}"]`).forEach(control => {
+          if (['min_deceleration', 'max_deceleration'].includes(managedKey)) {
+            control.max = currentValues[managedKey];
+          }
+          control.value = currentValues[managedKey];
+        });
+      }
+    }
     updateAllParamStates();
     validateConstraints();
     if (onParamChange) onParamChange(getValues(), key);
@@ -692,7 +776,8 @@ const ConfigEditor = (() => {
 
     for (const constraint of CONSTRAINTS) {
       const constraintParams = constraint.keys.map(key => params.find(p => p.key === key));
-      if (!constraintParams.every(param => param && isParamActive(param))) {
+      if (constraint.messageKey !== 'validation.mode-button-conflict' &&
+          !constraintParams.every(param => param && isParamActive(param))) {
         continue;
       }
 
@@ -722,6 +807,8 @@ const ConfigEditor = (() => {
   }
 
   function resetToDefaults() {
+    instant = false;
+    savedSmoothValues = null;
     for (const param of params) {
       currentValues[param.key] = param.commented ? undefined : (Array.isArray(param.defaultValue) ? [...param.defaultValue] : param.defaultValue);
     }

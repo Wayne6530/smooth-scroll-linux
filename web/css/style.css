@@ -212,6 +212,9 @@ body {
 
 .param-row.disabled {
   opacity: 0.4;
+}
+
+.param-row.disabled .param-control > :not(.param-help) {
   pointer-events: none;
 }
 

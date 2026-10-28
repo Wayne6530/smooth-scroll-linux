@@ -39,6 +39,15 @@ const Visualization = (() => {
     const currentResult = PhysicsEngine.simulate(currentOptions, scenario);
     const defaultResult = PhysicsEngine.simulate(defaultOptions, scenario);
 
+    // The engine's totalDelta resets for each new scroll. Charts summarize the
+    // whole scenario, so accumulate emitted events across separate scrolls.
+    for (const result of [currentResult, defaultResult]) {
+      let distance = 0;
+      result.timeline = result.timeline.map(point => {
+        distance += point.emittedDelta;
+        return { ...point, totalDelta: distance };
+      });
+    }
     renderCharts(currentResult.timeline, defaultResult.timeline, currentOptions.smooth_mode);
     renderSummary(currentResult.timeline, defaultResult.timeline, currentResult.truncated);
     renderTips();
@@ -100,8 +109,19 @@ const Visualization = (() => {
     );
 
     // Displacement chart
-    const dispData = currentTimeline.map(d => ({ x: d.timeMs, y: d.totalDelta }));
-    const defaultDispData = defaultTimeline.map(d => ({ x: d.timeMs, y: d.totalDelta }));
+    const endTime = Math.max(currentTimeline.at(-1).timeMs, defaultTimeline.at(-1)?.timeMs ?? 0, 1);
+    const displacementSteps = timeline => {
+      let previous = 0;
+      const points = [{ x: 0, y: 0 }];
+      for (const point of timeline) {
+        points.push({ x: point.timeMs, y: previous }, { x: point.timeMs, y: point.totalDelta });
+        previous = point.totalDelta;
+      }
+      points.push({ x: endTime, y: previous });
+      return points;
+    };
+    const dispData = displacementSteps(currentTimeline);
+    const defaultDispData = displacementSteps(defaultTimeline);
     ChartRenderer.drawChart(
       document.getElementById('chart-displacement'),
       dispData,
@@ -164,6 +184,10 @@ const Visualization = (() => {
   function renderTips() {
     const scenario = Scenarios[currentScenario];
     const tipsEl = document.getElementById('scenario-tips');
+    if (InstantScroll.matches(currentValues)) {
+      tipsEl.textContent = I18n.t('scroll.instant-tip');
+      return;
+    }
     if (!scenario || !scenario.tips) {
       tipsEl.textContent = '';
       return;
