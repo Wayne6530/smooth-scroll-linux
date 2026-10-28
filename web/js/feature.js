@@ -388,8 +388,70 @@ const TIMELINE_ICONS = {
   'free-spin-release': '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M5.5 1A4 4 0 1 1 1.3 6h1.5a2.5 2.5 0 1 0 2-2.9L3.5 5h3V2z" fill="currentColor" opacity="0.6"/></svg>',
   'drag-view':         '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M5 0v3.5M5 6.5v3.5M0 5h3.5M6.5 5H10" stroke="currentColor" stroke-width="1.2" fill="none"/><circle cx="5" cy="5" r="1.5" fill="currentColor"/></svg>',
   'drag-view-release': '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M5 0v3.5M5 6.5v3.5M0 5h3.5M6.5 5H10" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.6"/><circle cx="5" cy="5" r="1.5" fill="currentColor" opacity="0.6"/></svg>',
+  'auto-scroll': '<svg viewBox="0 0 10 10" width="10" height="10"><circle cx="5" cy="5" r="4" fill="none" stroke="currentColor"/><path d="M5 2 3 4h4z M5 8 3 6h4z" fill="currentColor"/></svg>',
+  'auto-scroll-release': '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 2 8 5 3 8Z" fill="currentColor"/></svg>',
+  'auto-scroll-exit': '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 2h6v6H2Z" fill="currentColor"/></svg>',
   'mouse-move':        '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M5 2v6M2 5h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
 };
+
+// Pointer-side indicators mirror the GNOME extension's default geometry/colors.
+// Mouse motion is consumed by Drag View / Auto Scroll, so the OS cursor stays
+// anchored while the document moves; Auto Scroll has a separate offset dot.
+class DemoPointer {
+  constructor(container, state = null) {
+    this.element = document.createElement('div');
+    this.element.className = 'demo-pointer';
+    this.element.setAttribute('aria-hidden', 'true');
+    this.element.innerHTML = `
+      <img class="demo-pointer-cursor" src="assets/yaru-default-cursor.svg" alt="" draggable="false">
+      <svg class="demo-pointer-indicator" viewBox="-12 -12 24 24">
+        <circle class="demo-pointer-dot" r="4" fill="currentColor"/>
+        <circle class="demo-pointer-ring" r="6" fill="none" stroke="currentColor" stroke-width="2" opacity="0.9"/>
+        <g class="demo-pointer-arrows" opacity="0.9">
+          <path d="M-4 0H4M0-4V4" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M0-8 -2-4H2Z M0 8 -2 4H2Z M-8 0 -4-2V2Z M8 0 4-2V2Z" fill="currentColor"/>
+        </g>
+      </svg>`;
+    this.dot = this.element.querySelector('.demo-pointer-dot');
+    container.appendChild(this.element);
+    this.configure(state);
+  }
+
+  configure(state) {
+    this.state = state;
+    this.render(0);
+  }
+
+  render(elapsedMs) {
+    if (!this.state) {
+      this.element.dataset.mode = 'none';
+      return;
+    }
+    const { scenario, timeline } = this.state;
+    const ms = elapsedMs - (scenario.enterDelayMs || 0);
+    const dragView = scenario.dragViewPressMs != null &&
+      ms >= scenario.dragViewPressMs && ms < scenario.dragViewReleaseMs;
+    const freeSpin = scenario.freeSpinStartMs != null &&
+      ms >= scenario.freeSpinStartMs && ms < scenario.freeSpinEndMs;
+    this.element.dataset.mode = dragView ? 'drag-view' : freeSpin ? 'free-spin' : 'smooth';
+
+    // Read the actual simulated speed instead of deriving it from browser scroll
+    // positions, which are rounded and may be clipped by the demo viewport.
+    let speed = 0;
+    if (timeline.length && ms >= timeline[0].timeMs && ms <= timeline.at(-1).timeMs) {
+      let low = 0;
+      let high = timeline.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (timeline[middle].timeMs <= ms) low = middle + 1;
+        else high = middle;
+      }
+      speed = timeline[Math.max(0, low - 1)].speed;
+    }
+    const t = Math.max(0, Math.min(1, (speed - 100) / (3200 - 100)));
+    this.dot.style.opacity = speed > 0 ? String(0.16 + (0.9 - 0.16) * t) : '0';
+  }
+}
 
 // ScrollDemo component.
 
@@ -404,6 +466,7 @@ class ScrollDemo {
     this._startTime = 0;
 
     this._build(options.sourceCode);
+    this.pointer = new DemoPointer(container, options.pointerState);
   }
 
   _build(sourceCode) {
@@ -425,7 +488,7 @@ class ScrollDemo {
       const last = this.timeline[this.timeline.length - 1];
       this._content.scrollTop = last.scrollTop;
       this._content.scrollLeft = last.scrollLeft || 0;
-      if (this.onProgress) this.onProgress(this.totalMs);
+      this._updateProgress(this.totalMs);
       return;
     }
 
@@ -440,6 +503,12 @@ class ScrollDemo {
     }
     this._content.scrollTop = 0;
     this._content.scrollLeft = 0;
+    this._updateProgress(0);
+  }
+
+  _updateProgress(ms) {
+    this.pointer.render(ms);
+    if (this.onProgress) this.onProgress(ms);
   }
 
   _animate(now) {
@@ -458,7 +527,7 @@ class ScrollDemo {
       const last = tl[tl.length - 1];
       this._content.scrollTop = last.scrollTop;
       if (last.scrollLeft != null) this._content.scrollLeft = last.scrollLeft;
-      if (this.onProgress) this.onProgress(loopElapsed);
+      this._updateProgress(loopElapsed);
       this._animFrame = requestAnimationFrame(this._animate.bind(this));
       return;
     }
@@ -472,7 +541,7 @@ class ScrollDemo {
     const scrollLeftB = b.scrollLeft || 0;
     this._content.scrollLeft = scrollLeftA + (scrollLeftB - scrollLeftA) * t;
 
-    if (this.onProgress) this.onProgress(loopElapsed);
+    this._updateProgress(loopElapsed);
     this._animFrame = requestAnimationFrame(this._animate.bind(this));
   }
 }
@@ -580,6 +649,9 @@ class DemoTimeline {
       'drag-view':         I18n.t('feature.timeline.drag-view'),
       'drag-view-release': I18n.t('feature.timeline.drag-view-release'),
       'mouse-move':        I18n.t('feature.timeline.mouse-move'),
+      'auto-scroll': I18n.t('feature.timeline.auto-scroll'),
+      'auto-scroll-release': I18n.t('feature.timeline.auto-scroll-release'),
+      'auto-scroll-exit': I18n.t('feature.timeline.auto-scroll-exit'),
     };
     return labels[evt.type] || evt.type;
   }
@@ -614,6 +686,7 @@ class AdaptiveCycler {
     });
 
     this._buildDemoBox();
+    this.pointer = new DemoPointer(this.containerEl);
     this._populateDataPanel();
     this._switchTo(0);
   }
@@ -641,6 +714,7 @@ class AdaptiveCycler {
     this.currentIndex = index;
     const data = this.scenarioData[index];
     this._timelineInstance = new DemoTimeline('timeline-adaptive', data.events, data.totalMs);
+    this.pointer.configure({ scenario: data.scenario, timeline: data.result.timeline });
     this._updateFocus();
   }
 
@@ -663,6 +737,7 @@ class AdaptiveCycler {
       const last = data.paddedTl[data.paddedTl.length - 1];
       if (last) this._content.scrollTop = last.scrollTop;
       if (this._timelineInstance) this._timelineInstance.setProgress(data.totalMs);
+      this.pointer.render(data.totalMs);
       return;
     }
 
@@ -677,6 +752,7 @@ class AdaptiveCycler {
       this._animFrame = null;
     }
     if (this._content) this._content.scrollTop = 0;
+    this.pointer.render(0);
   }
 
   _animate(now) {
@@ -707,6 +783,7 @@ class AdaptiveCycler {
     }
 
     if (this._timelineInstance) this._timelineInstance.setProgress(elapsed);
+    this.pointer.render(elapsed);
 
     this._animFrame = requestAnimationFrame(this._animate.bind(this));
   }
@@ -798,6 +875,78 @@ function generateOffTimeline(scenario, pixelsPerUnit) {
     timeline.push({ timeMs: lastTime + 500, scrollTop: lastScrollTop });
   }
   return timeline;
+}
+
+// Scripted Auto Scroll introduction. Use the daemon's dead-zone, speed cap,
+// tick interval and fractional carry; no changes to the wheel physics engine.
+function createAutoScrollDemo(pixelsPerUnit) {
+  const options = ParamSchema.getDefaultValues();
+  const phases = [
+    { timeMs: 0, key: 'hold', type: 'auto-scroll' },
+    { timeMs: 700, key: 'slow', type: 'mouse-move' },
+    { timeMs: 1500, key: 'fast', type: 'mouse-move' },
+    { timeMs: 2300, key: 'latched', type: 'auto-scroll-release' },
+    { timeMs: 3300, key: 'return', type: 'mouse-move' },
+    { timeMs: 3800, key: 'pause' },
+    { timeMs: 4100, key: 'reverse', type: 'mouse-move' },
+    { timeMs: 5100, key: 'exit', type: 'auto-scroll-exit' },
+  ];
+  // Smooth movement and stationary holds share one trajectory for both the
+  // pointer indicator and scrolling speed. No instantaneous position changes.
+  const path = [
+    [0, 0], [700, 0], [1100, 20], [1500, 20], [2000, 48],
+    [3300, 48], [3800, 0], [4100, 0], [4600, -20], [6000, -20],
+  ];
+  const pointerOffsetAt = ms => {
+    const index = path.findIndex(point => point[0] > ms);
+    if (index < 0) return path.at(-1)[1];
+    if (index === 0) return path[0][1];
+    const [startTime, startOffset] = path[index - 1];
+    const [endTime, endOffset] = path[index];
+    const t = (ms - startTime) / (endTime - startTime);
+    const eased = t * t * (3 - 2 * t);
+    return startOffset + (endOffset - startOffset) * eased;
+  };
+  const totalMs = 6000;
+  const tickMs = options.tick_interval_microseconds / 1000;
+  const timeline = [{ timeMs: 0, scrollTop: 0 }];
+  let distance = 0;
+  let remainder = 0;
+  for (let timeMs = tickMs; timeMs <= totalMs; timeMs += tickMs) {
+    const offset = timeMs < 5100 ? pointerOffsetAt(timeMs) : 0;
+    const speed = Math.sign(offset) * Math.min(options.auto_scroll_max_speed,
+      Math.max(0, Math.abs(offset) - options.auto_scroll_deadzone) * options.auto_scroll_speed_factor);
+    // Positive pointer Y scrolls down in the document (negative REL_WHEEL).
+    const delta = speed * tickMs / 1000 + remainder;
+    const emitted = Math.trunc(delta);
+    remainder = delta - emitted;
+    distance += emitted;
+    timeline.push({ timeMs, scrollTop: distance * pixelsPerUnit });
+  }
+  const enterDelayMs = 500;
+  const padded = buildPaddedTimeline(timeline, { enterDelayMs, pauseMs: 0 }, pixelsPerUnit);
+  const events = phases.filter(phase => phase.type).map(phase => ({
+    ...phase, timeMs: phase.timeMs + enterDelayMs,
+  }));
+  const progress = new DemoTimeline('timeline-autoscroll', events, padded.totalMs);
+  const pointer = document.getElementById('auto-scroll-pointer');
+  const indicator = pointer.parentElement;
+  indicator.style.visibility = 'hidden';
+  const container = document.getElementById('demo-autoscroll');
+  const demo = new ScrollDemo(container, {
+    sourceCode: DEMO_SOURCE.vertical, timeline: padded.timeline, totalMs: padded.totalMs,
+    onProgress: ms => {
+      const actionMs = ms - enterDelayMs;
+      const phase = phases.filter(item => item.timeMs <= actionMs).at(-1);
+      progress.setProgress(ms);
+      pointer.style.transform = `translateY(${pointerOffsetAt(Math.max(0, actionMs))}px)`;
+      indicator.style.visibility = !phase || phase.key === 'exit' ? 'hidden' : 'visible';
+    },
+  });
+  // ScrollDemo rebuilds the document; restore the indicator above its scrolling
+  // content so it stays anchored in the viewport, just like the desktop overlay.
+  container.appendChild(indicator);
+  return demo;
 }
 
 // Looping auto-play on visibility.
@@ -946,6 +1095,7 @@ function init() {
       onProgress: (ms) => tlSmoothOff.setProgress(ms) });
   const demoSmoothOn = new ScrollDemo(document.getElementById('demo-smooth-on'),
     { sourceCode: DEMO_SOURCE.vertical, timeline: smoothOnTl, totalMs: smoothTotalMs,
+      pointerState: { scenario: smoothScenario, timeline: smoothOnResult.timeline },
       onProgress: (ms) => tlSmoothOn.setProgress(ms) });
 
   // Section 2: Speed Adaptive, cycling single demo.
@@ -969,6 +1119,7 @@ function init() {
   const tlFreespin = new DemoTimeline('timeline-freespin-on', fsEvents, fsTotalMs);
   const demoFsOn = new ScrollDemo(document.getElementById('demo-freespin-on'),
     { sourceCode: DEMO_SOURCE.vertical, timeline: fsTl, totalMs: fsTotalMs,
+      pointerState: { scenario: fsScenario, timeline: fsResult.timeline },
       onProgress: (ms) => tlFreespin.setProgress(ms) });
 
   // Section 4: Drag View.
@@ -981,8 +1132,11 @@ function init() {
   const tlDragView = new DemoTimeline('timeline-dragview', dvEvents, dvTotalMs);
   const demoDragView = new ScrollDemo(document.getElementById('demo-dragview'),
     { sourceCode: DEMO_SOURCE.horizontal, timeline: dvTl, totalMs: dvTotalMs,
+      pointerState: { scenario: dvScenario, timeline: dvResult.timeline },
       hasHorizontalScroll: true,
       onProgress: (ms) => tlDragView.setProgress(ms) });
+
+  const autoScrollDemo = createAutoScrollDemo(pixelsPerUnit);
 
   // Auto-play observer.
   const observer = new LoopingAutoPlay();
@@ -1006,6 +1160,10 @@ function init() {
   const dragviewCb = () => { demoDragView.play(); };
   dragviewCb._stop = () => demoDragView.stop();
   observer.observe(document.getElementById('section-dragview'), dragviewCb);
+
+  const autoScrollCb = () => autoScrollDemo.play();
+  autoScrollCb._stop = () => autoScrollDemo.stop();
+  observer.observe(document.getElementById('section-autoscroll'), autoScrollCb);
 
   // Section indicator
   initSectionIndicator();

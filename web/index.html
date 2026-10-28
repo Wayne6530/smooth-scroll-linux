@@ -17,6 +17,7 @@
       <a class="section-pip" href="#section-adaptive" aria-label="Speed Adaptive"></a>
       <a class="section-pip" href="#section-freespin" aria-label="Free Spin"></a>
       <a class="section-pip" href="#section-dragview" aria-label="Drag View"></a>
+      <a class="section-pip" href="#section-autoscroll" aria-label="Auto Scroll"></a>
       <a class="section-pip" href="#section-closing" aria-label="More"></a>
     </nav>
 
@@ -119,6 +120,34 @@
             <p class="section-kicker" data-i18n="feature.dragview.kicker"></p>
             <h2 class="section-title" data-i18n="feature.dragview.title"></h2>
             <p class="section-desc" data-i18n="feature.dragview.desc"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="section-autoscroll">
+      <div class="section-inner">
+        <div class="split-layout reverse">
+          <div class="split-demo">
+            <div class="demo-wrapper">
+              <div class="demo-label demo-label-on" data-i18n="feature.autoscroll.demo"></div>
+              <div class="demo-box" id="demo-autoscroll">
+                <div class="auto-scroll-pointer-track" aria-hidden="true">
+                  <!-- GNOME config.example.json size=24; geometry from _drawAutoScroll. -->
+                  <svg class="auto-scroll-origin" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1" />
+                    <path d="M12 5.5 10 9.5 14 9.5Z M12 18.5 10 14.5 14 14.5Z M5.5 12 9.5 10 9.5 14Z M18.5 12 14.5 10 14.5 14Z" fill="currentColor" />
+                  </svg>
+                  <span class="auto-scroll-pointer" id="auto-scroll-pointer"></span>
+                </div>
+              </div>
+              <div class="demo-timeline" id="timeline-autoscroll"></div>
+            </div>
+          </div>
+          <div class="split-text">
+            <p class="section-kicker" data-i18n="feature.autoscroll.kicker"></p>
+            <h2 class="section-title" data-i18n="feature.autoscroll.title"></h2>
+            <p class="section-desc" data-i18n="feature.autoscroll.desc"></p>
           </div>
         </div>
       </div>

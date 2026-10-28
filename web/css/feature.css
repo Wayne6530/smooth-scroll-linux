@@ -635,3 +635,81 @@
     white-space: normal;
   }
 }
+
+/* GNOME-style overlay stays fixed while the document scrolls underneath. */
+.auto-scroll-pointer-track {
+  position: absolute;
+  top: calc(50% + 15px);
+  left: 72%;
+  width: 24px;
+  height: 132px;
+  /* Origin size does not scale the independently sized dot or its IPC offset. */
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.auto-scroll-origin {
+  position: absolute;
+  top: calc(50% - 12px);
+  left: calc(50% - 12px);
+  width: 24px;
+  height: 24px;
+  color: #cbd5e1;
+  opacity: 0.95;
+  filter: drop-shadow(1px 1px 0 rgb(0 0 0 / 30%));
+}
+
+.auto-scroll-pointer {
+  position: absolute;
+  top: calc(50% - 3px);
+  left: calc(50% - 3px);
+  width: 6px;
+  height: 6px;
+  background: #4ea1ff;
+  opacity: 0.95;
+  border-radius: 50%;
+  box-shadow: 1px 1px 0 rgb(0 0 0 / 30%);
+}
+
+/* Cursor tip is 12px left of the indicator center, as in the desktop plugin. */
+.demo-pointer {
+  position: absolute;
+  top: calc(50% + 15px);
+  left: calc(72% - 12px);
+  width: 0;
+  height: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.demo-pointer-cursor {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(1px 1px 1px rgb(0 0 0 / 40%));
+}
+
+.demo-pointer-indicator {
+  position: absolute;
+  left: 0;
+  top: -12px;
+  width: 24px;
+  height: 24px;
+  color: #4ea1ff;
+  filter: drop-shadow(1px 1px 0 rgb(0 0 0 / 28%));
+}
+
+.demo-pointer-ring,
+.demo-pointer-arrows,
+.demo-pointer[data-mode="none"] .demo-pointer-indicator,
+.demo-pointer[data-mode="drag-view"] .demo-pointer-dot {
+  display: none;
+}
+
+.demo-pointer[data-mode="free-spin"] .demo-pointer-ring,
+.demo-pointer[data-mode="drag-view"] .demo-pointer-arrows {
+  display: initial;
+}

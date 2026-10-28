@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <title>Yaru default cursor</title>
+  <metadata>
+    Adapted from Yaru Cursors by Sam Hewitt and the Ubuntu Yaru contributors.
+    Source: https://github.com/ubuntu/yaru/blob/master/icons/src/cursors/source-cursors.svg
+    License: Creative Commons Attribution-ShareAlike 4.0 International
+    https://creativecommons.org/licenses/by-sa/4.0/
+    Changes: extracted the default pointer paths, normalized the viewport,
+    simplified the gradient and omitted the original shadow filters.
+  </metadata>
+  <defs>
+    <linearGradient id="fill" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#4d4d4d"/>
+      <stop offset="1" stop-color="#151515"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(-24 369.72852)" fill-rule="evenodd">
+    <path fill="#fff" d="m 26,-367.72852 v 18 l 3.742187,-3.74023 1.53125,3.69727 c 0.223675,0.54007 0.671618,0.9677 1.169922,1.14453 0.498305,0.17682 1.010021,0.13312 1.449219,-0.0488 0.439208,-0.18193 0.83129,-0.51285 1.058594,-0.99024 0.227304,-0.47738 0.241155,-1.09464 0.01758,-1.63476 L 33.4375,-355 h 5.291016 z"/>
+    <path fill="url(#fill)" d="m 27.000343,-365.31445 -3.46e-4,13.17245 3.092946,-3.0926 2.1048,5.0813 c 0.517545,1.24943 2.365223,0.48404 1.8477,-0.7654 l -2.1047,-5.0813 4.3736,2.3e-4 z"/>
+  </g>
+</svg>
