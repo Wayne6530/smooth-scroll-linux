@@ -6,6 +6,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -50,6 +51,90 @@ void move(WheelSmoother& smoother, int x, int y, int64_t milliseconds)
     assert(!smoother.handleRelYEvent(ev));
   }
   static_cast<void>(smoother.handleReportEvent(atMilliseconds(milliseconds)));
+}
+
+void testReleaseWithoutLatch()
+{
+  for (bool latch : { false, true })
+  {
+    auto options = autoOptions();
+    options.auto_scroll_latch_on_release = latch;
+    options.auto_scroll_speed_exponent = 2.0;
+    WheelSmoother smoother{ options };
+    smoother.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1);
+    move(smoother, 9, -9, 1);
+    smoother.tick();  // Accumulate fractional output before release.
+    assert(smoother.handleAutoScrollButton(atMilliseconds(2), BTN_MIDDLE, 0) ==
+           WheelSmoother::ButtonResult::Handled);
+    assert(smoother.auto_scroll() == latch);
+    if (!latch)
+    {
+      assert(smoother.auto_scroll_offset_x() == 0);
+      assert(smoother.auto_scroll_offset_y() == 0);
+      assert(smoother.tick().count == 0);
+    }
+
+    for (int duration : { 10, 200 })
+    {
+      WheelSmoother paused{ options };
+      paused.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1);
+      move(paused, 20, 0, 1);
+      move(paused, -12, 0, 2);  // Return to the dead-zone boundary.
+      assert(paused.handleAutoScrollButton(atMilliseconds(duration), BTN_MIDDLE, 0) ==
+             (duration < 200 ? WheelSmoother::ButtonResult::ReplayClick : WheelSmoother::ButtonResult::Handled));
+      assert(!paused.auto_scroll());
+    }
+  }
+}
+
+void testAutoScrollSpeedExponent()
+{
+  for (double exponent : { 0.5, 1.0, 2.0, 2.2, 3.0, 4.0, 1000.0 })
+  {
+    for (int distance : { 0, 12, 30, 60, 120, 240 })
+    {
+      for (int sign : { -1, 1 })
+      {
+        auto options = autoOptions();
+        options.auto_scroll_speed_exponent = exponent;
+        options.tick_interval_microseconds = 10000;
+        WheelSmoother smoother{ options };
+        smoother.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1);
+        move(smoother, sign * (8 + distance), -sign * (8 + distance), 1);
+        int horizontal = 0;
+        int vertical = 0;
+        for (int tick = 0; tick < 100; ++tick)
+        {
+          const auto result = smoother.tick();
+          for (std::size_t i = 0; i < result.count; ++i)
+          {
+            if (result.events[i].code == REL_HWHEEL_HI_RES)
+              horizontal += result.events[i].value;
+            else
+              vertical += result.events[i].value;
+          }
+        }
+        const double expected = sign * 6000 * std::pow(std::min(distance / 120.0, 1.0), exponent);
+        assert(std::abs(horizontal - expected) < 1.000001);
+        assert(std::abs(vertical - expected) < 1.000001);
+      }
+    }
+  }
+
+  auto options = autoOptions();
+  options.auto_scroll_speed_exponent = 2.0;
+  options.tick_interval_microseconds = 125000;
+  WheelSmoother fractional{ options };
+  fractional.handleAutoScrollButton(atMilliseconds(0), BTN_MIDDLE, 1);
+  move(fractional, 9, 0, 1);  // 5/12 units per second, below one unit per tick.
+  int total = 0;
+  for (int tick = 0; tick < 48; ++tick)
+  {
+    const auto result = fractional.tick();
+    if (result.count)
+      total += result.events[0].value;
+  }
+  assert(total == 2);
 }
 
 void testReportBuffersAutoScrollOffset()
@@ -609,6 +694,8 @@ void testProcessingMode()
 
 int main()
 {
+  testReleaseWithoutLatch();
+  testAutoScrollSpeedExponent();
   testReportBuffersAutoScrollOffset();
   testOnlyWhileScrollingEligibility();
   testClickPreservation();

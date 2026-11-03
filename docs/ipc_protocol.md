@@ -108,7 +108,7 @@ The daemon publishes these configuration bits once during initialization. They r
 - **Range:** Each component is clamped to `[-32768, 32767]` for transport. The daemon retains its wider internal value.
 - **Lifecycle:** The value is zero on entry, changes with consumed pointer movement, survives a held-to-latched transition, returns to zero when a held gesture is re-anchored, and is cleared on exit.
 
-Auto Scroll speed is derived by the daemon from each component, the dead zone, `auto_scroll_speed_factor`, and `auto_scroll_max_speed`. Clients should use the offset vector directly for visualization rather than interpreting the ordinary `Speed`, `Horizontal`, or `Direction` fields.
+The daemon converts each offset component to scroll speed using the configured Auto Scroll curve. Clients should use the offset vector directly for visualization rather than interpreting the ordinary `Speed`, `Horizontal`, or `Direction` fields.
 
 ## 4. Lifecycle & Health Monitoring
 

@@ -34,6 +34,7 @@ WheelSmoother::WheelSmoother(const Options& options)
   , squared_max_mouse_movement_distance_(options.max_mouse_movement_distance * options.max_mouse_movement_distance)
   , mouse_movement_buffer_{ std::chrono::milliseconds(options.mouse_movement_window_milliseconds) }
 {
+  assert(options.auto_scroll_speed_exponent > 0 && std::isfinite(options.auto_scroll_speed_exponent));
   assert(options.auto_scroll_deadzone >= 0);
   assert(options.auto_scroll_speed_factor > 0 && std::isfinite(options.auto_scroll_speed_factor));
   assert(options.auto_scroll_max_speed > 0 && std::isfinite(options.auto_scroll_max_speed));
@@ -219,7 +220,14 @@ WheelSmoother::ButtonResult WheelSmoother::handleAutoScrollButton(const struct t
 
       if (autoScrollMoving())
       {
-        auto_scroll_state_ = AutoScrollState::Latched;
+        if (options_.auto_scroll_latch_on_release)
+        {
+          auto_scroll_state_ = AutoScrollState::Latched;
+        }
+        else
+        {
+          stopAutoScroll();
+        }
         return ButtonResult::Handled;
       }
 
@@ -1293,7 +1301,13 @@ bool WheelSmoother::scrollActive() const noexcept
 double WheelSmoother::autoScrollSpeedForOffset(int64_t offset) const noexcept
 {
   const double distance = static_cast<double>(std::max<int64_t>(0, std::abs(offset) - options_.auto_scroll_deadzone));
-  const double speed = std::min(distance * options_.auto_scroll_speed_factor, options_.auto_scroll_max_speed);
+  // Keep the linear path unchanged, including its rounding behavior.
+  double speed = std::min(distance * options_.auto_scroll_speed_factor, options_.auto_scroll_max_speed);
+  if (options_.auto_scroll_speed_exponent != 1.0)
+  {
+    speed = options_.auto_scroll_max_speed *
+            std::pow(speed / options_.auto_scroll_max_speed, options_.auto_scroll_speed_exponent);
+  }
   return offset < 0 ? -speed : speed;
 }
 

@@ -720,21 +720,18 @@ const ConfigEditor = (() => {
 
   function isParamActive(param) {
     if (!isModeActive(param) || (instant && InstantScroll.disabledKeys.has(param.key))) return false;
-    const dependsOn = dependencyKey(param);
-    if (!dependsOn) return true;
-    return !!currentValues[dependsOn];
+    return dependenciesMet(param);
   }
 
-  function dependencyKey(param) {
-    if (param.group === 'drag-view' && param.key !== 'drag_view_button') return 'drag_view_button';
-    if (param.group === 'auto-scroll' && param.key !== 'auto_scroll_button') return 'auto_scroll_button';
-    return param['depends-on'];
+  function dependenciesMet(param) {
+    if (param.group === 'drag-view' && param.key !== 'drag_view_button' && !currentValues.drag_view_button) return false;
+    if (param.group === 'auto-scroll' && param.key !== 'auto_scroll_button' && !currentValues.auto_scroll_button) return false;
+    return !param['depends-on'] || !!currentValues[param['depends-on']];
   }
 
   function updateParamState(row, param) {
-    const dependsOn = dependencyKey(param);
     const modeDisabled = !isModeActive(param);
-    const dependencyDisabled = dependsOn ? !currentValues[dependsOn] : false;
+    const dependencyDisabled = !dependenciesMet(param);
     const disabled = modeDisabled || dependencyDisabled || (instant && InstantScroll.disabledKeys.has(param.key));
     row.classList.toggle('disabled', disabled);
     const inputs = row.querySelectorAll('input, select');

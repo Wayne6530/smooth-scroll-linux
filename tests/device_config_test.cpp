@@ -7,7 +7,11 @@
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <cstdlib>
+#include <fstream>
 #include <string>
+
+#include <unistd.h>
 
 using namespace smooth_scroll;
 
@@ -50,6 +54,34 @@ int main(int argc, char* argv[])
   Config empty_config;
   assert(loadConfig(argv[2], empty_config));
   assert(empty_config.device_manager.ignored_devices.empty());
+  assert(empty_config.session.smoother.auto_scroll_latch_on_release);
+  assert(empty_config.session.smoother.auto_scroll_speed_exponent == 1.0);
+
+  char temporary_path[] = "/tmp/smooth-scroll-config-XXXXXX";
+  const int fd = mkstemp(temporary_path);
+  assert(fd >= 0);
+  close(fd);
+  for (const char* exponent : { "0.5", "1.0", "2.0", "2.2", "3.0", "4.0", "1000.0" })
+  {
+    {
+      std::ofstream file(temporary_path);
+      file << "auto_scroll_latch_on_release = false\nauto_scroll_speed_exponent = " << exponent << "\n";
+    }
+    Config curve_config;
+    const double value = std::stod(exponent);
+    assert(loadConfig(temporary_path, curve_config));
+    assert(!curve_config.session.smoother.auto_scroll_latch_on_release);
+    assert(curve_config.session.smoother.auto_scroll_speed_exponent == value);
+  }
+  {
+    std::ofstream file(temporary_path);
+    file << "auto_scroll_latch_on_release = 123\nauto_scroll_speed_exponent = \"invalid\"\n";
+  }
+  Config fallback_config;
+  assert(loadConfig(temporary_path, fallback_config));
+  assert(fallback_config.session.smoother.auto_scroll_latch_on_release);
+  assert(fallback_config.session.smoother.auto_scroll_speed_exponent == 1.0);
+  unlink(temporary_path);
 
   Config invalid_config;
   assert(!loadConfig(argv[3], invalid_config));

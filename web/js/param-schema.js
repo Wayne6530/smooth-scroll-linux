@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 8;
+  const CONFIG_VERSION = 9;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -610,7 +610,33 @@ const ParamSchema = (() => {
       },
     },
     {
+      key: 'auto_scroll_latch_on_release',
+      value: true,
+      defaultValue: true,
+      'label-en': 'Latch Auto Scroll on Release',
+      'label-zh': '松开后保持 Auto Scroll',
+      'desc-en': 'Keep Auto Scroll active when released outside the dead zone. Disable to stop immediately on release. Inside the dead zone, short presses can replay a normal click.',
+      'desc-zh': '在死区外松开时保持 Auto Scroll；关闭后松开立即退出。在死区内短按松开可补发普通单击。',
+      type: 'bool',
+      group: 'auto-scroll',
+    },
+    {
+      key: 'auto_scroll_speed_exponent',
+      value: 1.0,
+      defaultValue: 1.0,
+      'label-en': 'Auto Scroll Speed Exponent',
+      'label-zh': 'Auto Scroll 速度曲线指数',
+      'desc-en': '1 gives a linear curve; 2 gives a quadratic curve. Larger exponents expand low-speed control without changing the displacement needed for maximum speed. The web range is 1–3; set other finite positive values directly in the configuration file.',
+      'desc-zh': '1 为线性曲线，2 为二次曲线。更大的指数扩大低速控制范围，不改变达到最高速度所需的位移。Web 提供 1–3 的常用范围，其他有限正数可直接修改配置文件设置。',
+      type: 'float',
+      min: 1,
+      max: 3,
+      step: 0.1,
+      group: 'auto-scroll',
+    },
+    {
       key: 'auto_scroll_wheel_action',
+      'depends-on': 'auto_scroll_latch_on_release',
       value: 0,
       defaultValue: 0,
       'label-en': 'Latched Wheel Action',
@@ -632,6 +658,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'auto_scroll_exit_button_mode',
+      'depends-on': 'auto_scroll_latch_on_release',
       value: 1,
       defaultValue: 1,
       'label-en': 'Exit Button Mode',
@@ -686,8 +713,8 @@ const ParamSchema = (() => {
       defaultValue: 50,
       'label-en': 'Auto Scroll Speed Factor',
       'label-zh': 'Auto Scroll 速度因子',
-      'desc-en': 'Scroll speed added for each pointer unit beyond the dead zone.',
-      'desc-zh': '指针每超出死区一个单位所增加的滚动速度。',
+      'desc-en': 'Controls sensitivity: maximum speed / factor is the displacement beyond the dead zone needed for maximum speed. With exponent 1, this is also the speed added per pointer unit.',
+      'desc-zh': '控制灵敏度：最大速度 / 速度因子为超出死区后达到最高速度所需的位移。指数为 1 时，也表示每单位位移增加的速度。',
       type: 'float',
       min: 1,
       max: 200,
@@ -700,8 +727,8 @@ const ParamSchema = (() => {
       defaultValue: 6000,
       'label-en': 'Auto Scroll Maximum Speed',
       'label-zh': 'Auto Scroll 最大速度',
-      'desc-en': 'Maximum generated high-resolution scroll units per second.',
-      'desc-zh': '每秒生成的高分辨率滚动单位上限。',
+      'desc-en': 'Maximum generated high-resolution scroll units per second. With a nonlinear curve, changing this also changes intermediate speeds.',
+      'desc-zh': '每秒生成的高分辨率滚动单位上限。使用非线性曲线时，修改此值也会改变中间段速度。',
       type: 'float',
       min: 100,
       max: 20000,

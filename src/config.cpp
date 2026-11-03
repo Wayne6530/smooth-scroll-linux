@@ -202,6 +202,8 @@ bool loadConfig(const std::string& path, Config& config)
   readEnum(table, "auto_scroll_axis_mode", options.auto_scroll_axis_mode, 0, 2);
   readEnum(table, "auto_scroll_wheel_action", options.auto_scroll_wheel_action, 0, 1);
   readEnum(table, "auto_scroll_exit_button_mode", options.auto_scroll_exit_button_mode, 0, 1);
+  readOption(table, "auto_scroll_latch_on_release", options.auto_scroll_latch_on_release);
+  readOption(table, "auto_scroll_speed_exponent", options.auto_scroll_speed_exponent);
   readOption(table, "auto_scroll_deadzone", options.auto_scroll_deadzone);
   readOption(table, "auto_scroll_click_timeout_milliseconds", options.auto_scroll_click_timeout_milliseconds);
   readOption(table, "auto_scroll_speed_factor", options.auto_scroll_speed_factor);

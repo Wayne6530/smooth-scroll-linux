@@ -127,6 +127,8 @@ public:
     AutoScrollAxisMode auto_scroll_axis_mode = AutoScrollAxisMode::Vertical;
     AutoScrollWheelAction auto_scroll_wheel_action = AutoScrollWheelAction::Ignore;
     AutoScrollExitButtonMode auto_scroll_exit_button_mode = AutoScrollExitButtonMode::AnyButton;
+    bool auto_scroll_latch_on_release = true;
+    double auto_scroll_speed_exponent = 1.0;
     int auto_scroll_deadzone = 8;
     int auto_scroll_click_timeout_milliseconds = 200;
     double auto_scroll_speed_factor = 50;
