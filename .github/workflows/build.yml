@@ -25,13 +25,13 @@ jobs:
             type: "DEB"
             install_cmd: "apt-get update && apt-get install -y build-essential cmake git libspdlog-dev libevdev-dev libudev-dev file dpkg-dev"
 
-          - distro_name: "Fedora 43"
-            image: "fedora:43"
+          - distro_name: "Fedora 44"
+            image: "fedora:44"
             type: "RPM"
             install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel systemd-devel rpm-build"
 
-          - distro_name: "Fedora 44"
-            image: "fedora:44"
+          - distro_name: "Fedora 45"
+            image: "fedora:45"
             type: "RPM"
             install_cmd: "dnf install -y gcc-c++ cmake make git spdlog-devel libevdev-devel systemd-devel rpm-build"
 
