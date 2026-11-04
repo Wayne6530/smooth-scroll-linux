@@ -26,10 +26,10 @@ const I18n = (() => {
   function t(key) {
     const translations = {
       'app.title': { en: 'Smooth Scroll Configurator', zh: 'Smooth Scroll 配置器' },
-      'btn.copy': { en: 'Copy TOML', zh: '复制 TOML' },
-      'btn.download': { en: 'Download .toml', zh: '下载 .toml' },
+      'btn.download': { en: 'Download config', zh: '下载配置' },
       'btn.reset': { en: 'Reset to Defaults', zh: '恢复默认值' },
-      'btn.copied': { en: 'Copied!', zh: '已复制！' },
+      'btn.close': { en: 'Close', zh: '关闭' },
+      'btn.preview-export': { en: 'Preview & export', zh: '预览与导出' },
       'toml.preview': { en: 'TOML Preview', zh: 'TOML 预览' },
       'group.device': { en: 'Device', zh: '设备' },
       'group.scroll': { en: 'Scroll', zh: '滚动' },
@@ -58,8 +58,8 @@ const I18n = (() => {
       'scroll.smooth': { en: 'Smooth scrolling', zh: '平滑滚动' },
       'scroll.instant': { en: 'Instant scrolling', zh: '即时滚动' },
       'scroll.smooth-description': { en: 'Tune the smoothing model and inertia below.', zh: '在下方调整平滑模型和惯性效果。' },
-      'scroll.instant-description': { en: 'Each wheel event immediately emits the selected distance, without inertia. Auto Scroll and Drag View remain available. Free Spin is disabled.', zh: '每次滚轮输入立即输出指定距离，不产生惯性。Auto Scroll 和 Drag View 仍可独立使用，Free Spin 已禁用。' },
-      'scroll.preset-disabled': { en: 'Managed by the instant scrolling preset or unused in this mode. Switch to smooth scrolling to edit.', zh: '此项由即时滚动预设管理，或在此模式下不生效。切换到平滑滚动后可调整。' },
+      'scroll.instant-description': { en: 'Each wheel event immediately emits the selected distance, without inertia. Smoothing parameters are calculated automatically. Switch to smooth scrolling to edit them. Auto Scroll and Drag View remain independently configurable.', zh: '每次滚轮输入立即输出指定距离，不产生惯性。平滑参数由系统自动计算，切换到平滑滚动后可手动调整。Auto Scroll 和 Drag View 仍可独立配置。' },
+      'scroll.preset-disabled': { en: 'Calculated automatically or unused in instant scrolling mode. Switch to smooth scrolling to edit.', zh: '此项在即时滚动模式下自动计算或不生效。切换到平滑滚动后可调整。' },
       'scroll.always': { en: 'Always — instant scrolling has no ongoing inertia.', zh: '始终可用：即时滚动没有持续惯性。' },
       'scroll.instant-tip': { en: 'Adjust Wheel Tick Distance to change each immediate step. There is no inertial tail.', zh: '调节“单次滚轮距离”改变每次立即输出的距离，不会产生惯性尾部。' },
       'validation.native-distance': { en: 'Single-tick distance differs from the native 120-unit wheel tick.', zh: '单次滚动距离不等于原生 120 单位滚轮距离。' },
@@ -88,7 +88,7 @@ const I18n = (() => {
       'summary.truncated': { en: 'Simulation exceeded max time. Actual duration/distance may be longer.', zh: '模拟超过最大时间。实际持续时间/距离可能更长。' },
       'tips.label': { en: 'Tips:', zh: '提示：' },
       'next-steps.title': { en: 'Next Steps', zh: '后续步骤' },
-      'next-steps.step1': { en: 'Copy the TOML config above (or download the .toml file).', zh: '复制上方的 TOML 配置（或下载 .toml 文件）。' },
+      'next-steps.step1': { en: 'Download the .toml configuration file.', zh: '下载 .toml 配置文件。' },
       'next-steps.step2': { en: 'Edit or replace the config file at /etc/smooth-scroll/smooth-scroll.toml', zh: '编辑或替换配置文件 /etc/smooth-scroll/smooth-scroll.toml' },
       'next-steps.step3': { en: 'Restart the smooth-scroll daemon to apply changes.', zh: '重启 smooth-scroll 守护进程以应用更改。' },
 

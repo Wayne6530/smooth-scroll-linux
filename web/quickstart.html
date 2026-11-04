@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/nav.css">
   <link rel="stylesheet" href="css/content.css">
+  <link rel="stylesheet" href="css/presets.css">
 </head>
 <body>
   <div id="nav"></div>
@@ -152,41 +153,35 @@ sudo dnf install ./smooth-scroll-*.rpm</code></pre>
         </div>
       </section>
 
-      <section class="doc-section">
-        <h2 class="doc-heading lang-block lang-en">Customization</h2>
-        <h2 class="doc-heading lang-block lang-zh">自定义</h2>
-        <ol class="doc-steps customization-steps">
-          <li>
-            <h3 class="lang-block lang-en">Open the configurator</h3>
-            <h3 class="lang-block lang-zh">打开配置器</h3>
-            <p class="doc-copy lang-block lang-en">Go to the <a href="config.html">Customization</a> page.</p>
-            <p class="doc-copy lang-block lang-zh">进入<a href="config.html">自定义</a>页面。</p>
-          </li>
-          <li>
-            <h3 class="lang-block lang-en">Adjust and export</h3>
-            <h3 class="lang-block lang-zh">调整并导出</h3>
-            <p class="doc-copy lang-block lang-en">Edit the settings, then copy TOML or download <code>smooth-scroll.toml</code>.</p>
-            <p class="doc-copy lang-block lang-zh">调整设置后，复制 TOML 或下载 <code>smooth-scroll.toml</code>。</p>
-          </li>
-          <li>
-            <h3 class="lang-block lang-en">Apply the config</h3>
-            <h3 class="lang-block lang-zh">应用配置</h3>
-            <p class="doc-copy lang-block lang-en">Replace the system config, then restart the service.</p>
-            <p class="doc-copy lang-block lang-zh">替换系统配置文件，然后重启服务。</p>
-            <pre class="standalone-code"><code>sudo cp ~/Downloads/smooth-scroll.toml /etc/smooth-scroll/smooth-scroll.toml
+      <section class="doc-section" id="presets">
+        <h2 class="doc-heading lang-block lang-en">Choose a preset</h2>
+        <h2 class="doc-heading lang-block lang-zh">选择预设</h2>
+        <p class="doc-copy lang-block lang-en">Download a starting configuration, or adjust it to your liking.</p>
+        <p class="doc-copy lang-block lang-zh">下载适合你的配置，或以它为起点继续调整。</p>
+        <div id="preset-list"></div>
+        <p class="doc-copy lang-block lang-en">To apply: replace the system configuration and restart the service.</p>
+        <p class="doc-copy lang-block lang-zh">下载后，替换系统配置并重启服务即可应用。</p>
+        <pre class="standalone-code"><code>sudo cp ~/Downloads/smooth-scroll.toml /etc/smooth-scroll/smooth-scroll.toml
 sudo systemctl restart smooth-scroll.service</code></pre>
-          </li>
-        </ol>
+        <p class="doc-copy preset-customize-link lang-block lang-en">Want to fine-tune a preset? Visit <a href="config.html">Customization</a> to adjust and export your configuration.</p>
+        <p class="doc-copy preset-customize-link lang-block lang-zh">想进一步调整预设？前往<a href="config.html">自定义</a>页面，修改参数并导出配置。</p>
       </section>
+
     </div>
   </main>
 
   <script src="js/i18n.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/param-schema.js"></script>
+  <script src="js/instant-scroll.js"></script>
+  <script src="js/config-writer.js"></script>
+  <script src="js/config-presets.js"></script>
+  <script src="js/preset-ui.js"></script>
   <script src="js/content-page.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       ContentPage.init();
+      PresetUI.initQuickstart();
     });
   </script>
 </body>

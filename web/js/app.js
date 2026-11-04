@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const onParamChange = (values, changedKey) => {
     updateTomlPreview(values);
+    if (typeof PresetUI !== 'undefined') PresetUI.updateStatus();
 
     if (typeof Visualization !== 'undefined') {
       Visualization.update(values);
@@ -22,15 +23,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ConfigEditor.init(schema, onParamChange);
 
+  PresetUI.initEditor();
+
   updateTomlPreview(ConfigEditor.getValues());
 
-  document.getElementById('btn-copy').addEventListener('click', () => {
-    const toml = ConfigWriter.generate(ConfigEditor.getValues());
-    ConfigWriter.copyToClipboard(toml);
-    const btn = document.getElementById('btn-copy');
-    const orig = btn.textContent;
-    btn.textContent = I18n.t('btn.copied');
-    setTimeout(() => { btn.textContent = orig; }, 1500);
+  const tomlDialog = document.getElementById('toml-dialog');
+  document.getElementById('btn-preview').addEventListener('click', () => {
+    updateTomlPreview(ConfigEditor.getValues());
+    tomlDialog.showModal();
+  });
+  document.getElementById('btn-close-preview').addEventListener('click', () => tomlDialog.close());
+  tomlDialog.addEventListener('click', event => {
+    if (event.target !== tomlDialog) return;
+    const bounds = tomlDialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) tomlDialog.close();
   });
 
   document.getElementById('btn-download').addEventListener('click', () => {
@@ -39,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-reset').addEventListener('click', () => {
-    ConfigEditor.resetToDefaults();
+    PresetUI.restore();
     updateTomlPreview(ConfigEditor.getValues());
   });
 
@@ -57,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       Nav.updateLang();
     }
     renderNextSteps();
+    PresetUI.renderEditor();
   });
 
   updateLangToggle();
@@ -92,10 +100,10 @@ function updateLangToggle() {
 
 function renderConfigPageLabels() {
   const labels = [
-    ['btn-copy', 'btn.copy'],
     ['btn-download', 'btn.download'],
-    ['btn-reset', 'btn.reset'],
     ['toml-preview-label', 'toml.preview'],
+    ['btn-preview', 'btn.preview-export'],
+    ['btn-close-preview', 'btn.close'],
   ];
 
   for (const [id, key] of labels) {

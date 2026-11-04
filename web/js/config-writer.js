@@ -44,7 +44,7 @@ const ConfigWriter = (() => {
             let val = Array.isArray(param[mk]) ? param[mk].join('|') : param[mk];
             // These preset-generated values exceed the ordinary tuning slider range.
             if (mk === 'max' && ['min_deceleration', 'max_deceleration'].includes(param.key) &&
-                InstantScroll.matches(values)) {
+                Number(values[param.key]) > Number(val)) {
               val = Math.max(Number(val), values[param.key]);
             }
             lines.push(`# @${mk}: ${val}`);
@@ -100,24 +100,6 @@ const ConfigWriter = (() => {
     return '0x' + Number(value).toString(16).padStart(4, '0');
   }
 
-  async function copyToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fallback
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      return true;
-    }
-  }
-
   function download(text, filename) {
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -128,5 +110,5 @@ const ConfigWriter = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { init, generate, copyToClipboard, download };
+  return { init, generate, download };
 })();

@@ -115,7 +115,7 @@ wheel_tick_distance = 120
 # @desc-zh: 控制滚动速度随时间衰减的快慢。值越大减速越快。为 0 时仅受 min_deceleration 影响。
 # @type: float
 # @min: 0
-# @max: 6
+# @max: 20
 # @step: 0.1
 # @group: scroll
 damping = 3.1
@@ -137,7 +137,7 @@ min_deceleration = 1420
 # @desc-zh: 最大减速度。值越小高速时减速越弱，使快速滚动持续更久、行程更远。必须 >= min_deceleration。
 # @type: float
 # @min: 100
-# @max: 30000
+# @max: 60000
 # @step: 10
 # @group: scroll
 max_deceleration = 6000

@@ -1,8 +1,7 @@
-/** Web-only preset: existing Distance physics consumes the budget on the first event. */
+/** Web-only wheel mode: existing Distance physics consumes the budget on the first event. */
 const InstantScroll = (() => {
   const managedKeys = [
     'smooth_mode', 'damping', 'min_deceleration', 'max_deceleration',
-    'free_spin_button', 'drag_view_activation_mode', 'auto_scroll_activation_mode',
   ];
   const disabledKeys = new Set([
     ...managedKeys,
@@ -23,7 +22,6 @@ const InstantScroll = (() => {
     Object.assign(values, {
       smooth_mode: 1, damping: 3.1,
       min_deceleration: deceleration, max_deceleration: deceleration,
-      free_spin_button: 0, drag_view_activation_mode: 1, auto_scroll_activation_mode: 1,
     });
   }
 

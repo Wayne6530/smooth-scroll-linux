@@ -110,7 +110,12 @@ const ConfigEditor = (() => {
     versionEl.className = 'config-version';
     versionEl.id = 'config-version';
     versionEl.innerHTML = `${I18n.t('version.config')} <span class="version-badge">v${ParamSchema.CONFIG_VERSION}</span>`;
+    const picker = document.createElement('div');
+    picker.id = 'preset-picker';
+    picker.className = 'preset-picker';
+    versionEl.appendChild(picker);
     container.appendChild(versionEl);
+    if (typeof PresetUI !== 'undefined') PresetUI.renderEditor();
 
     const groups = ParamSchema.getGroups(params);
     const orderedGroups = GROUP_ORDER.filter(g => groups.has(g));
@@ -176,7 +181,6 @@ const ConfigEditor = (() => {
     const controlWrap = document.createElement('div');
     controlWrap.className = 'param-control';
 
-    const lockedActivation = instant && param.key.endsWith('_activation_mode');
     const control = createControl(param);
     controlWrap.appendChild(control);
 
@@ -189,9 +193,8 @@ const ConfigEditor = (() => {
     }
 
     // Description tooltip
-    const descText = lockedActivation ? I18n.t('scroll.always')
-      : instant && InstantScroll.disabledKeys.has(param.key)
-        ? I18n.t('scroll.preset-disabled') + ' ' + I18n.desc(param) : I18n.desc(param);
+    const descText = instant && InstantScroll.disabledKeys.has(param.key)
+      ? I18n.t('scroll.preset-disabled') + ' ' + I18n.desc(param) : I18n.desc(param);
     if (descText) controlWrap.appendChild(createHelpTooltip(descText));
 
     row.appendChild(labelEl);
@@ -442,11 +445,11 @@ const ConfigEditor = (() => {
     slider.id = 'param-' + param.key;
     slider.className = 'param-slider';
     const controlMin = param.uiMin ?? param.min ?? 0;
-    const controlMax = instant && ['min_deceleration', 'max_deceleration'].includes(param.key)
+    const controlMax = ['min_deceleration', 'max_deceleration'].includes(param.key) && getControlValue(param) > param.max
       ? Math.max(param.max, getControlValue(param)) : param.uiMax ?? param.max ?? 100;
     slider.min = controlMin;
     slider.max = controlMax;
-    const controlStep = instant && ['min_deceleration', 'max_deceleration'].includes(param.key)
+    const controlStep = ['min_deceleration', 'max_deceleration'].includes(param.key) && getControlValue(param) > param.max
       ? 1 : param.step ?? 1;
     slider.step = controlStep;
     slider.value = getControlValue(param);
@@ -750,8 +753,7 @@ const ConfigEditor = (() => {
   function fireChange(key) {
     if (instant) {
       InstantScroll.apply(currentValues);
-      // Keep visible preset-managed values synchronized without rebuilding the
-      // editor (which would interrupt the distance/tick slider being dragged).
+      // Recompute without rebuilding controls while a distance/tick slider is dragged.
       for (const managedKey of InstantScroll.managedKeys) {
         document.querySelectorAll(`input[data-key="${managedKey}"], select[data-key="${managedKey}"]`).forEach(control => {
           if (['min_deceleration', 'max_deceleration'].includes(managedKey)) {
@@ -761,6 +763,8 @@ const ConfigEditor = (() => {
         });
       }
     }
+    const effect = document.getElementById('scroll-effect');
+    if (effect) effect.value = instant ? 'instant' : 'smooth';
     updateAllParamStates();
     validateConstraints();
     if (onParamChange) onParamChange(getValues(), key);
@@ -815,5 +819,14 @@ const ConfigEditor = (() => {
     if (onParamChange) onParamChange(getValues(), null);
   }
 
-  return { init, render, getValues, resetToDefaults };
+  function loadValues(values) {
+    currentValues = structuredClone(values);
+    instant = InstantScroll.matches(currentValues);
+    savedSmoothValues = null;
+    if (instant) InstantScroll.apply(currentValues);
+    render();
+    fireChange(null);
+  }
+
+  return { init, render, getValues, resetToDefaults, loadValues };
 })();

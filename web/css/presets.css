@@ -1,0 +1,35 @@
+/* Shared preset presentation uses the configurator's existing visual tokens. */
+.config-version { flex-wrap: nowrap; }
+.preset-picker { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 65%; }
+.preset-picker label { flex-shrink: 0; }
+.preset-picker select { width: 100%; min-width: 0; font-size: 12px; }
+.preset-option p { margin: 0; min-width: 0; font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
+.preset-option {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--doc-space-group);
+  padding: var(--doc-space-group) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.preset-option:first-of-type { border-top: 1px solid var(--border-subtle); }
+.preset-option:last-child { margin-bottom: var(--doc-space-group); }
+.preset-option h3 { margin: 0; font-size: 18px; font-weight: 600; }
+.preset-actions { display: flex; gap: var(--doc-space-tight); }
+.preset-actions .btn { white-space: nowrap; }
+@media (max-width: 900px) {
+  .preset-option { grid-template-columns: 110px minmax(0, 1fr) auto; gap: var(--doc-space-related); }
+  .preset-actions { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 600px) {
+  .preset-option { grid-template-columns: minmax(0, 1fr); gap: var(--doc-space-related); }
+  .preset-actions { flex-direction: row; flex-wrap: wrap; }
+}
+.preset-picker select:focus-visible, .preset-actions .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+
+.editor-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.editor-scroll .editor-params { overflow: visible; }
+@media (max-width: 768px) { .editor-scroll { flex: none; overflow: visible; } }
+
+#presets .preset-customize-link { margin-top: var(--doc-space-transition); }
