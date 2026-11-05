@@ -22,26 +22,6 @@ const ConfigEditor = (() => {
     return param.uiAbs ? Math.abs(Number(value)) : value;
   }
 
-  const CONSTRAINTS = [
-    {
-      keys: ['min_deceleration', 'max_deceleration'],
-      check: (v) => (v.min_deceleration ?? 0) <= (v.max_deceleration ?? Infinity),
-      messageKey: 'validation.min-max-decel',
-    },
-    {
-      keys: ['min_speed_change_ratio', 'max_speed_change_ratio'],
-      check: (v) => (v.min_speed_change_ratio ?? 0) <= (v.max_speed_change_ratio ?? Infinity),
-      messageKey: 'validation.min-max-ratio',
-    },
-    {
-      keys: ['free_spin_button', 'drag_view_button', 'auto_scroll_button'],
-      check: (v) => Number(v.auto_scroll_button) === 0 ||
-        (Number(v.auto_scroll_button) !== Number(v.free_spin_button) &&
-         Number(v.auto_scroll_button) !== Number(v.drag_view_button)),
-      messageKey: 'validation.mode-button-conflict',
-    },
-  ];
-
   function init(schema, onChange) {
     params = schema.params;
     onParamChange = onChange;
@@ -74,6 +54,7 @@ const ConfigEditor = (() => {
       select.appendChild(option);
     }
     select.value = instant ? 'instant' : 'smooth';
+    select.disabled = Boolean(currentValues.wheel_passthrough);
     select.addEventListener('change', () => {
       instant = select.value === 'instant';
       if (instant) {
@@ -100,16 +81,19 @@ const ConfigEditor = (() => {
 
   function render() {
     const container = document.getElementById('editor-params');
-    const collapsed = new Map(Array.from(container.querySelectorAll('.param-group')).map(section =>
+    container.disabled = typeof Profiles !== 'undefined' && Profiles.ready() && Profiles.selected() === 1;
+    const collapsed = new Map(Array.from(document.querySelectorAll('.param-group')).map(section =>
       [section.dataset.group, section.querySelector('.group-content').classList.contains('collapsed')]));
     container.innerHTML = '';
+    const deviceSettings = document.getElementById('device-settings');
+    if (deviceSettings) deviceSettings.replaceChildren();
     document.querySelectorAll('.param-tooltip').forEach(el => el.remove());
 
     // Config version badge
     const versionEl = document.createElement('div');
     versionEl.className = 'config-version';
     versionEl.id = 'config-version';
-    versionEl.innerHTML = `${I18n.t('version.config')} <span class="version-badge">v${ParamSchema.CONFIG_VERSION}</span>`;
+    versionEl.setAttribute('aria-label', I18n.t('version.config') + ' ' + ParamSchema.CONFIG_VERSION);
     const picker = document.createElement('div');
     picker.id = 'preset-picker';
     picker.className = 'preset-picker';
@@ -121,12 +105,17 @@ const ConfigEditor = (() => {
     const orderedGroups = GROUP_ORDER.filter(g => groups.has(g));
 
     for (const groupName of orderedGroups) {
-      const groupParams = groups.get(groupName);
+      const groupParams = groups.get(groupName).filter(param => !instant || !InstantScroll.disabledKeys.has(param.key));
+      if (!groupParams.length) continue;
       const section = createGroupSection(groupName, groupParams);
-      container.appendChild(section);
-      if (collapsed.has(groupName)) {
+      (groupName === 'device' && deviceSettings ? deviceSettings : container).appendChild(section);
+      if (groupName === 'device' && deviceSettings) {
+        section.querySelector('.group-header').remove();
+        section.querySelector('.group-content').classList.remove('collapsed');
+      } else if (collapsed.has(groupName)) {
         section.querySelector('.group-content').classList.toggle('collapsed', collapsed.get(groupName));
         section.querySelector('.group-header').classList.toggle('collapsed', collapsed.get(groupName));
+        section.querySelector('.group-header').setAttribute('aria-expanded', String(!collapsed.get(groupName)));
       }
     }
     validateConstraints();
@@ -139,11 +128,20 @@ const ConfigEditor = (() => {
 
     const header = document.createElement('div');
     header.className = 'group-header';
-    header.textContent = I18n.t('group.' + groupName);
+    header.textContent = groupName === 'device'
+      ? (I18n.lang() === 'zh' ? '设备设置 · 所有 Profile' : 'Device settings · All profiles')
+      : I18n.t('group.' + groupName);
+    header.tabIndex = 0;
+    header.setAttribute('role', 'button');
+    header.setAttribute('aria-expanded', String(groupName === 'scroll'));
+    header.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); header.click(); }
+    });
     header.addEventListener('click', () => {
       const content = section.querySelector('.group-content');
       content.classList.toggle('collapsed');
       header.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', String(!content.classList.contains('collapsed')));
     });
 
     const content = document.createElement('div');
@@ -153,8 +151,12 @@ const ConfigEditor = (() => {
       header.classList.add('collapsed');
     }
 
-    if (groupName === 'scroll') content.appendChild(createScrollEffectControl());
+    if (groupName === 'scroll') {
+      content.appendChild(createParamRow(groupParams.find(param => param.key === 'wheel_passthrough')));
+      content.appendChild(createScrollEffectControl());
+    }
     for (const param of groupParams) {
+      if (groupName === 'scroll' && param.key === 'wheel_passthrough') continue;
       content.appendChild(createParamRow(param));
     }
 
@@ -268,21 +270,16 @@ const ConfigEditor = (() => {
     const list = document.createElement('div');
     list.className = 'hid-device-list';
 
-    const empty = document.createElement('div');
-    empty.className = 'hid-device-empty';
-    empty.textContent = I18n.t('device.none-ignored');
-
-    const actions = document.createElement('div');
-    actions.className = 'hid-device-actions';
-
     const addButton = document.createElement('button');
     addButton.type = 'button';
-    addButton.className = 'device-add-btn';
-    addButton.textContent = I18n.t('device.select-ignore');
+    addButton.className = 'key-add-btn device-add-btn';
+    addButton.textContent = I18n.t('device.add');
+    addButton.title = I18n.t('device.select-ignore');
+    addButton.setAttribute('aria-label', I18n.t('device.select-ignore'));
 
     const status = document.createElement('span');
     status.className = 'hid-device-status';
-    status.textContent = 'hid' in navigator ? I18n.t('device.webhid-limit') : I18n.t('device.webhid-unsupported');
+    status.textContent = 'hid' in navigator ? '' : I18n.t('device.webhid-unsupported');
 
     const getValue = () => Array.isArray(currentValues[param.key]) ? currentValues[param.key] : [];
 
@@ -296,17 +293,18 @@ const ConfigEditor = (() => {
     function renderList() {
       list.innerHTML = '';
       const devices = getValue();
-      empty.style.display = devices.length === 0 ? 'block' : 'none';
 
       for (const device of devices) {
-        const row = document.createElement('label');
-        row.className = 'hid-device-row';
+        const row = document.createElement('div');
+        row.className = 'key-chip custom selected hid-device-row';
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = true;
-        checkbox.setAttribute('aria-label', I18n.t('device.remove-ignore'));
-        checkbox.addEventListener('change', () => {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'key-chip-remove';
+        remove.textContent = '×';
+        remove.title = I18n.t('device.remove-ignore');
+        remove.setAttribute('aria-label', I18n.t('device.remove-ignore'));
+        remove.addEventListener('click', () => {
           const remaining = getValue().filter(item =>
             item.vendorId !== device.vendorId || item.productId !== device.productId);
           currentValues[param.key] = remaining.length > 0 ? remaining : undefined;
@@ -325,10 +323,9 @@ const ConfigEditor = (() => {
         details.className = 'hid-device-details';
         details.textContent = `${roleLabel(device.roles || [])} · ${formatHidId(device.vendorId)}:${formatHidId(device.productId)}`;
 
-        identity.appendChild(name);
-        identity.appendChild(details);
-        row.appendChild(checkbox);
-        row.appendChild(identity);
+        identity.append(name, details);
+        row.title = `${name.textContent} · ${details.textContent}`;
+        row.append(identity, remove);
         list.appendChild(row);
       }
     }
@@ -347,7 +344,7 @@ const ConfigEditor = (() => {
           filters: [],
         });
         if (selected.length === 0) {
-          status.textContent = I18n.t('device.webhid-limit');
+          status.textContent = '';
           return;
         }
 
@@ -372,12 +369,12 @@ const ConfigEditor = (() => {
           (lhs.productName || '').localeCompare(rhs.productName || '') ||
           lhs.vendorId - rhs.vendorId || lhs.productId - rhs.productId);
         currentValues[param.key] = devices;
-        status.textContent = I18n.t('device.webhid-limit');
+        status.textContent = '';
         renderList();
         fireChange(param.key);
       } catch (error) {
         status.textContent = error.name === 'NotFoundError'
-          ? I18n.t('device.webhid-limit')
+          ? ''
           : I18n.t('device.selection-failed');
       }
     });
@@ -386,11 +383,8 @@ const ConfigEditor = (() => {
       addButton.disabled = true;
     }
 
-    actions.appendChild(addButton);
-    actions.appendChild(status);
-    container.appendChild(empty);
-    container.appendChild(list);
-    container.appendChild(actions);
+    status.setAttribute('role', 'status');
+    container.append(list, addButton, status);
     renderList();
     return container;
   }
@@ -471,14 +465,20 @@ const ConfigEditor = (() => {
       fireChange(param.key);
     });
 
-    input.addEventListener('input', () => {
-      let val = Number(input.value);
-      if (isNaN(val)) return;
-      val = Math.max(controlMin, val);
-      val = Math.min(controlMax, val);
-      slider.value = val;
+    // Commit text edits only after editing ends, so transient prefixes do not
+    // change validation, profile state, or the simulation.
+    input.addEventListener('blur', () => {
+      const value = input.value.trim() === '' ? NaN : Number(input.value);
+      const val = Number.isFinite(value) ? Math.max(controlMin, Math.min(controlMax, value)) : NaN;
+      if (Number.isFinite(val)) {
+        input.value = val;
+        slider.value = val;
+      }
       currentValues[param.key] = param.uiAbs ? Math.abs(val) : val;
       fireChange(param.key);
+    });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); input.blur(); }
     });
 
     wrap.appendChild(slider);
@@ -727,6 +727,7 @@ const ConfigEditor = (() => {
   }
 
   function dependenciesMet(param) {
+    if (param['disabled-when'] && currentValues[param['disabled-when']]) return false;
     if (param.group === 'drag-view' && param.key !== 'drag_view_button' && !currentValues.drag_view_button) return false;
     if (param.group === 'auto-scroll' && param.key !== 'auto_scroll_button' && !currentValues.auto_scroll_button) return false;
     return !param['depends-on'] || !!currentValues[param['depends-on']];
@@ -742,6 +743,9 @@ const ConfigEditor = (() => {
   }
 
   function updateAllParamStates() {
+    const passthrough = Boolean(currentValues.wheel_passthrough);
+    const effect = document.getElementById('scroll-effect');
+    if (effect) effect.disabled = passthrough;
     const rows = document.querySelectorAll('.param-row');
     rows.forEach(row => {
       const key = row.dataset.key;
@@ -767,7 +771,7 @@ const ConfigEditor = (() => {
     if (effect) effect.value = instant ? 'instant' : 'smooth';
     updateAllParamStates();
     validateConstraints();
-    if (onParamChange) onParamChange(getValues(), key);
+    if (onParamChange) onParamChange(getValues(), key, getEditorState());
   }
 
   function validateConstraints() {
@@ -775,25 +779,17 @@ const ConfigEditor = (() => {
     document.querySelectorAll('.validation-warning').forEach(el => el.remove());
     document.querySelectorAll('.param-row.has-warning').forEach(el => el.classList.remove('has-warning'));
 
-    for (const constraint of CONSTRAINTS) {
-      const constraintParams = constraint.keys.map(key => params.find(p => p.key === key));
-      if (constraint.messageKey !== 'validation.mode-button-conflict' &&
-          !constraintParams.every(param => param && isParamActive(param))) {
-        continue;
-      }
-
-      if (!constraint.check(currentValues)) {
-        for (const key of constraint.keys) {
-          const row = document.querySelector(`.param-row[data-key="${key}"]`);
-          if (row) {
-            row.classList.add('has-warning');
-            const warning = document.createElement('div');
-            warning.className = 'validation-warning';
-            warning.dataset.constraint = constraint.keys.join('-');
-            warning.textContent = I18n.t(constraint.messageKey);
-            row.after(warning);
-          }
-        }
+    const id = typeof Profiles !== 'undefined' && Profiles.ready() ? Profiles.selected() : 0;
+    for (const issue of ConfigWriter.validateProfile(getValues(), id)) {
+      for (const key of issue.keys) {
+        const row = document.querySelector(`.param-row[data-key="${key}"]`);
+        if (!row) continue;
+        row.classList.add('has-warning');
+        const warning = document.createElement('div');
+        warning.className = 'validation-warning';
+        warning.dataset.constraint = issue.keys.join('-');
+        warning.textContent = I18n.t('validation.' + issue.kind);
+        row.after(warning);
       }
     }
   }
@@ -816,17 +812,21 @@ const ConfigEditor = (() => {
     render();
     updateAllParamStates();
     validateConstraints();
-    if (onParamChange) onParamChange(getValues(), null);
+    if (onParamChange) onParamChange(getValues(), null, getEditorState());
   }
 
-  function loadValues(values) {
+  function getEditorState() {
+    return { instant, savedSmoothValues: structuredClone(savedSmoothValues) };
+  }
+
+  function loadValues(values, editorState = null) {
     currentValues = structuredClone(values);
-    instant = InstantScroll.matches(currentValues);
-    savedSmoothValues = null;
+    instant = editorState?.instant ?? InstantScroll.matches(currentValues);
+    savedSmoothValues = structuredClone(editorState?.savedSmoothValues ?? null);
     if (instant) InstantScroll.apply(currentValues);
     render();
     fireChange(null);
   }
 
-  return { init, render, getValues, resetToDefaults, loadValues };
+  return { init, render, getValues, getEditorState, resetToDefaults, loadValues };
 })();

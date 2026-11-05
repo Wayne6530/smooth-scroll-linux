@@ -15,21 +15,30 @@
   <main class="main config-page">
     <div class="editor-panel" id="editor">
       <div class="editor-scroll">
-      <div class="editor-params" id="editor-params">
+      <section id="profile-picker" aria-label="Profiles"></section>
+      <div class="editor-params" id="device-settings" role="tabpanel" aria-labelledby="profile-tab-device" hidden></div>
+      <fieldset class="editor-params" id="editor-params">
         <p>Loading...</p>
+      </fieldset>
       </div>
-      </div>
+      <section id="export-error" role="alert" aria-labelledby="export-error-title" hidden>
+        <h3 id="export-error-title"></h3>
+        <p id="export-error-details"></p>
+      </section>
       <div class="editor-footer">
-        <span id="config-status" role="status"></span>
-        <div class="editor-footer-actions">
+        <div class="editor-footer-status">
+          <span id="config-status" role="status"></span>
           <button class="btn" id="btn-reset" hidden>Reset</button>
-          <button class="btn btn-primary" id="btn-preview" aria-haspopup="dialog" aria-controls="toml-dialog">Preview &amp; export</button>
+        </div>
+        <div class="editor-footer-actions">
+          <button class="btn btn-primary" id="btn-preview" aria-describedby="export-error" aria-haspopup="dialog" aria-controls="toml-dialog">Preview &amp; export</button>
         </div>
       </div>
     </div>
 
     <div class="viz-panel" id="viz-panel">
       <h2 data-i18n="scenario.title">Simulation Scenario</h2>
+      <p id="simulation-error" role="status" hidden></p>
       <div class="scenario-bar">
         <button class="scenario-btn active" data-scenario="single">Single Tick</button>
         <button class="scenario-btn" data-scenario="slow">Slow Scroll</button>
@@ -64,7 +73,10 @@
 
   <dialog id="toml-dialog" aria-labelledby="toml-preview-label">
     <div class="toml-dialog-header">
-      <h2 id="toml-preview-label">TOML Preview</h2>
+      <div class="toml-dialog-title">
+        <h2 id="toml-preview-label">TOML Preview</h2>
+        <span id="toml-config-version"></span>
+      </div>
       <button class="btn" id="btn-close-preview" autofocus>Close</button>
     </div>
     <div class="editor-actions">
@@ -87,8 +99,11 @@
   <script src="js/physics-engine.js"></script>
   <script src="js/chart-renderer.js"></script>
   <script src="js/visualization.js"></script>
+  <script src="js/profile-presets.js"></script>
   <script src="js/config-presets.js"></script>
   <script src="js/preset-ui.js"></script>
+  <script src="js/profiles.js"></script>
+  <script src="js/profile-ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

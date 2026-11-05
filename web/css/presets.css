@@ -1,8 +1,10 @@
 /* Shared preset presentation uses the configurator's existing visual tokens. */
 .config-version { flex-wrap: nowrap; }
-.preset-picker { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 65%; }
+.preset-picker { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; min-width: 0; width: 100%; }
+.preset-profile { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.preset-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
 .preset-picker label { flex-shrink: 0; }
-.preset-picker select { width: 100%; min-width: 0; font-size: 12px; }
+.preset-picker select { flex: 0 1 148px; width: 148px; min-width: 0; font-size: 12px; }
 .preset-option p { margin: 0; min-width: 0; font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
 .preset-option {
   display: grid;

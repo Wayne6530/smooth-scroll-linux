@@ -796,6 +796,13 @@ const PhysicsEngine = (() => {
         const evt = events[eventIdx];
         switch (evt.type) {
           case 'scroll': {
+            if (options.wheel_passthrough) {
+              // Display raw wheel ticks in the chart's high-resolution units.
+              timeline.push({ timeMs: (evt.timeUs - startTimeUs) / 1000,
+                delta: 0, speed: 0, emittedDelta: evt.positive ? 120 : -120,
+                totalDelta: 0, totalDeltaH: 0 });
+              break;
+            }
             const result = smoother.handleEvent(evt.timeUs, evt.positive, false);
             if (result) {
               timeline.push({

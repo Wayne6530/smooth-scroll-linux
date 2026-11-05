@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 9;
+  const CONFIG_VERSION = 10;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -190,9 +190,17 @@ const ParamSchema = (() => {
       type: 'hid-device-list',
       group: 'device',
     },
+    {
+      key: 'wheel_passthrough', value: false, defaultValue: false,
+      'label-en': 'Wheel passthrough', 'label-zh': '滚轮透传',
+      'desc-en': 'Forward physical wheel events unchanged, without smoothing.',
+      'desc-zh': '原样转发物理滚轮事件，不进行平滑处理。',
+      type: 'bool', group: 'scroll',
+    },
     // --- Scroll ---
     {
       key: 'free_spin_button',
+      'disabled-when': 'wheel_passthrough',
       value: 273,
       defaultValue: 273,
       'label-en': 'Free Spin Button',
@@ -209,6 +217,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'smooth_mode',
+      'disabled-when': 'wheel_passthrough',
       value: 2,
       defaultValue: 2,
       'label-en': 'Smooth Mode',
@@ -230,6 +239,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'wheel_tick_distance',
+      'disabled-when': 'wheel_passthrough',
       value: 120,
       defaultValue: 120,
       'label-en': 'Wheel Tick Distance',
@@ -245,6 +255,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'damping',
+      'disabled-when': 'wheel_passthrough',
       value: 3.1,
       defaultValue: 3.1,
       'label-en': 'Damping',
@@ -259,6 +270,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'min_deceleration',
+      'disabled-when': 'wheel_passthrough',
       value: 1420,
       defaultValue: 1420,
       'label-en': 'Min Deceleration',
@@ -273,6 +285,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_deceleration',
+      'disabled-when': 'wheel_passthrough',
       value: 6000,
       defaultValue: 6000,
       'label-en': 'Max Deceleration',
@@ -287,6 +300,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'initial_speed',
+      'disabled-when': 'wheel_passthrough',
       value: 600,
       defaultValue: 600,
       'label-en': 'Initial Speed',
@@ -302,6 +316,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'speed_factor',
+      'disabled-when': 'wheel_passthrough',
       value: 40,
       defaultValue: 40,
       'label-en': 'Speed Factor',
@@ -318,6 +333,7 @@ const ParamSchema = (() => {
     // --- Braking ---
     {
       key: 'use_reverse_scroll_braking',
+      'disabled-when': 'wheel_passthrough',
       value: true,
       defaultValue: true,
       'label-en': 'Reverse Scroll Braking',
@@ -329,6 +345,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_reverse_scroll_braking_microseconds',
+      'disabled-when': 'wheel_passthrough',
       value: 100000,
       defaultValue: 100000,
       'label-en': 'Max Reverse Brake Time',
@@ -345,6 +362,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_reverse_scroll_braking_times',
+      'disabled-when': 'wheel_passthrough',
       value: 3,
       defaultValue: 3,
       'label-en': 'Max Reverse Brake Count',
@@ -360,6 +378,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'reverse_scroll_intent_window_microseconds',
+      'disabled-when': 'wheel_passthrough',
       value: 200000,
       defaultValue: 200000,
       'label-en': 'Reverse Scroll Intent Window',
@@ -376,6 +395,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'use_mouse_movement_braking',
+      'disabled-when': 'wheel_passthrough',
       value: true,
       defaultValue: true,
       'label-en': 'Mouse Movement Braking',
@@ -387,6 +407,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_mouse_movement_distance',
+      'disabled-when': 'wheel_passthrough',
       value: 30,
       defaultValue: 30,
       'label-en': 'Max Mouse Movement Distance',
@@ -402,6 +423,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'mouse_movement_window_milliseconds',
+      'disabled-when': 'wheel_passthrough',
       value: 20,
       defaultValue: 20,
       'label-en': 'Mouse Movement Window',
@@ -418,6 +440,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'mouse_movement_delay_microseconds',
+      'disabled-when': 'wheel_passthrough',
       value: 100000,
       defaultValue: 100000,
       'label-en': 'Mouse Movement Delay',
@@ -636,6 +659,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'auto_scroll_wheel_action',
+      'disabled-when': 'wheel_passthrough',
       'depends-on': 'auto_scroll_latch_on_release',
       value: 0,
       defaultValue: 0,
@@ -753,6 +777,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'speed_smooth_window_microseconds',
+      'disabled-when': 'wheel_passthrough',
       value: 200000,
       defaultValue: 200000,
       'label-en': 'Speed Smooth Window',
@@ -769,6 +794,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_speed_change_lowerbound',
+      'disabled-when': 'wheel_passthrough',
       value: 512,
       defaultValue: 512,
       'label-en': 'Max Speed Change Lowerbound',
@@ -784,6 +810,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'min_speed_change_upperbound',
+      'disabled-when': 'wheel_passthrough',
       value: 512,
       defaultValue: 512,
       'label-en': 'Min Speed Change Upperbound',
@@ -799,6 +826,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'min_speed_change_ratio',
+      'disabled-when': 'wheel_passthrough',
       value: 0.0625,
       defaultValue: 0.0625,
       'label-en': 'Min Speed Change Ratio',
@@ -814,6 +842,7 @@ const ParamSchema = (() => {
     },
     {
       key: 'max_speed_change_ratio',
+      'disabled-when': 'wheel_passthrough',
       value: 0.5,
       defaultValue: 0.5,
       'label-en': 'Max Speed Change Ratio',

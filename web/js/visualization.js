@@ -7,6 +7,7 @@
 const Visualization = (() => {
   let currentScenario = 'single';
   let currentValues = {};
+  let currentValid = true;
 
   function init(values) {
     currentValues = values;
@@ -19,8 +20,9 @@ const Visualization = (() => {
     });
   }
 
-  function update(values) {
+  function update(values, valid = true) {
     currentValues = values;
+    currentValid = valid;
     run();
   }
 
@@ -30,6 +32,11 @@ const Visualization = (() => {
   }
 
   function run() {
+    document.getElementById('viz-panel').classList.toggle('invalid', !currentValid);
+    const error = document.getElementById('simulation-error');
+    error.hidden = currentValid;
+    error.textContent = I18n.t('simulation.invalid');
+    if (!currentValid) return;
     const scenario = Scenarios[currentScenario];
     if (!scenario) return;
 
@@ -55,6 +62,7 @@ const Visualization = (() => {
 
   function buildOptions(values) {
     return {
+      wheel_passthrough: values.wheel_passthrough ?? false,
       smooth_mode: values.smooth_mode ?? 2,
       wheel_tick_distance: values.wheel_tick_distance ?? 120,
       tick_interval_microseconds: values.tick_interval_microseconds ?? 2000,
@@ -182,6 +190,13 @@ const Visualization = (() => {
   }
 
   function renderTips() {
+    if (currentValues.wheel_passthrough) {
+      const tips = document.getElementById('scenario-tips');
+      if (tips) tips.textContent = I18n.lang() === 'zh'
+        ? '原样透传滚轮，不生成惯性。图表以 120 高精度单位表示一格物理滚轮；应用决定实际滚动距离。'
+        : 'Raw wheel input, without synthetic inertia. The chart represents a physical tick as 120 high-resolution units; the application determines actual travel.';
+      return;
+    }
     const scenario = Scenarios[currentScenario];
     const tipsEl = document.getElementById('scenario-tips');
     if (InstantScroll.matches(currentValues)) {

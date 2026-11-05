@@ -12,24 +12,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ConfigWriter.init(schema);
 
-  const onParamChange = (values, changedKey) => {
+  const onParamChange = (values, changedKey, editorState) => {
+    if (Profiles.ready()) {
+      Profiles.update(values, editorState);
+    }
     updateTomlPreview(values);
     if (typeof PresetUI !== 'undefined') PresetUI.updateStatus();
 
     if (typeof Visualization !== 'undefined') {
-      Visualization.update(values);
+      const id = Profiles.ready() ? Profiles.selected() : 0;
+      const valid = ConfigWriter.validateProfile(values, id).length === 0;
+      Visualization.update(values, valid);
     }
   };
 
   ConfigEditor.init(schema, onParamChange);
 
   PresetUI.initEditor();
+  ProfileUI.render();
 
   updateTomlPreview(ConfigEditor.getValues());
 
   const tomlDialog = document.getElementById('toml-dialog');
   document.getElementById('btn-preview').addEventListener('click', () => {
-    updateTomlPreview(ConfigEditor.getValues());
+    if (!updateTomlPreview(ConfigEditor.getValues())) return;
     tomlDialog.showModal();
   });
   document.getElementById('btn-close-preview').addEventListener('click', () => tomlDialog.close());
@@ -41,7 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-download').addEventListener('click', () => {
-    const toml = ConfigWriter.generate(ConfigEditor.getValues());
+    if (!updateTomlPreview(ConfigEditor.getValues())) return;
+    const toml = ConfigWriter.generateConfig(Profiles.config());
     ConfigWriter.download(toml, 'smooth-scroll.toml');
   });
 
@@ -57,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLangToggle();
     renderConfigPageLabels();
     ConfigEditor.render();
+    ProfileUI.render();
     if (typeof Visualization !== 'undefined') {
       Visualization.renderLabels();
     }
@@ -65,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderNextSteps();
     PresetUI.renderEditor();
+    updateTomlPreview(ConfigEditor.getValues());
   });
 
   updateLangToggle();
@@ -88,9 +97,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateTomlPreview(values) {
   const preview = document.getElementById('toml-preview');
-  if (preview) {
-    preview.value = ConfigWriter.generate(values);
+  const issues = Profiles.ready() ? ConfigWriter.validateConfig(Profiles.config()) : [];
+  const error = document.getElementById('export-error');
+  const previewButton = document.getElementById('btn-preview');
+  if (previewButton) previewButton.disabled = issues.length > 0;
+  const download = document.getElementById('btn-download');
+  if (download) download.disabled = issues.length > 0;
+  const nextSteps = document.getElementById('next-steps');
+  if (nextSteps) nextSteps.hidden = issues.length > 0;
+  if (error) {
+    error.hidden = issues.length === 0;
+    document.getElementById('export-error-title').textContent = I18n.t('validation.fix-before-preview');
+    document.getElementById('export-error-details').textContent = issues.map(issue => {
+      const labels = issue.keys.map(key => I18n.label(ParamSchema.params.find(param => param.key === key))).join(' / ');
+      const reason = I18n.t('validation.' + issue.kind);
+      return `Profile ${issue.profileId} — ${labels}: ${reason}`;
+    }).join('\n');
   }
+  if (preview) {
+    preview.hidden = issues.length > 0;
+    preview.value = issues.length ? '' : Profiles.ready()
+      ? ConfigWriter.generateConfig(Profiles.config()) : ConfigWriter.generate(values);
+  }
+  return issues.length === 0;
 }
 
 function updateLangToggle() {
@@ -99,6 +128,7 @@ function updateLangToggle() {
 }
 
 function renderConfigPageLabels() {
+  document.getElementById('toml-config-version').textContent = `Config v${ParamSchema.CONFIG_VERSION}`;
   const labels = [
     ['btn-download', 'btn.download'],
     ['toml-preview-label', 'toml.preview'],

@@ -1,73 +1,81 @@
 /** Presets load once; editor changes are never constrained by their source. */
 const PresetUI = (() => {
-  let activeId = 'inertia';
-  let baseline = null;
   const t = (zh, en) => I18n.lang() === 'zh' ? zh : en;
   const local = value => value[I18n.lang()];
-  function dirty() {
-    if (!baseline) return false;
-    const values = ConfigEditor.getValues();
-    return ParamSchema.params.some(p => JSON.stringify(values[p.key]) !== JSON.stringify(baseline[p.key]));
-  }
   function load(id) {
-    activeId = ConfigPresets.get(id).id;
-    baseline = null;
-    ConfigEditor.loadValues(ConfigPresets.values(activeId));
-    baseline = structuredClone(ConfigEditor.getValues());
-    const url = new URL(window.location.href);
-    url.searchParams.set('preset', activeId);
-    window.history.replaceState(null, '', url);
+    Profiles.applyPreset(id);
+    ConfigEditor.loadValues(Profiles.values());
+    Profiles.captureBaseline();
     renderEditor();
   }
   function updateStatus() {
+    if (!Profiles.ready()) return;
     const select = document.getElementById('preset-select');
     if (!select) return;
-    const modified = dirty();
+    const activeId = Profiles.presetId();
+    const modified = Profiles.modified();
+    const deviceSelected = ProfileUI.isDeviceSelected();
     for (const option of select.options) {
-      option.textContent = local(ConfigPresets.get(option.value).name);
+      option.textContent = local(ProfilePresets.get(option.value).name);
     }
     const reset = document.getElementById('btn-reset');
-    if (reset) reset.hidden = !modified;
-    select.title = local(ConfigPresets.get(activeId).description);
+    if (reset) reset.hidden = deviceSelected || Profiles.selected() === 1 || !modified;
+    select.title = local(ProfilePresets.get(activeId).description);
     const status = document.getElementById('config-status');
     if (status) {
-      status.textContent = t('预设：', 'Preset: ') + local(ConfigPresets.get(activeId).name)
-        + (modified ? t(' · 已修改', ' · Modified') : '');
-      status.title = t('基于：', 'Based on: ') + local(ConfigPresets.get(activeId).name);
+      const presetName = local(ProfilePresets.get(activeId).name);
+      status.textContent = deviceSelected
+        ? t('设备设置适用于所有 Profile', 'Device settings apply to all profiles')
+        : modified ? t(`Profile ${Profiles.selected()} · ${presetName} · 已修改`, `Profile ${Profiles.selected()} · ${presetName} · Modified`)
+        : t('所有 Profile 将一并导出', 'Exports all profiles');
+      status.title = '';
     }
   }
 
   function renderEditor() {
     const container = document.getElementById('preset-picker');
-    if (!container) return;
+    if (!container || !Profiles.ready()) return;
     container.innerHTML = '';
+    const profile = document.createElement('span');
+    profile.className = 'preset-profile';
+    profile.textContent = `Profile ${Profiles.selected()}`;
+    const controls = document.createElement('div');
+    controls.className = 'preset-controls';
     const label = document.createElement('label');
     label.htmlFor = 'preset-select';
     label.textContent = t('预设', 'Preset');
     const select = document.createElement('select');
     select.id = 'preset-select';
-    select.setAttribute('aria-label', t('选择预设', 'Choose a preset'));
+    select.setAttribute('aria-label', t('选择 Profile 预设', 'Choose a profile preset'));
     select.className = 'param-input select';
-    for (const preset of ConfigPresets.items) {
+    for (const preset of ProfilePresets.items) {
       const option = document.createElement('option');
       option.value = preset.id;
       option.textContent = local(preset.name);
       select.appendChild(option);
     }
-    select.value = activeId;
+    select.value = Profiles.presetId();
     select.addEventListener('change', () => {
       load(select.value);
       document.getElementById('preset-select').focus();
     });
-    container.append(label, select);
-    document.getElementById('btn-reset').textContent = t('重置', 'Reset');
+    controls.append(label, select);
+    container.append(profile, controls);
+    document.getElementById('btn-reset').textContent = 'Reset';
+    document.getElementById('btn-reset').title = t(`恢复 Profile ${Profiles.selected()} 的预设参数`, `Restore Profile ${Profiles.selected()}’s starting values`);
+    document.getElementById('btn-reset').setAttribute('aria-label', t(`重置 Profile ${Profiles.selected()}`, `Reset Profile ${Profiles.selected()}`));
     updateStatus();
   }
   function initEditor() {
-    load(new URLSearchParams(window.location.search).get('preset'));
+    Profiles.init(ConfigPresets.values(new URLSearchParams(window.location.search).get('preset')));
+    ConfigEditor.loadValues(Profiles.values());
+    Profiles.captureBaseline();
+    renderEditor();
   }
   function restore() {
-    load(activeId);
+    Profiles.restore();
+    ConfigEditor.loadValues(Profiles.values());
+    renderEditor();
     document.getElementById('preset-select').focus();
   }
   function renderQuickstart() {
@@ -86,7 +94,7 @@ const PresetUI = (() => {
       download.className = 'btn btn-primary';
       download.textContent = I18n.t('btn.download');
       download.addEventListener('click', () => {
-        ConfigWriter.download(ConfigWriter.generate(ConfigPresets.values(preset.id)), 'smooth-scroll.toml');
+        ConfigWriter.download(ConfigWriter.generateConfig(ConfigPresets.values(preset.id)), 'smooth-scroll.toml');
       });
       actions.appendChild(download);
       article.append(title, description, actions);
