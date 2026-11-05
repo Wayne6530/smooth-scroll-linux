@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -27,9 +28,9 @@ void readOption(const toml::table& table, const char* name, T& value)
     value = *option;
     SPDLOG_INFO("Config loaded: {} = {}", name, value);
   }
-  else
+  else if (table.contains(name))
   {
-    SPDLOG_WARN("Config '{}' not found or invalid, using default: {}", name, value);
+    SPDLOG_WARN("Config '{}' invalid, using default: {}", name, value);
   }
 }
 
@@ -41,26 +42,22 @@ void readEnum(const toml::table& table, const char* name, Enum& value, int minim
     value = static_cast<Enum>(*option);
     SPDLOG_INFO("Config loaded: {} = {}", name, *option);
   }
-  else
+  else if (table.contains(name))
   {
-    SPDLOG_WARN("Config '{}' not found or invalid, using default: {}", name, static_cast<int>(value));
+    SPDLOG_WARN("Config '{}' invalid, using default: {}", name, static_cast<int>(value));
   }
 }
 
 bool readKeyList(const toml::table& table, const char* name, std::vector<unsigned int>& keys)
 {
-  keys.clear();
   if (const auto* array = table[name].as_array())
   {
+    keys.clear();
     for (const auto& element : *array)
     {
       if (auto value = element.value<unsigned int>(); value && *value < KEY_CNT)
       {
-        if (isPointerButton(*value))
-        {
-          SPDLOG_ERROR("Config '{}' cannot contain pointer button code {} (BTN_MOUSE through BTN_TASK)", name, *value);
-          return false;
-        }
+        assert(!isPointerButton(*value));
         keys.push_back(*value);
       }
     }
@@ -123,57 +120,18 @@ bool readIgnoredDevices(const toml::table& table, std::vector<DeviceModel>& igno
   return true;
 }
 
-}  // namespace
-
-bool loadConfig(const std::string& path, Config& config)
+void readProfile(const toml::table& table, ProfileConfig& profile)
 {
-  if (access(path.c_str(), R_OK) != 0)
-    SPDLOG_INFO("Config file '{}' is not readable: {}", path, std::strerror(errno));
-
-  toml::table table;
-  try
-  {
-    table = toml::parse_file(path);
-  }
-  catch (const toml::parse_error& error)
-  {
-    SPDLOG_WARN("Parsing failed: {}", error.description());
-  }
-
-  if (auto value = table["device_event_debounce_milliseconds"].value<int>(); value && *value >= 0)
-  {
-    config.device_manager.debounce = std::chrono::milliseconds{ *value };
-    SPDLOG_INFO("Config loaded: device_event_debounce_milliseconds = {}", *value);
-  }
-  else
-  {
-    SPDLOG_WARN("Config 'device_event_debounce_milliseconds' not found or invalid, using default: {}",
-                config.device_manager.debounce.count());
-  }
-
-  if (!readIgnoredDevices(table, config.device_manager.ignored_devices))
-    return false;
-
-  readOption(table, "free_spin_button", config.session.free_spin_button);
-  readOption(table, "drag_view_button", config.session.drag_view_button);
-  readOption(table, "auto_scroll_button", config.session.auto_scroll_button);
-
-  const auto buttonsConflict = [](int lhs, int rhs) { return lhs != 0 && lhs == rhs; };
-  if (buttonsConflict(config.session.auto_scroll_button, config.session.drag_view_button) ||
-      buttonsConflict(config.session.auto_scroll_button, config.session.free_spin_button))
-  {
-    SPDLOG_ERROR(
-        "Conflicting mode button configuration: auto_scroll_button={}, drag_view_button={}, free_spin_button={}. "
-        "An enabled Auto Scroll button must differ from the Drag View and Free Spin buttons.",
-        config.session.auto_scroll_button, config.session.drag_view_button, config.session.free_spin_button);
-    return false;
-  }
-
-  if (!readKeyList(table, "keyboard_braking_keys", config.session.keyboard_braking_keys) ||
-      !readKeyList(table, "keyboard_passthrough_keys", config.session.keyboard_passthrough_keys))
-    return false;
-
-  auto& options = config.session.smoother;
+  readOption(table, "free_spin_button", profile.free_spin_button);
+  readOption(table, "drag_view_button", profile.drag_view_button);
+  readOption(table, "auto_scroll_button", profile.auto_scroll_button);
+  readOption(table, "wheel_passthrough", profile.wheel_passthrough);
+  readKeyList(table, "keyboard_braking_keys", profile.keyboard_braking_keys);
+  readKeyList(table, "keyboard_passthrough_keys", profile.keyboard_passthrough_keys);
+  assert(profile.auto_scroll_button == 0 ||
+         (profile.auto_scroll_button != profile.drag_view_button &&
+          profile.auto_scroll_button != profile.free_spin_button));
+  auto& options = profile.smoother;
   readEnum(table, "smooth_mode", options.smooth_mode, 0, 2);
   readOption(table, "wheel_tick_distance", options.wheel_tick_distance);
   readOption(table, "tick_interval_microseconds", options.tick_interval_microseconds);
@@ -208,6 +166,53 @@ bool loadConfig(const std::string& path, Config& config)
   readOption(table, "auto_scroll_click_timeout_milliseconds", options.auto_scroll_click_timeout_milliseconds);
   readOption(table, "auto_scroll_speed_factor", options.auto_scroll_speed_factor);
   readOption(table, "auto_scroll_max_speed", options.auto_scroll_max_speed);
+}
+
+}  // namespace
+
+bool loadConfig(const std::string& path, Config& config)
+{
+  if (access(path.c_str(), R_OK) != 0)
+    SPDLOG_INFO("Config file '{}' is not readable: {}", path, std::strerror(errno));
+
+  toml::table table;
+  try
+  {
+    table = toml::parse_file(path);
+  }
+  catch (const toml::parse_error& error)
+  {
+    SPDLOG_WARN("Parsing failed: {}", error.description());
+  }
+
+  if (auto value = table["device_event_debounce_milliseconds"].value<int>(); value && *value >= 0)
+  {
+    config.device_manager.debounce = std::chrono::milliseconds{ *value };
+    SPDLOG_INFO("Config loaded: device_event_debounce_milliseconds = {}", *value);
+  }
+  else if (table.contains("device_event_debounce_milliseconds"))
+  {
+    SPDLOG_WARN("Config 'device_event_debounce_milliseconds' invalid, using default: {}",
+                config.device_manager.debounce.count());
+  }
+
+  if (!readIgnoredDevices(table, config.device_manager.ignored_devices))
+    return false;
+
+  config.session.profiles.clear();
+  config.session.profiles.emplace_back();
+  readProfile(table, config.session.profiles.back());
+  if (const auto* profiles = table["profiles"].as_array())
+  {
+    for (const auto& node : *profiles)
+    {
+      const auto* profile_table = node.as_table();
+      assert(profile_table);
+      ProfileConfig profile;
+      readProfile(*profile_table, profile);
+      config.session.profiles.push_back(std::move(profile));
+    }
+  }
   return true;
 }
 

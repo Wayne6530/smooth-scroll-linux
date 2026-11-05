@@ -127,11 +127,11 @@ on top of the core daemon.
 Current extensions:
 
 - **CLI tools** (`extensions/cli`): terminal commands for reading daemon status,
-  stopping active inertial scrolling, and requesting compatibility passthrough.
+  stopping active inertial scrolling, and requesting runtime profiles.
 - **GNOME Shell extension** (`extensions/gnome`): pointer-side indicators,
-  pointer-leave braking, and per-window compatibility-passthrough rules for GNOME.
+  pointer-leave braking, and per-window profile rules for GNOME.
 - **KDE Plasma KWin effect** (`extensions/kde`): pointer-side indicators,
-  pointer-leave braking, per-application compatibility-passthrough rules, and a
+  pointer-leave braking, per-application profile rules, and a
   window-based rule picker for KDE Plasma.
 
 ![GNOME pointer-side indicators](web/assets/pointer-side-indicators.svg)

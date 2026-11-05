@@ -1,4 +1,4 @@
-# Smooth Scroll Linux - Shared Memory IPC Protocol (v2)
+# Smooth Scroll Linux - Shared Memory IPC Protocol (v3)
 
 ## 1. Overview
 
@@ -31,14 +31,16 @@ struct alignas(32) SmoothScrollIPC {
     // [0x0C] Control: Scroll ID (UI -> Daemon)
     std::atomic<uint32_t> scroll_id;     
     
-    // [0x10] Control: Compatibility Passthrough Request (UI -> Daemon)
-    std::atomic<uint32_t> compatibility_passthrough_requested;
+    // [0x10] Control: Requested Profile ID (UI -> Daemon)
+    std::atomic<uint32_t> requested_profile_id;
     
     // [0x14] Status: packed signed Auto Scroll offsets (Daemon -> UI)
     std::atomic<uint32_t> auto_scroll_offset;
 
-    // [0x18 - 0x1F] Reserved for future use
-    std::atomic<uint32_t> reserved[2];
+    // [0x18] Actual profile selected by the daemon
+    std::atomic<uint32_t> active_profile_id;
+    // [0x1C] Reserved
+    std::atomic<uint32_t> reserved;
 };
 
 static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size mismatch");
@@ -50,8 +52,8 @@ static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size mismatch");
 
 - **Purpose:** Protocol validation and versioning.
 - **High 16-bits:** Magic Number, strictly `0x5353` (ASCII: 'S', 'S').
-- **Low 16-bits:** Protocol Version, currently `0x0002`.
-- **Expected Value:** `0x53530002`.
+- **Low 16-bits:** Protocol Version, currently `0x0003`.
+- **Expected Value:** `0x53530003`.
 - **Client Behavior:** Upon mapping the shared memory, clients must verify this field. If it does not match, the daemon is either initializing or running an incompatible version, and the client must not proceed.
 
 ### 3.2 `daemon_pid` (Offset: 0x04)
@@ -83,21 +85,34 @@ The Auto Scroll axis bits form these modes:
 | 1 | 0 | Horizontal only |
 | 1 | 1 | Omnidirectional |
 
-The daemon publishes these configuration bits once during initialization. They remain valid whether Auto Scroll is active or inactive, allowing clients to prepare the correct visualization before activation.
+The daemon publishes these configuration bits during initialization and every profile switch. They remain valid whether Auto Scroll is active or inactive, allowing clients to prepare the correct visualization before activation.
 
 ### 3.4 `scroll_id` (Offset: 0x0C)
 
 - **Purpose:** Asynchronous brake trigger (UI writes, Daemon reads).
 - **Interaction:** To brake scrolling from the UI, the client increments this ID or writes a randomized `uint32_t`. For ordinary inertia this stops motion. For Auto Scroll it re-anchors a held gesture, or exits the mode when it is latched hands-free.
 
-### 3.5 `compatibility_passthrough_requested` (Offset: 0x10)
+### 3.5 `requested_profile_id` (Offset: 0x10)
 
-- **Purpose:** Requests application-compatibility passthrough (UI writes, Daemon reads).
-- **Interaction:**
-  - `0`: Normal operation.
-  - `> 0`: Request compatibility passthrough. If Free Spin, Drag View, or Auto Scroll is active, the request remains pending and the current interaction continues unchanged. Once all three modes are inactive, the daemon stops ordinary inertia, forwards the device's physical vertical and horizontal wheel events unchanged, and forwards pointer buttons without interpreting the configured feature buttons.
-- **Boundary:** The daemon samples the request once before each normal mouse event and generated tick. The current event completes under that decision; state changes caused by it are visible to the next event. `SYN_REPORT` still settles accumulated pointer movement and commits output, but does not freeze routing for the whole input frame. Sync-recovery events are handled separately.
-- **Visualization:** Clients may combine this request with the `FreeSpin`, `DragView`, and `AutoScroll` state bits to present waiting/ready hints. Such hints reflect the client's latest snapshots, not a daemon acknowledgement.
+Clients write a persistent unsigned target profile ID. Zero selects the default
+profile. The latest request replaces any earlier pending request. Requesting the
+active ID does not reset motion. Unknown IDs leave the active profile unchanged.
+The daemon never clears the request after applying it.
+
+Switching waits until Free Spin, Drag View and all Auto Scroll states have ended,
+and every key in the union of all profile passthrough bindings is released.
+Ordinary inertia is stopped on switching. Input synchronization must finish first.
+Requests are checked on input/tick wakeups; an idle daemon need not confirm
+immediately. Writing shared memory does not wake the event loop.
+The daemon checks before each normal mouse event and generated tick. The current
+event completes under that selection; changes caused by it are visible to the
+next event. `SYN_REPORT` commits output and settles accumulated pointer movement,
+but does not freeze profile selection for the whole frame. Sync recovery is
+handled separately.
+
+Profile IDs are zero-based configuration positions. By convention profile 1 is
+compatibility passthrough; desktop indicators use its actual activation. The
+daemon applies its configured options without special-casing that ID.
 
 ### 3.6 `auto_scroll_offset` (Offset: 0x14)
 
@@ -109,6 +124,13 @@ The daemon publishes these configuration bits once during initialization. They r
 - **Lifecycle:** The value is zero on entry, changes with consumed pointer movement, survives a held-to-latched transition, returns to zero when a held gesture is re-anchored, and is cleared on exit.
 
 The daemon converts each offset component to scroll speed using the configured Auto Scroll curve. Clients should use the offset vector directly for visualization rather than interpreting the ordinary `Speed`, `Horizontal`, or `Direction` fields.
+
+### 3.7 `active_profile_id` (Offset: 0x18)
+
+`active_profile_id` is written only by the daemon. Use it with `connected` to
+interpret whether a profile is currently in use. `requested != active` means the
+target has not been satisfied; it can also mean an unknown target, not just waiting.
+Fields are separate atomics, not a transactional snapshot.
 
 ## 4. Lifecycle & Health Monitoring
 

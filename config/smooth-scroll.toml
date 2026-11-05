@@ -1,7 +1,7 @@
 # Smooth Scroll for Linux - Configuration File
 # https://github.com/Wayne6530/smooth-scroll-linux
 
-# @config_version: 9
+# @config_version: 10
 
 ## Reference: Button Codes
 # DISABLED    0
@@ -72,6 +72,15 @@ ignored_devices = []
 
 # --- Scroll ---
 
+# @label-en: Wheel passthrough
+# @label-zh: 滚轮透传
+# @desc-en: Forward physical wheel events unchanged, without smoothing.
+# @desc-zh: 原样转发物理滚轮事件，不进行平滑处理。
+# @type: bool
+# @group: scroll
+wheel_passthrough = false
+
+# @disabled-when: wheel_passthrough
 # @label-en: Free Spin Button
 # @label-zh: Free Spin 按键
 # @desc-en: Mouse button code for Free Spin mode. Set to 0 to disable. When held during scrolling, inertia continues without auto-deceleration.
@@ -84,6 +93,9 @@ ignored_devices = []
 # @enum: 0|272|273|274|275|276
 free_spin_button = 273
 
+
+
+# @disabled-when: wheel_passthrough
 # @label-en: Smooth Mode
 # @label-zh: 平滑模式
 # @desc-en: Selects the smoothing model. Speed mode adapts travel distance to wheel speed. Distance mode preserves wheel_tick_distance units per accepted wheel event. Hybrid mode follows Speed mode while using Distance mode as a minimum travel distance.
@@ -98,6 +110,7 @@ free_spin_button = 273
 # @enum-labels-zh: 0=速度模式|1=距离模式|2=混合模式
 smooth_mode = 2
 
+# @disabled-when: wheel_passthrough
 # @label-en: Wheel Tick Distance
 # @label-zh: 单次滚轮距离
 # @desc-en: Distance budget added by each accepted wheel event in Distance and Hybrid modes. In Hybrid mode, it is the minimum distance per event. Native high-resolution wheel distance is usually 120.
@@ -109,6 +122,7 @@ smooth_mode = 2
 # @group: scroll
 wheel_tick_distance = 120
 
+# @disabled-when: wheel_passthrough
 # @label-en: Damping
 # @label-zh: 滚动阻尼
 # @desc-en: Controls how quickly speed decays over time. Higher values decelerate faster. If 0, only min_deceleration applies.
@@ -120,6 +134,7 @@ wheel_tick_distance = 120
 # @group: scroll
 damping = 3.1
 
+# @disabled-when: wheel_passthrough
 # @label-en: Min Deceleration
 # @label-zh: 最小减速度
 # @desc-en: Minimum deceleration rate. Higher values decelerate faster at low speeds. Ensures scrolling always slows down. Must be <= max_deceleration.
@@ -131,6 +146,7 @@ damping = 3.1
 # @group: scroll
 min_deceleration = 1420
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Deceleration
 # @label-zh: 最大减速度
 # @desc-en: Maximum deceleration rate. Smaller values reduce deceleration at high speeds, making fast scrolls last longer and travel farther. Must be >= min_deceleration.
@@ -142,6 +158,7 @@ min_deceleration = 1420
 # @group: scroll
 max_deceleration = 6000
 
+# @disabled-when: wheel_passthrough
 # @label-en: Initial Speed
 # @label-zh: 初始速度
 # @desc-en: Speed when scroll starts. Higher values increase distance per wheel tick. Combine with min_deceleration to tune feel.
@@ -153,6 +170,7 @@ max_deceleration = 6000
 # @group: scroll
 initial_speed = 600
 
+# @disabled-when: wheel_passthrough
 # @label-en: Speed Factor
 # @label-zh: 速度因子
 # @desc-en: Multiplier for scroll speed. Higher values increase speed. Works with speed_smooth_window to compute speed from event intervals.
@@ -166,6 +184,7 @@ speed_factor = 40
 
 # --- Braking ---
 
+# @disabled-when: wheel_passthrough
 # @label-en: Reverse Scroll Braking
 # @label-zh: 反向滚动制动
 # @desc-en: Enable braking when scroll direction reverses. Immediately stops current scroll when the opposite direction is detected.
@@ -174,6 +193,7 @@ speed_factor = 40
 # @group: braking
 use_reverse_scroll_braking = true
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Reverse Brake Time
 # @label-zh: 反向制动时间窗口
 # @desc-en: Time window (in microseconds) after a reverse brake. Opposite-direction events in this window are absorbed by reverse braking instead of emitting scroll immediately.
@@ -187,6 +207,7 @@ use_reverse_scroll_braking = true
 # @depends-on: use_reverse_scroll_braking
 max_reverse_scroll_braking_microseconds = 100000
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Reverse Brake Count
 # @label-zh: 反向制动最大次数
 # @desc-en: Maximum number of reverse scroll braking events before resuming normal scrolling.
@@ -199,6 +220,7 @@ max_reverse_scroll_braking_microseconds = 100000
 # @depends-on: use_reverse_scroll_braking
 max_reverse_scroll_braking_times = 3
 
+# @disabled-when: wheel_passthrough
 # @label-en: Reverse Scroll Intent Window
 # @label-zh: 反向滚动意图窗口
 # @desc-en: Time window (in microseconds) from the first reverse-braking event for treating absorbed events as one continuous reverse scroll. It controls both reverse speed estimation and restored distance; after it expires, the current event starts a new scroll.
@@ -212,6 +234,7 @@ max_reverse_scroll_braking_times = 3
 # @depends-on: use_reverse_scroll_braking
 reverse_scroll_intent_window_microseconds = 200000
 
+# @disabled-when: wheel_passthrough
 # @label-en: Mouse Movement Braking
 # @label-zh: 鼠标移动制动
 # @desc-en: Enable braking when the mouse is moved during scrolling. Moving the mouse beyond the threshold distance stops the scroll.
@@ -220,6 +243,7 @@ reverse_scroll_intent_window_microseconds = 200000
 # @group: braking
 use_mouse_movement_braking = true
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Mouse Movement Distance
 # @label-zh: 鼠标移动距离阈值
 # @desc-en: Maximum 2D mouse movement distance within the time window before scrolling stops. Lower values make braking more sensitive.
@@ -232,6 +256,7 @@ use_mouse_movement_braking = true
 # @depends-on: use_mouse_movement_braking
 max_mouse_movement_distance = 30
 
+# @disabled-when: wheel_passthrough
 # @label-en: Mouse Movement Window
 # @label-zh: 鼠标移动检测窗口
 # @desc-en: Sliding time window (in milliseconds) for tracking recent mouse movements used for braking detection.
@@ -245,6 +270,7 @@ max_mouse_movement_distance = 30
 # @depends-on: use_mouse_movement_braking
 mouse_movement_window_milliseconds = 20
 
+# @disabled-when: wheel_passthrough
 # @label-en: Mouse Movement Delay
 # @label-zh: 鼠标移动检测延迟
 # @desc-en: Delay (in microseconds) after the last wheel event before mouse movements begin accumulating for braking detection.
@@ -386,6 +412,7 @@ auto_scroll_latch_on_release = true
 # @group: auto-scroll
 auto_scroll_speed_exponent = 1.0
 
+# @disabled-when: wheel_passthrough
 # @label-en: Latched Wheel Action
 # @label-zh: 锁定状态滚轮操作
 # @desc-en: Controls physical wheel events while Auto Scroll is latched. Ignore drops the event and keeps Auto Scroll active. Exit consumes the event and exits without producing scroll.
@@ -475,6 +502,7 @@ auto_scroll_max_speed = 6000
 # @unit: us
 tick_interval_microseconds = 2000
 
+# @disabled-when: wheel_passthrough
 # @label-en: Speed Smooth Window
 # @label-zh: 速度平滑窗口
 # @desc-en: Sliding time window (in microseconds) for computing average event interval for speed estimation. Larger values smooth out speed fluctuations.
@@ -487,6 +515,7 @@ tick_interval_microseconds = 2000
 # @unit: us
 speed_smooth_window_microseconds = 200000
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Speed Change Lowerbound
 # @label-zh: 速度变化下界的最大值
 # @desc-en: Limits speed lowerbound increase to at most this much.
@@ -498,6 +527,7 @@ speed_smooth_window_microseconds = 200000
 # @group: advanced
 max_speed_change_lowerbound = 512
 
+# @disabled-when: wheel_passthrough
 # @label-en: Min Speed Change Upperbound
 # @label-zh: 速度变化上界的最小值
 # @desc-en: Limits speed upperbound increase to at least this much.
@@ -509,6 +539,7 @@ max_speed_change_lowerbound = 512
 # @group: advanced
 min_speed_change_upperbound = 512
 
+# @disabled-when: wheel_passthrough
 # @label-en: Min Speed Change Ratio
 # @label-zh: 最小速度变化比例
 # @desc-en: Minimum speed change ratio per wheel event. The actual change is min(speed * ratio, lowerbound). Must be <= max_speed_change_ratio.
@@ -520,6 +551,7 @@ min_speed_change_upperbound = 512
 # @group: advanced
 min_speed_change_ratio = 0.0625
 
+# @disabled-when: wheel_passthrough
 # @label-en: Max Speed Change Ratio
 # @label-zh: 最大速度变化比例
 # @desc-en: Maximum speed change ratio per wheel event. The actual change is max(speed * ratio, upperbound). Must be >= min_speed_change_ratio.
@@ -530,3 +562,14 @@ min_speed_change_ratio = 0.0625
 # @step: 0.01
 # @group: advanced
 max_speed_change_ratio = 0.5
+
+
+# Profile 1: compatibility passthrough / 兼容透传
+[[profiles]]
+name = "Compatibility"
+wheel_passthrough = true
+free_spin_button = 0
+drag_view_button = 0
+auto_scroll_button = 0
+keyboard_braking_keys = []
+keyboard_passthrough_keys = []

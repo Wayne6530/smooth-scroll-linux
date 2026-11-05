@@ -34,12 +34,6 @@ class WheelSmoother
   };
 
 public:
-  enum class ProcessingMode
-  {
-    Process,
-    CompatibilityPassthrough,
-  };
-
   enum class SmoothMode
   {
     Speed = 0,
@@ -110,9 +104,9 @@ public:
     double speed_factor = 40;
     int speed_smooth_window_microseconds = 200000;
     double max_speed_change_lowerbound = 512;
-    double min_speed_change_upperbound = 1024;
+    double min_speed_change_upperbound = 512;
     double min_speed_change_ratio = 0.0625;
-    double max_speed_change_ratio = 1;
+    double max_speed_change_ratio = 0.5;
     double damping = 3.1;
 
     bool use_reverse_scroll_braking = true;
@@ -146,12 +140,10 @@ public:
   WheelSmoother(const WheelSmoother&) = delete;
   WheelSmoother& operator=(const WheelSmoother&) = delete;
 
-  WheelSmoother(WheelSmoother&&) = delete;
-  WheelSmoother& operator=(WheelSmoother&&) = delete;
+  WheelSmoother(WheelSmoother&&) noexcept = default;
+  WheelSmoother& operator=(WheelSmoother&&) noexcept = default;
 
   void stop() noexcept;
-
-  [[nodiscard]] ProcessingMode prepareProcessing(bool compatibility_passthrough_requested) noexcept;
 
   void hardReset() noexcept;
 

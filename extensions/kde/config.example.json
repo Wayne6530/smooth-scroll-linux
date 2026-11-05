@@ -44,7 +44,6 @@
   },
   "passthrough": {
     "enabled": true,
-    "compatibility_when_no_regular_window": true,
     "offset_x": 12,
     "offset_y": 0,
     "size": 12,
@@ -59,6 +58,6 @@
     "stop_on_pointer_leave_window": true,
     "poll_interval_ms": 4
   },
-  "compatibility_passthrough_rules": [
-  ]
+  "profile_rules": [],
+  "shell_profile_id": 1
 }

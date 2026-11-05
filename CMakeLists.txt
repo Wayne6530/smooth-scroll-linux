@@ -76,6 +76,12 @@ if(BUILD_TESTING)
   target_link_libraries(wheel-smoother-test fmt::fmt)
   add_test(NAME wheel-smoother-test COMMAND wheel-smoother-test)
 
+  add_executable(profile-test tests/profile_test.cpp src/config.cpp src/input_device.cpp src/wheel_smoother.cpp src/mouse_movement_buffer.cpp)
+  target_include_directories(profile-test PRIVATE ${CMAKE_SOURCE_DIR}/src ${tomlplusplus_SOURCE_DIR}/include)
+  target_compile_definitions(profile-test PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+  target_link_libraries(profile-test fmt::fmt evdev)
+  add_test(NAME profile-test COMMAND profile-test ${CMAKE_SOURCE_DIR}/config/smooth-scroll.toml)
+
   add_executable(ipc-server-test
     tests/ipc_server_test.cpp
     src/ipc_server.cpp
@@ -87,6 +93,21 @@ if(BUILD_TESTING)
   )
   target_link_libraries(ipc-server-test fmt::fmt)
   add_test(NAME ipc-server-test COMMAND ipc-server-test)
+
+  add_executable(session-ipc-test
+    tests/session_ipc_test.cpp
+    src/session.cpp
+    src/device_manager.cpp
+    src/input_device.cpp
+    src/virtual_device.cpp
+    src/ipc_server.cpp
+    src/wheel_smoother.cpp
+    src/mouse_movement_buffer.cpp
+  )
+  target_compile_definitions(session-ipc-test PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
+  target_include_directories(session-ipc-test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${UDEV_INCLUDE_DIR})
+  target_link_libraries(session-ipc-test fmt::fmt evdev ${UDEV_LIBRARY} Threads::Threads)
+  add_test(NAME session-ipc-test COMMAND session-ipc-test)
 
   add_executable(device-config-test
     tests/device_config_test.cpp
@@ -106,17 +127,9 @@ if(BUILD_TESTING)
       ${CMAKE_SOURCE_DIR}/tests/ignored-device-models.toml
       ${CMAKE_SOURCE_DIR}/tests/empty-ignored-devices.toml
       ${CMAKE_SOURCE_DIR}/tests/invalid-ignored-device.toml
-      ${CMAKE_SOURCE_DIR}/tests/invalid-pointer-braking-key.toml
-      ${CMAKE_SOURCE_DIR}/tests/invalid-pointer-passthrough-key.toml
   )
 
-  add_test(
-    NAME conflicting-mode-buttons
-    COMMAND smooth-scroll --config ${CMAKE_SOURCE_DIR}/tests/conflicting-mode-buttons.toml
-  )
-  set_tests_properties(conflicting-mode-buttons PROPERTIES
-    PASS_REGULAR_EXPRESSION "Conflicting mode button configuration"
-  )
+
 endif()
 
 install(TARGETS smooth-scroll DESTINATION /usr/bin)

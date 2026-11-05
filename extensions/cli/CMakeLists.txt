@@ -29,11 +29,11 @@ target_link_libraries(ss-status PRIVATE smooth_scroll_cli_ipc)
 add_executable(ss-stop src/ss_stop.cpp)
 target_link_libraries(ss-stop PRIVATE smooth_scroll_cli_ipc)
 
-add_executable(ss-passthrough src/ss_passthrough.cpp)
-target_link_libraries(ss-passthrough PRIVATE smooth_scroll_cli_ipc)
+add_executable(ss-profile src/ss_profile.cpp)
+target_link_libraries(ss-profile PRIVATE smooth_scroll_cli_ipc)
 
 install(
-  TARGETS ss-status ss-stop ss-passthrough
+  TARGETS ss-status ss-stop ss-profile
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 

@@ -6,9 +6,9 @@ session-aware behavior in KDE Plasma.
 
 It provides:
 
-- compatibility passthrough when the pointer is not over a regular application
+- configurable profile selection when the pointer is not over a regular application
   window
-- per-application compatibility-passthrough rules
+- per-application profile rules
 - inertial scrolling stop when the pointer leaves the window where scrolling
   started
 - pointer-side indicators for inertial scrolling, Free Spin, Drag View, Auto
@@ -129,9 +129,7 @@ cp config.example.json ~/.config/smooth-scroll-kde-effect/config.json
 The effect reloads the file when it changes.
 
 `dot`, `free_spin`, `arrow`, `auto_scroll`, and `passthrough` control the
-pointer-side indicators. `passthrough.compatibility_when_no_regular_window`
-requests compatibility passthrough over Plasma surfaces and other
-non-application windows.
+pointer-side indicators. `shell_profile_id` selects the profile for Plasma surfaces and defaults to 1.
 
 `free_spin` controls the ring drawn around the current indicator while Free
 Spin is active. `color` and `alpha` control its normal appearance; `ring_gap`
@@ -152,10 +150,11 @@ state. The default is 4ms for lower indicator latency. Increasing it reduces
 compositor-thread wakeups, but makes the indicators feel less responsive.
 
 The Free Spin ring remains visible while Free Spin is active, including when
-its scroll speed reaches zero. If compatibility passthrough is requested while
+its scroll speed reaches zero. If a different profile is requested while
 Free Spin, Drag View, or Auto Scroll is active, the current special-mode
-indicator turns red until that interaction ends; the normal full-size X then
-indicates that compatibility passthrough is ready. Auto Scroll keeps its
+indicator uses the configured passthrough color while the request is pending.
+The normal full-size X appears only when profile 1 (compatibility passthrough)
+is active. Auto Scroll keeps its
 neutral origin frame and recolors only its moving dot.
 
 `passthrough.enabled = false` disables both the full X and the pending warning
@@ -163,13 +162,13 @@ color. `passthrough.color` controls both appearances.
 
 Keyboard passthrough does not display the compatibility indicator.
 
-## Compatibility-Passthrough Rules
+## Profile Rules
 
-Do not start by editing `compatibility_passthrough_rules` manually. The easiest
+Do not start by editing `profile_rules` manually. The easiest
 and most reliable workflow is to let KWin identify the window for you:
 
 ```bash
-smooth-scroll-kde-rule pick
+smooth-scroll-kde-rule pick --profile 1
 ```
 
 The command waits three seconds. Move the pointer over the target window before
@@ -183,30 +182,56 @@ the matching rule in:
 Useful commands:
 
 ```bash
-smooth-scroll-kde-rule preview
+smooth-scroll-kde-rule preview --profile 1
 smooth-scroll-kde-rule info
-smooth-scroll-kde-rule pick --disable
-smooth-scroll-kde-rule pick --title
-smooth-scroll-kde-rule pick --delay 5
+smooth-scroll-kde-rule pick --profile 0
+smooth-scroll-kde-rule pick --profile 1 --title
+smooth-scroll-kde-rule pick --profile 1 --delay 5
 ```
 
 - `preview` prints the rule without writing it.
 - `info` prints the window ids KWin sees under the pointer.
-- `pick --disable` writes `compatibility_passthrough=false` for the selected
+- `pick --profile 0` selects the default profile for the selected
   app/window.
-- `pick --title` creates a title-specific override under the app rule.
-- `pick --delay 5` gives you five seconds to move the pointer.
+- `pick --profile 1 --title` creates a title-specific override under the app rule.
+- `pick --profile 1 --delay 5` gives you five seconds to move the pointer.
 
 Use `--title` only when one window title should behave differently from the rest
 of the same application.
 
-For manual edits, `compatibility_passthrough_rules` accepts application/window
+For manual edits, `profile_rules` accepts application/window
 rules. `app` matches KWin's `desktopFileName()` first and also falls back to the
 window class. Use `class` only when you need to match the window class directly.
 
-Rules and title overrides use the `compatibility_passthrough` boolean. The old
-`force_passthrough_rules`, `force_passthrough`, and
-`force_when_no_regular_window` names are not read or migrated.
+Rules and title overrides use numeric `profile_id` values. The daemon's top-level
+options are profile 0; successive `[[profiles]]` tables are 1, 2, and so on.
+Profile 1 is compatibility passthrough in the default configuration. Use
+`--profile 2`, for example, to select your third configured profile.
+
+```json
+{
+  "shell_profile_id": 1,
+  "profile_rules": [
+    {
+      "app": "firefox",
+      "profile_id": 0,
+      "titles": [{"title": "Example", "profile_id": 1}]
+    }
+  ]
+}
+```
+
+The first matching application rule is used. Within it, the first matching title
+regular expression overrides the app profile. An omitted title `profile_id`
+uses the app profile; an omitted app `profile_id` is 0. Set `enabled: false` on
+an app or title rule to skip it. Without a matching app rule, profile 0 is used.
+Title expressions use Qt regular expression syntax. `shell_profile_id` selects
+the profile outside regular application windows and defaults to 1.
+
+Requests wait for Free Spin, Drag View and Auto Scroll to finish and for all
+keyboard passthrough keys configured in any profile to be released. Ordinary
+inertia stops on switching. An idle daemon may apply the request on the next
+input. The plugin and daemon must use IPC v3.
 
 ## Troubleshooting
 
@@ -215,9 +240,12 @@ available, the running KWin process has not loaded this effect yet. Enable the
 effect in System Settings, then log out and back in or restart KWin.
 
 If the indicators appear but the daemon does not react to
-compatibility-passthrough requests, check that the Smooth Scroll daemon is
+profile requests, check that the Smooth Scroll daemon is
 running and has created:
 
 ```text
 /dev/shm/smooth_scroll_shm
 ```
+
+If a request remains pending, check that its ID exists in the daemon configuration
+and that no special interaction or keyboard passthrough key is still active.

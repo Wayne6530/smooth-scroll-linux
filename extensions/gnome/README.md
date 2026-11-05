@@ -1,7 +1,7 @@
 # Smooth Scroll IPC Companion
 
 This GNOME Shell extension adds visual indicators and per-window
-compatibility-passthrough rules for Smooth Scroll Linux. It communicates with
+profile rules for Smooth Scroll Linux. It communicates with
 the daemon through the shared-memory IPC file:
 
 ```text
@@ -10,8 +10,8 @@ the daemon through the shared-memory IPC file:
 
 While this extension is enabled, avoid running other tools that write Smooth
 Scroll IPC control fields, including the bundled CLI control commands. Competing
-writes to `scroll_id` or `compatibility_passthrough_requested` can make
-compatibility-passthrough or braking behavior unpredictable.
+writes to `scroll_id` or `requested_profile_id` can make
+profile selection or braking behavior unpredictable.
 
 ## Features
 
@@ -24,7 +24,7 @@ compatibility-passthrough or braking behavior unpredictable.
 - Draws an outer ring while Free Spin is active, including at zero speed.
 - Stops inertial scrolling when the pointer leaves the window where scrolling
   started.
-- Applies `compatibility_passthrough` from per-window rules based on the window
+- Applies numeric `profile_id` from per-window rules based on the window
   under the pointer.
 
 ## Install
@@ -104,7 +104,8 @@ origin circle; the daemon limits that offset at the displacement corresponding
 to the configured maximum Auto Scroll speed.
 
 `passthrough` controls the full X drawn while compatibility passthrough is
-ready and the warning color used while a special mode is still active.
+active (profile 1), and the warning color used when a profile change is pending
+during a special mode.
 `"enabled": false` disables both behaviors. `offset_x` and `offset_y` control
 the full X placement relative to the pointer. `size`, `padding_scale`,
 `min_padding`, `line_width_scale`, `min_line_width`, and `alpha` control the X;
@@ -125,32 +126,29 @@ windows. The defaults, `interval_ms = 4` and `event_fresh_ms = 6`, are tuned for
 
 ## Window Rules
 
-Smooth scrolling is only applied inside regular application windows. When the
-pointer is on GNOME Desktop, GNOME Dock / Ubuntu Dock / Dash to Dock, the GNOME
+When the pointer is on GNOME Desktop, GNOME Dock / Ubuntu Dock / Dash to Dock, the GNOME
 overview, workspace switcher, menus, or other Shell UI, the extension requests
-compatibility passthrough. The full X appears when it is ready; an active Free
-Spin, Drag View, or Auto Scroll interaction continues first with its indicator
-recolored to the configured passthrough color.
+`shell_profile_id` (default 1, compatibility passthrough). The full X appears
+when profile 1 is active. If a different profile is requested during Free Spin,
+Drag View or Auto Scroll, that interaction continues with its indicator recolored
+to the configured passthrough color while the request is pending.
 
-Use `compatibility_passthrough_rules` when a specific application window should
-use compatibility passthrough. The old `force_passthrough_rules` and
-`force_passthrough` names are not read or migrated. Each app rule must include:
+Use `profile_rules` to select a profile for application windows. App rules use these fields:
 
 - `app`: exact app id from Looking Glass, for example
   `firefox_firefox.desktop`.
-- `compatibility_passthrough`: default compatibility passthrough behavior for
-  this app.
+- `profile_id`: profile selected for this app (default 0).
 - `titles`: optional title-specific overrides for this app.
 
 Each item under `titles` uses:
 
 - `title`: JavaScript regular expression matched against the window title.
-- `compatibility_passthrough`: compatibility passthrough behavior when the title
-  matches.
+- `profile_id`: profile selected when the title matches; omitted values use
+  the app rule’s profile.
 
 The first app rule whose `app` matches is used. Inside that rule, title rules
 are checked in order; the first matching title rule overrides the app default.
-If no app rule matches the current window, smooth scrolling stays enabled for
+If no app rule matches the current window, profile 0 is requested for
 that window.
 
 ### Finding Window Values
@@ -175,7 +173,7 @@ Use the `app:` value:
 ```json
 {
   "app": "firefox_firefox.desktop",
-  "compatibility_passthrough": true
+  "profile_id": 1
 }
 ```
 
@@ -189,11 +187,11 @@ window title instead of the whole title:
 ```json
 {
   "app": "microsoft-edge.desktop",
-  "compatibility_passthrough": false,
+  "profile_id": 0,
   "titles": [
     {
       "title": "Google Docs",
-      "compatibility_passthrough": true
+      "profile_id": 1
     }
   ]
 }
@@ -202,21 +200,35 @@ window title instead of the whole title:
 This means Edge normally does not use compatibility passthrough, but Edge
 windows whose title contains `Google Docs` do.
 
-Put app rules inside `compatibility_passthrough_rules`:
+Put app rules inside `profile_rules`:
 
 ```json
 {
-  "compatibility_passthrough_rules": [
+  "profile_rules": [
     {
       "app": "firefox_firefox.desktop",
-      "compatibility_passthrough": true
+      "profile_id": 1
     }
   ]
 }
 ```
 
+Set `enabled: false` on an app or title rule to skip it.
+
 After adding or editing rules, save `config.json`. The extension reloads it
 automatically. Move the pointer over the target window; if compatibility
-passthrough is ready, the full X appears near the pointer. If Free Spin, Drag
-View, or Auto Scroll is still active, its current indicator turns red to show
-that the request is waiting for the special mode to end.
+passthrough (profile 1) is active, the full X appears near the pointer. If a
+profile change is pending during Free Spin, Drag View or Auto Scroll, its
+indicator uses the configured passthrough color (red by default).
+
+Profile IDs correspond to the daemon configuration: top-level options are 0,
+and successive `[[profiles]]` tables are 1, 2, and so on. The default configuration
+reserves profile 1 for compatibility passthrough. Other IDs select your custom
+profiles; they do not display the compatibility X. Set `shell_profile_id` at the
+JSON root to choose a different profile for Shell UI.
+
+Requests wait for Free Spin, Drag View and Auto Scroll to finish and for all
+keyboard passthrough keys configured in any profile to be released. Ordinary
+inertia stops on switching. An idle daemon may apply the request on the next
+input. Ensure the requested ID exists; an unknown ID leaves the active profile
+unchanged. The plugin and daemon must use IPC v3.

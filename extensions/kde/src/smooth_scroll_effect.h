@@ -30,15 +30,15 @@ namespace SmoothScrollKWin
 struct TitleRule
 {
   QRegularExpression title;
-  bool compatibilityPassthrough = false;
+  uint32_t profileId = 0;
   bool enabled = true;
 };
 
-struct CompatibilityPassthroughRule
+struct ProfileRule
 {
   QString app;
   QString windowClass;
-  bool compatibilityPassthrough = false;
+  uint32_t profileId = 0;
   bool enabled = true;
   QList<TitleRule> titles;
 };
@@ -52,7 +52,8 @@ struct Config
   PassthroughVisualConfig passthrough;
   bool stopOnPointerLeaveWindow = true;
   int pollIntervalMs = 4;
-  QList<CompatibilityPassthroughRule> compatibilityPassthroughRules;
+  uint32_t shellProfileId = 1;
+  QList<ProfileRule> profileRules;
 };
 
 struct WindowInfo
@@ -83,9 +84,9 @@ public:
 
 public Q_SLOTS:
   Q_SCRIPTABLE QVariantMap currentWindowInfo() const;
-  Q_SCRIPTABLE QString suggestedCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+  Q_SCRIPTABLE QString suggestedProfileRuleForCurrentWindow(uint profileId,
                                                                                bool includeTitle) const;
-  Q_SCRIPTABLE QString setCompatibilityPassthroughRuleForCurrentWindow(bool compatibilityPassthrough,
+  Q_SCRIPTABLE QString setProfileRuleForCurrentWindow(uint profileId,
                                                                          bool includeTitle);
 
 private:
@@ -97,9 +98,9 @@ private:
   KWin::EffectWindow* windowAt(const QPointF& pos) const;
   static bool isRegularApplicationWindow(KWin::EffectWindow* window);
   static WindowInfo infoForWindow(KWin::EffectWindow* window);
-  bool shouldRequestCompatibilityPassthrough(KWin::EffectWindow* window, const WindowInfo& info) const;
-  bool ruleMatches(const CompatibilityPassthroughRule& rule, const WindowInfo& info) const;
-  bool setCompatibilityPassthroughRequested(bool enabled);
+  uint32_t requestedProfileForWindow(KWin::EffectWindow* window, const WindowInfo& info) const;
+  bool ruleMatches(const ProfileRule& rule, const WindowInfo& info) const;
+  bool setRequestedProfile(uint32_t id);
   void initializeOverlayViews();
 #if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
   void recreateOverlayViewsForScaleChange();
@@ -117,7 +118,7 @@ private:
   void hideOverlay();
   void hideAutoScrollDot();
   static IndicatorMode overlayModeForState(const Config& config, const IpcSnapshot& snapshot,
-                                           bool compatibilityPassthroughReady);
+                                           bool wheelPassthroughReady);
   static int visualSizeForMode(const Config& config, IndicatorMode mode);
   static QPoint visualOffsetForMode(const Config& config, IndicatorMode mode);
   static double alphaForMode(const Config& config, IndicatorMode mode, uint32_t speed);
@@ -162,8 +163,8 @@ private:
   bool m_stopRequestedForAnchor = false;
   uint32_t m_lastSpeed = 0;
   uint32_t m_lastPid = 0;
-  bool m_lastCompatibilityPassthroughRequested = false;
-  bool m_haveLastCompatibilityPassthroughRequested = false;
+  uint32_t m_lastRequestedProfile = 0;
+  bool m_haveLastRequestedProfile = false;
   bool m_dbusServiceRegistered = false;
   bool m_dbusObjectRegistered = false;
 };

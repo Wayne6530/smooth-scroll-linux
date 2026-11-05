@@ -11,7 +11,7 @@
 #include "device_manager.h"
 #include "ipc_server.h"
 #include "virtual_device.h"
-#include "wheel_smoother.h"
+#include "profile.h"
 
 namespace smooth_scroll
 {
@@ -47,11 +47,12 @@ public:
   [[nodiscard]] RunResult run(const std::atomic_bool& shutdown);
 
 private:
+  friend struct SessionIpcTestAccess;
+
   struct KeyboardState
   {
     InputDeviceHandle device;
-    std::array<bool, KEY_CNT> passthrough_pressed{};
-    int num_passthrough = 0;
+    KeyboardPassthroughState passthrough;
   };
 
   Session(SessionResources resources, const SessionConfig& config, VirtualDevice& virtual_device, IpcServer& ipc,
@@ -62,26 +63,28 @@ private:
   [[nodiscard]] CreateResult waitUntilAllKeysReleased(const std::atomic_bool& shutdown);
   [[nodiscard]] bool anyPhysicalKeyPressed() const noexcept;
   [[nodiscard]] bool writeEvents(const timeval& time);
-  void handleObservedKey(unsigned int code, int value, std::array<bool, KEY_CNT>& passthrough_pressed,
-                         int& source_num_passthrough);
-  [[nodiscard]] WheelSmoother::ProcessingMode prepareProcessing() noexcept;
+  void handleObservedKey(unsigned int code, int value, KeyboardPassthroughState& source);
+  // Returns true when a brake or switch invalidates a previously scheduled tick.
+  bool processIpcRequests();
+  void publishProfileState();
+  WheelSmoother& smoother() noexcept { return activeProfile().smoother; }
   void stopMotion();
   void updateAutoScrollIpc();
 
   InputDeviceHandle mouse_;
   std::vector<KeyboardState> keyboards_;
   std::unique_ptr<DeviceMonitor> monitor_;
-  const SessionConfig& config_;
   VirtualDevice& virtual_device_;
   IpcServer& ipc_;
-  WheelSmoother wheel_smoother_;
-  std::array<bool, KEY_CNT> braking_keys_{};
-  std::array<bool, KEY_CNT> passthrough_keys_{};
-  std::array<bool, KEY_CNT> mouse_passthrough_pressed_{};
+  std::vector<ProfileRuntime> profiles_;
+  ProfileId active_profile_index_ = 0;
+  ProfileRuntime& activeProfile() noexcept { return profiles_[active_profile_index_]; }
+  std::array<bool, KEY_CNT> passthrough_union_keys_{};
+  KeyboardPassthroughState mouse_passthrough_;
   std::vector<int> supported_mouse_keys_;
   std::vector<input_event> events_;
   MouseFrameState mouse_frame_;
-  int mouse_num_passthrough_ = 0;
+  int num_union_pressed_ = 0;
   int num_passthrough_ = 0;
   int shutdown_fd_ = -1;
   bool grabbed_ = false;

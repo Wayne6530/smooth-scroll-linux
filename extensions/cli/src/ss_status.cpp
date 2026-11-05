@@ -15,7 +15,8 @@ int main()
 
   uint32_t last_state = 0xFFFFFFFF;
   uint32_t last_auto_scroll_offset = 0xFFFFFFFF;
-  uint32_t last_compatibility_passthrough_requested = 0xFFFFFFFF;
+  uint32_t last_requested_profile_id = 0xFFFFFFFF;
+  uint32_t last_active_profile_id = 0xFFFFFFFF;
 
   while (true)
   {
@@ -27,15 +28,16 @@ int main()
 
     uint32_t current_state = ipc->state_bits.load(std::memory_order_relaxed);
     uint32_t current_auto_scroll_offset = ipc->auto_scroll_offset.load(std::memory_order_relaxed);
-    uint32_t current_compatibility_passthrough_requested =
-        ipc->compatibility_passthrough_requested.load(std::memory_order_relaxed);
+    uint32_t current_requested_profile_id =
+        ipc->requested_profile_id.load(std::memory_order_relaxed);
 
-    if (current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset ||
-        current_compatibility_passthrough_requested != last_compatibility_passthrough_requested)
+    const uint32_t active_profile_id = ipc->active_profile_id.load(std::memory_order_relaxed);
+    if (active_profile_id != last_active_profile_id || current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset ||
+        current_requested_profile_id != last_requested_profile_id)
     {
       bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
       bool keyboard_passthrough = current_state & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH;
-      bool compatibility_passthrough_requested = current_compatibility_passthrough_requested != 0;
+
       bool drag_view = current_state & smooth_scroll::IPC_STATE_DRAG_VIEW;
       bool free_spin = current_state & smooth_scroll::IPC_STATE_FREE_SPIN;
       bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;
@@ -52,8 +54,9 @@ int main()
                 << "\"pid\":" << pid << ","
                 << "\"connected\":" << (connected ? "true" : "false") << ","
                 << "\"keyboard_passthrough\":" << (keyboard_passthrough ? "true" : "false") << ","
-                << "\"compatibility_passthrough_requested\":"
-                << (compatibility_passthrough_requested ? "true" : "false") << ","
+                << "\"requested_profile_id\":"
+                << current_requested_profile_id << ","
+                << "\"active_profile_id\":" << active_profile_id << ","
                 << "\"drag_view\":" << (drag_view ? "true" : "false") << ","
                 << "\"free_spin\":" << (free_spin ? "true" : "false") << ","
                 << "\"auto_scroll\":" << (auto_scroll ? "true" : "false") << ","
@@ -68,9 +71,10 @@ int main()
                 << "\"speed\":" << speed << "}\n"
                 << std::flush;
 
+      last_active_profile_id = active_profile_id;
       last_state = current_state;
       last_auto_scroll_offset = current_auto_scroll_offset;
-      last_compatibility_passthrough_requested = current_compatibility_passthrough_requested;
+      last_requested_profile_id = current_requested_profile_id;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(16));

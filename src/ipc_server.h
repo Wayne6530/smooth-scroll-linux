@@ -46,7 +46,8 @@ public:
 
   [[nodiscard]] bool checkBrakeRequest() noexcept;
 
-  [[nodiscard]] bool isCompatibilityPassthroughRequested() const noexcept;
+  [[nodiscard]] uint32_t requestedProfileId() const noexcept;
+  void setActiveProfileId(uint32_t id) noexcept;
 
 private:
   void cleanup() noexcept;

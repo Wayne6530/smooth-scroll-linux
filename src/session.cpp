@@ -34,29 +34,22 @@ Session::Session(SessionResources resources, const SessionConfig& config, Virtua
                  IpcServer& ipc, int shutdown_fd)
   : mouse_{ std::move(resources.devices.mouse) }
   , monitor_{ std::move(resources.monitor) }
-  , config_{ config }
   , virtual_device_{ virtual_device }
   , ipc_{ ipc }
-  , wheel_smoother_{ config.smoother }
   , shutdown_fd_{ shutdown_fd }
 {
   keyboards_.reserve(resources.devices.keyboards.size());
   for (auto& device : resources.devices.keyboards)
-    keyboards_.push_back({ std::move(device), {}, 0 });
+    keyboards_.push_back({ std::move(device), {} });
 
-  for (unsigned int key : config.keyboard_braking_keys)
+  profiles_.reserve(config.profiles.size());
+  for (const auto& profile : config.profiles)
   {
-    if (key < KEY_CNT && !isPointerButton(key))
-      braking_keys_[key] = true;
+    profiles_.emplace_back(profile);
+    for (auto key : profile.keyboard_passthrough_keys)
+      passthrough_union_keys_[key] = true;
   }
-  // Entering modifier passthrough must also stop an already-running inertial scroll.
-  for (unsigned int key : config.keyboard_passthrough_keys)
-  {
-    if (key >= KEY_CNT || isPointerButton(key))
-      continue;
-    braking_keys_[key] = true;
-    passthrough_keys_[key] = true;
-  }
+  assert(!profiles_.empty());
 
   for (std::size_t code = 0; code < mouse_.info().capabilities.keys.size(); ++code)
   {
@@ -130,23 +123,16 @@ Session::CreateResult Session::initialize(const std::atomic_bool& shutdown)
 
   for (KeyboardState& keyboard : keyboards_)
   {
-    for (unsigned int key : config_.keyboard_passthrough_keys)
+    for (unsigned int key = 0; key < KEY_CNT; ++key)
     {
-      if (key >= KEY_CNT || isPointerButton(key))
-        continue;
-      if (libevdev_get_event_value(keyboard.device.evdev(), EV_KEY, key) != 0)
-      {
-        keyboard.passthrough_pressed[key] = true;
-        ++keyboard.num_passthrough;
-        ++num_passthrough_;
-      }
+      if (passthrough_union_keys_[key] &&
+          libevdev_get_event_value(keyboard.device.evdev(), EV_KEY, key) != 0)
+        handleObservedKey(key, 1, keyboard.passthrough);
     }
   }
 
   ipc_.setConnected();
-  ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
-  ipc_.setAutoScrollAxes(wheel_smoother_.auto_scroll_horizontal_enabled(),
-                         wheel_smoother_.auto_scroll_vertical_enabled());
+  publishProfileState();
   return CreateResult::Success;
 }
 
@@ -216,57 +202,58 @@ bool Session::writeEvents(const timeval& time)
   return false;
 }
 
-void Session::handleObservedKey(unsigned int code, int value, std::array<bool, KEY_CNT>& passthrough_pressed,
-                                int& source_num_passthrough)
+void Session::handleObservedKey(unsigned int code, int value, KeyboardPassthroughState& source)
 {
   if (code >= KEY_CNT || isPointerButton(code) || value == 2)
     return;
-
-  if (braking_keys_[code])
+  if (activeProfile().braking_keys[code])
     stopMotion();
-
-  if (!passthrough_keys_[code])
+  if (!passthrough_union_keys_[code])
     return;
-
-  if (value == 1 && !passthrough_pressed[code])
-  {
-    passthrough_pressed[code] = true;
-    ++source_num_passthrough;
-    ++num_passthrough_;
-  }
-  else if (value == 0 && passthrough_pressed[code])
-  {
-    passthrough_pressed[code] = false;
-    --source_num_passthrough;
-    --num_passthrough_;
-  }
+  const bool active = activeProfile().passthrough_keys[code];
+  const int change = source.update(code, value, active);
+  num_union_pressed_ += change;
+  if (active)
+    num_passthrough_ += change;
   ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
 }
 
 void Session::stopMotion()
 {
-  wheel_smoother_.stop();
+  smoother().stop();
   ipc_.setSpeed(0, false, false);
   updateAutoScrollIpc();
 }
 
-WheelSmoother::ProcessingMode Session::prepareProcessing() noexcept
+bool Session::processIpcRequests()
 {
-  const auto mode = wheel_smoother_.prepareProcessing(ipc_.isCompatibilityPassthroughRequested());
-  if (mode == WheelSmoother::ProcessingMode::CompatibilityPassthrough)
-  {
-    // Compatibility mode has already stopped ordinary motion, so a brake that
-    // is pending at this processing point is satisfied and can be acknowledged.
-    static_cast<void>(ipc_.checkBrakeRequest());
-    ipc_.setSpeed(0, false, false);
-  }
-  return mode;
+  const bool braked = ipc_.checkBrakeRequest();
+  if (braked)
+    stopMotion();
+
+  // Braking can end a latched mode and make a pending profile switch eligible.
+  const auto requested = ipc_.requestedProfileId();
+  if (requested >= profiles_.size() || requested == active_profile_index_ ||
+      !activeProfile().canDeactivate(num_union_pressed_))
+    return braked;
+  smoother().stop();
+  active_profile_index_ = requested;
+  publishProfileState();
+  return true;
+}
+
+void Session::publishProfileState()
+{
+  ipc_.resetMotionState();
+  ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
+  ipc_.setAutoScrollAxes(smoother().auto_scroll_horizontal_enabled(), smoother().auto_scroll_vertical_enabled());
+  ipc_.setActiveProfileId(active_profile_index_);
 }
 
 void Session::updateAutoScrollIpc()
 {
-  ipc_.setAutoScroll(wheel_smoother_.auto_scroll());
-  ipc_.setAutoScrollOffset(wheel_smoother_.auto_scroll_offset_x(), wheel_smoother_.auto_scroll_offset_y());
+  ipc_.setAutoScroll(smoother().auto_scroll());
+  ipc_.setAutoScrollOffset(smoother().auto_scroll_offset_x(), smoother().auto_scroll_offset_y());
 }
 
 Session::RunResult Session::run(const std::atomic_bool& shutdown)
@@ -293,7 +280,8 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
   {
     fd_set read_fds = descriptors;
 
-    auto timeout = wheel_smoother_.timeout();
+    processIpcRequests();
+    auto timeout = smoother().timeout();
     const int select_result = select(max_fd + 1, &read_fds, nullptr, nullptr, timeout ? &*timeout : nullptr);
     if (select_result < 0)
     {
@@ -304,18 +292,14 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
     }
     if (select_result == 0)
     {
-      if (ipc_.checkBrakeRequest())
+      if (!processIpcRequests())
       {
-        stopMotion();
-      }
-      else if (prepareProcessing() == WheelSmoother::ProcessingMode::Process)
-      {
-        const auto tick_result = wheel_smoother_.tick();
+        const auto tick_result = smoother().tick();
         for (std::size_t i = 0; i < tick_result.count; ++i)
           events_.push_back(tick_result.events[i]);
         if (tick_result.count > 0 && !writeEvents(tick_result.events[0].time))
           return RunResult::InputOutputError;
-        ipc_.setSpeed(wheel_smoother_.speed(), wheel_smoother_.positive(), wheel_smoother_.horizontal());
+        ipc_.setSpeed(smoother().speed(), smoother().positive(), smoother().horizontal());
       }
       continue;
     }
@@ -358,14 +342,17 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
         }
 
         last_input_event_time = event.time;
+        if (read_flag == LIBEVDEV_READ_FLAG_NORMAL)
+          processIpcRequests();
         if (event.type == EV_KEY)
-          handleObservedKey(event.code, event.value, iterator->passthrough_pressed, iterator->num_passthrough);
+          handleObservedKey(event.code, event.value, iterator->passthrough);
       }
 
       if (result == -ENODEV)
       {
         SPDLOG_WARN("Keyboard device lost: {}", iterator->device.info().path);
-        num_passthrough_ -= iterator->num_passthrough;
+        num_passthrough_ -= iterator->passthrough.active_pressed;
+        num_union_pressed_ -= iterator->passthrough.union_pressed;
         ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
         iterator = keyboards_.erase(iterator);
         rebuildDescriptors();
@@ -394,7 +381,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           {
             events_.clear();
             mouse_frame_ = {};
-            wheel_smoother_.hardReset();
+            smoother().hardReset();
             ipc_.resetMotionState();
             read_flag = LIBEVDEV_READ_FLAG_SYNC;
             continue;
@@ -407,7 +394,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           else if (event.type != EV_MSC)
           {
             if (event.type == EV_KEY)
-              handleObservedKey(event.code, event.value, mouse_passthrough_pressed_, mouse_num_passthrough_);
+              handleObservedKey(event.code, event.value, mouse_passthrough_);
             events_.push_back(event);
           }
           last_input_event_time = event.time;
@@ -417,9 +404,9 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           break;
 
         last_input_event_time = event.time;
-        const auto processing_mode = prepareProcessing();
-        const bool compatibility_passthrough =
-          processing_mode == WheelSmoother::ProcessingMode::CompatibilityPassthrough;
+        processIpcRequests();
+        const auto& profile = activeProfile().config;
+        const bool wheel_passthrough = profile.wheel_passthrough;
         switch (event.type)
         {
           case EV_REL:
@@ -427,32 +414,30 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
             {
               case REL_WHEEL:
               case REL_HWHEEL:
-                if (num_passthrough_ || compatibility_passthrough)
+                if (num_passthrough_ || wheel_passthrough)
                 {
                   events_.push_back(event);
                 }
                 else
                 {
-                  if (ipc_.checkBrakeRequest())
-                    wheel_smoother_.stop();
                   if (auto wheel_event =
-                          wheel_smoother_.handleEvent(event.time, event.value > 0, event.code == REL_HWHEEL))
+                          smoother().handleEvent(event.time, event.value > 0, event.code == REL_HWHEEL))
                     events_.push_back(*wheel_event);
-                  ipc_.setSpeed(wheel_smoother_.speed(), wheel_smoother_.positive(), wheel_smoother_.horizontal());
+                  ipc_.setSpeed(smoother().speed(), smoother().positive(), smoother().horizontal());
                   updateAutoScrollIpc();
                 }
                 break;
               case REL_WHEEL_HI_RES:
               case REL_HWHEEL_HI_RES:
-                if (num_passthrough_ || compatibility_passthrough)
+                if (num_passthrough_ || wheel_passthrough)
                   events_.push_back(event);
                 break;
               case REL_X:
-                if (wheel_smoother_.handleRelXEvent(event, mouse_frame_))
+                if (smoother().handleRelXEvent(event, mouse_frame_))
                   events_.push_back(event);
                 break;
               case REL_Y:
-                if (wheel_smoother_.handleRelYEvent(event, mouse_frame_))
+                if (smoother().handleRelYEvent(event, mouse_frame_))
                   events_.push_back(event);
                 break;
               default:
@@ -462,7 +447,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
             break;
 
           case EV_KEY: {
-            handleObservedKey(event.code, event.value, mouse_passthrough_pressed_, mouse_num_passthrough_);
+            handleObservedKey(event.code, event.value, mouse_passthrough_);
             // Composite mice can expose keyboard or consumer keys on the same
             // grabbed event node. Forward those keys, but do not reinterpret
             // them as pointer buttons that can control mouse-only modes.
@@ -471,14 +456,9 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
               events_.push_back(event);
               break;
             }
-            if (compatibility_passthrough)
+            if (event.code == profile.auto_scroll_button)
             {
-              events_.push_back(event);
-              break;
-            }
-            if (event.code == config_.auto_scroll_button)
-            {
-              const auto button_result = wheel_smoother_.handleAutoScrollButton(event.time, event.code, event.value);
+              const auto button_result = smoother().handleAutoScrollButton(event.time, event.code, event.value);
               if (button_result == WheelSmoother::ButtonResult::ReplayClick)
               {
                 input_event press_event = event;
@@ -494,9 +474,9 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
               ipc_.setSpeed(0, false, false);
               updateAutoScrollIpc();
             }
-            else if (event.code == config_.drag_view_button)
+            else if (event.code == profile.drag_view_button)
             {
-              const auto button_result = wheel_smoother_.handleDragViewButton(event.time, event.value);
+              const auto button_result = smoother().handleDragViewButton(event.time, event.value);
               if (button_result == WheelSmoother::ButtonResult::ReplayClick)
               {
                 input_event press_event = event;
@@ -511,17 +491,17 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
               }
               ipc_.setSpeed(0, false, false);
               updateAutoScrollIpc();
-              ipc_.setDragView(wheel_smoother_.drag_view());
+              ipc_.setDragView(smoother().drag_view());
             }
-            else if (event.code == config_.free_spin_button)
+            else if (event.code == profile.free_spin_button)
             {
-              if (!wheel_smoother_.handleFreeSpinButton(event.value))
+              if (!smoother().handleFreeSpinButton(event.value))
                 events_.push_back(event);
-              ipc_.setFreeSpin(wheel_smoother_.free_spin());
+              ipc_.setFreeSpin(smoother().free_spin());
             }
             else
             {
-              const auto button_result = wheel_smoother_.handleOrdinaryButton(event.code, event.value);
+              const auto button_result = smoother().handleOrdinaryButton(event.code, event.value);
               if (button_result == WheelSmoother::ButtonResult::Passthrough)
                 events_.push_back(event);
               ipc_.setSpeed(0, false, false);
@@ -536,14 +516,14 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           case EV_SYN:
             if (event.code == SYN_REPORT)
             {
-              switch (wheel_smoother_.handleReportEvent(event.time, mouse_frame_))
+              switch (smoother().handleReportEvent(event.time, mouse_frame_))
               {
                 case WheelSmoother::ReportResult::ScrollStopped:
                   ipc_.setSpeed(0, false, false);
                   break;
                 case WheelSmoother::ReportResult::AutoScrollOffsetChanged:
-                  ipc_.setAutoScrollOffset(wheel_smoother_.auto_scroll_offset_x(),
-                                           wheel_smoother_.auto_scroll_offset_y());
+                  ipc_.setAutoScrollOffset(smoother().auto_scroll_offset_x(),
+                                           smoother().auto_scroll_offset_y());
                   break;
                 case WheelSmoother::ReportResult::None:
                   break;
@@ -574,24 +554,20 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
 
     if (last_input_event_time)
     {
-      if (auto next_tick_time = wheel_smoother_.next_tick_time())
+      if (auto next_tick_time = smoother().next_tick_time())
       {
         const std::chrono::microseconds event_time = std::chrono::seconds{ last_input_event_time->tv_sec } +
                                                      std::chrono::microseconds{ last_input_event_time->tv_usec };
         if (event_time > *next_tick_time)
         {
-          if (ipc_.checkBrakeRequest())
+          if (!processIpcRequests())
           {
-            stopMotion();
-          }
-          else if (prepareProcessing() == WheelSmoother::ProcessingMode::Process)
-          {
-            const auto tick_result = wheel_smoother_.tick();
+            const auto tick_result = smoother().tick();
             for (std::size_t i = 0; i < tick_result.count; ++i)
               events_.push_back(tick_result.events[i]);
             if (tick_result.count > 0 && !writeEvents(tick_result.events[0].time))
               return RunResult::InputOutputError;
-            ipc_.setSpeed(wheel_smoother_.speed(), wheel_smoother_.positive(), wheel_smoother_.horizontal());
+            ipc_.setSpeed(smoother().speed(), smoother().positive(), smoother().horizontal());
           }
         }
       }

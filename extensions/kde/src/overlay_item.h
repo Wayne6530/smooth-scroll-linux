@@ -73,7 +73,6 @@ struct AutoScrollVisualConfig
 struct PassthroughVisualConfig
 {
   bool enabled = true;
-  bool compatibilityWhenNoRegularWindow = true;
   int offsetX = 12;
   int offsetY = 0;
   int size = 12;

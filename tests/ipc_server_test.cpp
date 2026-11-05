@@ -20,7 +20,7 @@ using smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH;
 using smooth_scroll::IpcServer;
 using smooth_scroll::SmoothScrollIPC;
 
-void testCompatibilityRequestDoesNotBrake()
+void testProfileRequestDoesNotBrake()
 {
   const std::string shm_name = "/smooth_scroll_ipc_test_" + std::to_string(getpid());
   shm_unlink(shm_name.c_str());
@@ -42,13 +42,16 @@ void testCompatibilityRequestDoesNotBrake()
       std::abort();
     auto* ipc = static_cast<SmoothScrollIPC*>(address);
 
-    assert(!server.isCompatibilityPassthroughRequested());
+    assert(!server.requestedProfileId());
     assert(!server.checkBrakeRequest());
 
-    ipc->compatibility_passthrough_requested.store(1, std::memory_order_relaxed);
-    assert(server.isCompatibilityPassthroughRequested());
+    ipc->requested_profile_id.store(1, std::memory_order_relaxed);
+    assert(server.requestedProfileId());
     assert(!server.checkBrakeRequest());
 
+    server.setActiveProfileId(42);
+    assert(ipc->active_profile_id.load() == 42);
+    assert(ipc->requested_profile_id.load() == 1);
     server.setKeyboardPassthrough(true);
     assert((ipc->state_bits.load(std::memory_order_relaxed) & IPC_STATE_KEYBOARD_PASSTHROUGH) != 0);
     server.setKeyboardPassthrough(false);
@@ -72,7 +75,7 @@ void testCompatibilityRequestDoesNotBrake()
 
 int main()
 {
-  testCompatibilityRequestDoesNotBrake();
+  testProfileRequestDoesNotBrake();
   std::cout << "ipc_server_test: all tests passed\n";
   return 0;
 }

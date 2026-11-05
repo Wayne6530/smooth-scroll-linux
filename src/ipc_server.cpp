@@ -65,10 +65,10 @@ bool IpcServer::initialize()
 
   mapped_memory_->state_bits.store(0, std::memory_order_relaxed);
   mapped_memory_->scroll_id.store(0, std::memory_order_relaxed);
-  mapped_memory_->compatibility_passthrough_requested.store(0, std::memory_order_relaxed);
+  mapped_memory_->requested_profile_id.store(0, std::memory_order_relaxed);
   mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
-  mapped_memory_->reserved[0].store(0, std::memory_order_relaxed);
-  mapped_memory_->reserved[1].store(0, std::memory_order_relaxed);
+  mapped_memory_->active_profile_id.store(0, std::memory_order_relaxed);
+  mapped_memory_->reserved.store(0, std::memory_order_relaxed);
 
   mapped_memory_->daemon_pid.store(getpid(), std::memory_order_relaxed);
   mapped_memory_->magic_version.store(IPC_MAGIC_VERSION_EXPECTED, std::memory_order_release);
@@ -221,11 +221,16 @@ void IpcServer::resetMotionState() noexcept
   return false;
 }
 
-[[nodiscard]] bool IpcServer::isCompatibilityPassthroughRequested() const noexcept
+[[nodiscard]] uint32_t IpcServer::requestedProfileId() const noexcept
 {
   assert(mapped_memory_);
 
-  return mapped_memory_->compatibility_passthrough_requested.load(std::memory_order_relaxed) > 0;
+  return mapped_memory_->requested_profile_id.load(std::memory_order_relaxed);
+}
+
+void IpcServer::setActiveProfileId(uint32_t id) noexcept
+{
+  mapped_memory_->active_profile_id.store(id, std::memory_order_relaxed);
 }
 
 }  // namespace smooth_scroll

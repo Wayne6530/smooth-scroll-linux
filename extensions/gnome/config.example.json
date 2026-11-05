@@ -63,5 +63,6 @@
     "interval_ms": 4,
     "event_fresh_ms": 6
   },
-  "compatibility_passthrough_rules": []
+  "profile_rules": [],
+  "shell_profile_id": 1
 }

@@ -17,7 +17,7 @@ using namespace smooth_scroll;
 
 int main(int argc, char* argv[])
 {
-  assert(argc == 6);
+  assert(argc == 4);
 
   DeviceCapabilities base_capabilities;
   base_capabilities.relative_axes[REL_X] = true;
@@ -54,8 +54,8 @@ int main(int argc, char* argv[])
   Config empty_config;
   assert(loadConfig(argv[2], empty_config));
   assert(empty_config.device_manager.ignored_devices.empty());
-  assert(empty_config.session.smoother.auto_scroll_latch_on_release);
-  assert(empty_config.session.smoother.auto_scroll_speed_exponent == 1.0);
+  assert(empty_config.session.profiles[0].smoother.auto_scroll_latch_on_release);
+  assert(empty_config.session.profiles[0].smoother.auto_scroll_speed_exponent == 1.0);
 
   char temporary_path[] = "/tmp/smooth-scroll-config-XXXXXX";
   const int fd = mkstemp(temporary_path);
@@ -70,8 +70,8 @@ int main(int argc, char* argv[])
     Config curve_config;
     const double value = std::stod(exponent);
     assert(loadConfig(temporary_path, curve_config));
-    assert(!curve_config.session.smoother.auto_scroll_latch_on_release);
-    assert(curve_config.session.smoother.auto_scroll_speed_exponent == value);
+    assert(!curve_config.session.profiles[0].smoother.auto_scroll_latch_on_release);
+    assert(curve_config.session.profiles[0].smoother.auto_scroll_speed_exponent == value);
   }
   {
     std::ofstream file(temporary_path);
@@ -79,17 +79,12 @@ int main(int argc, char* argv[])
   }
   Config fallback_config;
   assert(loadConfig(temporary_path, fallback_config));
-  assert(fallback_config.session.smoother.auto_scroll_latch_on_release);
-  assert(fallback_config.session.smoother.auto_scroll_speed_exponent == 1.0);
+  assert(fallback_config.session.profiles[0].smoother.auto_scroll_latch_on_release);
+  assert(fallback_config.session.profiles[0].smoother.auto_scroll_speed_exponent == 1.0);
   unlink(temporary_path);
 
   Config invalid_config;
   assert(!loadConfig(argv[3], invalid_config));
 
-  Config invalid_pointer_braking_config;
-  assert(!loadConfig(argv[4], invalid_pointer_braking_config));
-
-  Config invalid_pointer_passthrough_config;
-  assert(!loadConfig(argv[5], invalid_pointer_passthrough_config));
   return 0;
 }

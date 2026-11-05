@@ -10,12 +10,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const IPC_PATH = '/dev/shm/smooth_scroll_shm';
 const IPC_SIZE = 32;
-const IPC_MAGIC = 0x53530002;
+const IPC_MAGIC = 0x53530003;
 const IPC_OFFSET_MAGIC = 0x00;
 const IPC_OFFSET_DAEMON_PID = 0x04;
 const IPC_OFFSET_STATE_BITS = 0x08;
 const IPC_OFFSET_SCROLL_ID = 0x0c;
-const IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED = 0x10;
+const IPC_OFFSET_REQUESTED_PROFILE = 0x10;
 const IPC_OFFSET_AUTO_SCROLL = 0x14;
 
 const CONFIG_DIR_NAME = 'smooth-scroll-gnome-extension';
@@ -86,7 +86,8 @@ const DEFAULT_CONFIG = {
         interval_ms: 4,
         event_fresh_ms: 6,
     },
-    compatibility_passthrough_rules: [],
+    profile_rules: [],
+    shell_profile_id: 1,
 };
 
 function clamp(value, min, max) {
@@ -301,14 +302,14 @@ function normalizeConfig(config) {
         0,
         1000));
 
-    if (!Array.isArray(config.compatibility_passthrough_rules))
-        config.compatibility_passthrough_rules = fallback.compatibility_passthrough_rules;
+    if (!Array.isArray(config.profile_rules))
+        config.profile_rules = fallback.profile_rules;
 
-    config.compatibility_passthrough_rules = config.compatibility_passthrough_rules
+    config.profile_rules = config.profile_rules
         .filter(rule => isPlainObject(rule) && typeof rule.app === 'string' && rule.app !== '')
         .map(rule => {
             rule.enabled = rule.enabled !== false;
-            rule.compatibility_passthrough = rule.compatibility_passthrough !== false;
+            rule.profile_id = profileId(rule.profile_id);
 
             if (!Array.isArray(rule.titles))
                 rule.titles = [];
@@ -321,7 +322,7 @@ function normalizeConfig(config) {
                 ))
                 .map(titleRule => {
                     titleRule.enabled = titleRule.enabled !== false;
-                    titleRule.compatibility_passthrough = titleRule.compatibility_passthrough !== false;
+                    titleRule.profile_id = profileId(titleRule.profile_id ?? rule.profile_id);
                     titleRule._titleRegex = compileRegex(titleRule.title);
                     titleRule._invalidRegex = !titleRule._titleRegex;
                     return titleRule;
@@ -387,8 +388,8 @@ class SmoothScrollIpcClient {
 
             const stateBits = view.getUint32(IPC_OFFSET_STATE_BITS, true);
             const scrollId = view.getUint32(IPC_OFFSET_SCROLL_ID, true);
-            const compatibilityPassthroughRequested = view.getUint32(
-                IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED, true);
+            const requestedProfileId = view.getUint32(
+                IPC_OFFSET_REQUESTED_PROFILE, true);
             const autoScrollOffsetX = view.getInt16(IPC_OFFSET_AUTO_SCROLL, true);
             const autoScrollOffsetY = view.getInt16(IPC_OFFSET_AUTO_SCROLL + 2, true);
 
@@ -411,7 +412,8 @@ class SmoothScrollIpcClient {
                 autoScrollOffsetY,
                 speed: stateBits >>> 16,
                 scrollId,
-                compatibilityPassthroughRequested,
+                requestedProfileId,
+                activeProfileId: view.getUint32(0x18, true),
             };
         } catch (error) {
             this._closeReadStream();
@@ -427,8 +429,8 @@ class SmoothScrollIpcClient {
         return this._writeU32(IPC_OFFSET_SCROLL_ID, (state.scrollId + 1) >>> 0);
     }
 
-    setCompatibilityPassthroughRequested(enabled) {
-        return this._writeU32(IPC_OFFSET_COMPATIBILITY_PASSTHROUGH_REQUESTED, enabled ? 1 : 0);
+    setRequestedProfile(id) {
+        return this._writeU32(IPC_OFFSET_REQUESTED_PROFILE, id);
     }
 
     _invalidSnapshot() {
@@ -451,7 +453,8 @@ class SmoothScrollIpcClient {
             positive: false,
             speed: 0,
             scrollId: 0,
-            compatibilityPassthroughRequested: 0,
+            requestedProfileId: 0,
+            activeProfileId: 0,
         };
     }
 
@@ -490,6 +493,9 @@ class SmoothScrollIpcClient {
     }
 
     _writeU32(offset, value) {
+        // Never send a v3 request to an incompatible or stopped daemon.
+        if (!this.readSnapshot().valid)
+            return false;
         let stream = null;
 
         try {
@@ -757,7 +763,7 @@ class DotOverlay {
         this._contentPadding = 0;
         this._mainAlpha = DEFAULT_CONFIG.dot.max_alpha;
         this._freeSpinRingVisible = false;
-        this._compatibilityPending = false;
+        this._profilePending = false;
         this._autoScrollDotSize = DEFAULT_CONFIG.auto_scroll.dot_size;
         this._lastX = null;
         this._lastY = null;
@@ -813,18 +819,18 @@ class DotOverlay {
         this._autoScrollDotActor.queue_repaint();
     }
 
-    update(snapshot, x, y, compatibilityPassthroughRequested = false) {
+    update(snapshot, x, y, wheelPassthrough = false) {
         if (!this._actor) {
             this.hide();
             return false;
         }
 
         const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
-        const compatibilityReady = compatibilityPassthroughRequested && !specialActive;
-        const compatibilityPending = Boolean(
-            compatibilityPassthroughRequested && specialActive && this._config.passthrough.enabled);
+        const wheelPassthroughReady = wheelPassthrough && !specialActive;
+        const profilePending = Boolean(
+            snapshot.requestedProfileId !== snapshot.activeProfileId && this._config.passthrough.enabled);
         const freeSpinRingVisible = Boolean(snapshot.freeSpin && this._config.free_spin.enabled);
-        const nextMode = this._modeForSnapshot(snapshot, compatibilityReady);
+        const nextMode = this._modeForSnapshot(snapshot, wheelPassthroughReady);
         if (!nextMode && !freeSpinRingVisible) {
             this.hide();
             return false;
@@ -845,7 +851,7 @@ class DotOverlay {
         const visualChanged = geometryChanged ||
             nextMainAlpha !== this._mainAlpha ||
             freeSpinRingVisible !== this._freeSpinRingVisible ||
-            compatibilityPending !== this._compatibilityPending;
+            profilePending !== this._profilePending;
 
         this._mode = nextMode;
         this._anchorMode = nextAnchorMode;
@@ -853,7 +859,7 @@ class DotOverlay {
         this._currentSize = nextSize;
         this._contentPadding = nextPadding;
         this._freeSpinRingVisible = freeSpinRingVisible;
-        this._compatibilityPending = compatibilityPending;
+        this._profilePending = profilePending;
         this._autoScrollOffsetX = snapshot.autoScrollOffsetX;
         this._autoScrollOffsetY = snapshot.autoScrollOffsetY;
 
@@ -951,8 +957,8 @@ class DotOverlay {
         }
     }
 
-    _modeForSnapshot(snapshot, compatibilityPassthroughReady) {
-        if (compatibilityPassthroughReady && this._config.passthrough.enabled)
+    _modeForSnapshot(snapshot, wheelPassthroughReady) {
+        if (wheelPassthroughReady && this._config.passthrough.enabled)
             return 'passthrough';
 
         if (snapshot.autoScroll)
@@ -1085,7 +1091,7 @@ class DotOverlay {
     }
 
     _colorForMode(mode) {
-        if (this._compatibilityPending && mode !== 'auto-scroll')
+        if (this._profilePending && mode !== 'auto-scroll')
             return this._passthroughColor;
 
         if (mode === 'passthrough')
@@ -1187,7 +1193,7 @@ class DotOverlay {
         const center = this._currentSize / 2;
         const anchorSize = this._currentSize - this._contentPadding * 2;
         const radius = anchorSize / 2 + freeSpin.ring_gap + freeSpin.ring_width / 2;
-        const color = this._compatibilityPending ? this._passthroughColor : this._freeSpinColor;
+        const color = this._profilePending ? this._passthroughColor : this._freeSpinColor;
 
         cr.setSourceRGBA(color.r, color.g, color.b, freeSpin.alpha);
         cr.setLineWidth(freeSpin.ring_width);
@@ -1201,7 +1207,7 @@ class DotOverlay {
         cr.setSourceRGBA(0, 0, 0, 0.32);
         cr.arc(radius + 1, radius + 1, radius, 0, Math.PI * 2);
         cr.fill();
-        const color = this._compatibilityPending ? this._passthroughColor : this._autoScrollDotColor;
+        const color = this._profilePending ? this._passthroughColor : this._autoScrollDotColor;
         cr.setSourceRGBA(color.r, color.g, color.b, 1);
         cr.arc(radius, radius, radius, 0, Math.PI * 2);
         cr.fill();
@@ -1265,9 +1271,13 @@ class DotOverlay {
     }
 }
 
-function compatibilityPassthroughForWindow(rules, info) {
+function profileId(value) {
+    return Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0;
+}
+
+function profileForWindow(rules, info) {
     if (!info)
-        return false;
+        return 0;
 
     for (const rule of rules) {
         if (!rule.enabled || !info.appIds.includes(rule.app))
@@ -1278,13 +1288,13 @@ function compatibilityPassthroughForWindow(rules, info) {
                 continue;
 
             if (titleRule._titleRegex.test(info.title))
-                return titleRule.compatibility_passthrough;
+                return titleRule.profile_id;
         }
 
-        return rule.compatibility_passthrough;
+        return rule.profile_id;
     }
 
-    return false;
+    return 0;
 }
 
 export default class SmoothScrollIpcCompanionExtension extends Extension {
@@ -1302,7 +1312,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._stopRequestedForAnchor = false;
         this._lastSpeed = 0;
         this._lastPid = 0;
-        this._lastCompatibilityPassthroughRequested = null;
+        this._lastRequestedProfile = null;
         this._lastSnapshot = null;
         this._pendingPointerStateSourceId = 0;
         this._pendingPointerX = null;
@@ -1351,7 +1361,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._setUnredirectDisabled(false);
 
         if (this._ipc)
-            this._ipc.setCompatibilityPassthroughRequested(false);
+            this._ipc.setRequestedProfile(0);
 
         if (this._ipc)
             this._ipc.close();
@@ -1365,7 +1375,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._ipc = null;
         this._resolver = null;
         this._anchorWindowKey = null;
-        this._lastCompatibilityPassthroughRequested = null;
+        this._lastRequestedProfile = null;
         this._lastSnapshot = null;
         this._pendingPointerX = null;
         this._pendingPointerY = null;
@@ -1409,7 +1419,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         if (!snapshot.valid) {
             this._resetScrollAnchor();
-            this._setCompatibilityPassthroughRequested(false);
+            this._setRequestedProfile(0);
             this._hideDot();
             this._lastSpeed = 0;
             this._lastPid = 0;
@@ -1418,7 +1428,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         if (this._lastPid !== snapshot.pid) {
             this._resetScrollAnchor();
-            this._lastCompatibilityPassthroughRequested = null;
+            this._lastRequestedProfile = null;
             this._lastPid = snapshot.pid;
         }
 
@@ -1443,12 +1453,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
             return false;
         }
 
-        const compatibilityPassthroughRequested =
-            this._isCompatibilityPassthroughRequested(snapshot);
-        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
-
-        if (!this._stopRequestedForAnchor || compatibilityPassthroughRequested || specialActive)
-            this._dot.moveTo(x, y);
+        this._dot.moveTo(x, y);
 
         this._schedulePointerState(x, y);
 
@@ -1483,10 +1488,10 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
     _handlePointerState(snapshot, x, y, dotAlreadyUpdated = false) {
         const pointerWindow = this._resolver.windowAt(x, y);
         const pointerWindowInfo = this._resolver.infoForWindow(pointerWindow);
-        const wasCompatibilityPassthroughRequested =
-            this._isCompatibilityPassthroughRequested(snapshot);
-        const compatibilityPassthroughRequested = this._updateCompatibilityPassthroughRequested(
-            pointerWindow, pointerWindowInfo, x, y);
+        const wasWheelPassthrough =
+            this._isWheelPassthrough(snapshot);
+        this._updateRequestedProfile(pointerWindow, pointerWindowInfo, x, y);
+        const wheelPassthrough = (snapshot.activeProfileId === 1);
 
         if (!snapshot.connected) {
             this._resetScrollAnchor();
@@ -1494,24 +1499,24 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
             return;
         }
 
-        const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
-        if (compatibilityPassthroughRequested)
+        if (wheelPassthrough)
             this._resetScrollAnchor();
         else
             this._updatePointerLeaveBrake(snapshot, pointerWindow);
 
-        if ((!this._stopRequestedForAnchor || compatibilityPassthroughRequested || specialActive) &&
-            (!dotAlreadyUpdated ||
-             wasCompatibilityPassthroughRequested !== compatibilityPassthroughRequested ||
-             !this._dot?.isVisible()))
-            this._updateDot(snapshot, x, y, compatibilityPassthroughRequested);
+        // A brake request is not an acknowledgement that motion has stopped.
+        // Keep rendering daemon state, including special-mode releases.
+        if (!dotAlreadyUpdated ||
+            wasWheelPassthrough !== wheelPassthrough ||
+            !this._dot?.isVisible())
+            this._updateDot(snapshot, x, y, wheelPassthrough);
     }
 
-    _updateDot(snapshot, x, y, compatibilityPassthroughRequested) {
+    _updateDot(snapshot, x, y, wheelPassthrough) {
         const specialActive = snapshot.freeSpin || snapshot.dragView || snapshot.autoScroll;
-        const compatibilityReady = compatibilityPassthroughRequested && !specialActive;
+        const wheelPassthroughReady = wheelPassthrough && !specialActive;
         const canShowIndicator = Boolean(
-            (compatibilityReady && this._config?.passthrough?.enabled) ||
+            (wheelPassthroughReady && this._config?.passthrough?.enabled) ||
             (snapshot.freeSpin && this._config?.free_spin?.enabled) ||
             (snapshot.autoScroll && this._config?.auto_scroll?.enabled) ||
             (snapshot.dragView && this._config?.arrow?.enabled) ||
@@ -1523,7 +1528,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         let visible = false;
         try {
-            visible = this._dot.update(snapshot, x, y, compatibilityPassthroughRequested);
+            visible = this._dot.update(snapshot, x, y, wheelPassthrough);
         } finally {
             if (!visible || !canShowIndicator)
                 this._setUnredirectDisabled(false);
@@ -1637,7 +1642,6 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
         this._ipc.requestStop(snapshot);
         this._stopRequestedForAnchor = true;
-        this._hideDot();
     }
 
     _resetScrollAnchor() {
@@ -1645,37 +1649,26 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._stopRequestedForAnchor = false;
     }
 
-    _shouldRequestCompatibilityPassthrough(pointerWindow, pointerWindowInfo, x, y) {
-        if (this._resolver.shellInteractionActive(x, y))
-            return true;
-
-        if (!pointerWindow)
-            return true;
-
-        return compatibilityPassthroughForWindow(
-            this._config.compatibility_passthrough_rules, pointerWindowInfo);
+    _requestedProfileForWindow(pointerWindow, pointerWindowInfo, x, y) {
+        if (this._resolver.shellInteractionActive(x, y) || !pointerWindow)
+            return profileId(this._config.shell_profile_id);
+        return profileForWindow(this._config.profile_rules, pointerWindowInfo);
     }
 
-    _updateCompatibilityPassthroughRequested(pointerWindow, pointerWindowInfo, x, y) {
-        return this._setCompatibilityPassthroughRequested(
-            this._shouldRequestCompatibilityPassthrough(pointerWindow, pointerWindowInfo, x, y)
-        );
+    _updateRequestedProfile(pointerWindow, pointerWindowInfo, x, y) {
+        this._setRequestedProfile(
+            this._requestedProfileForWindow(pointerWindow, pointerWindowInfo, x, y));
     }
 
-    _isCompatibilityPassthroughRequested(snapshot) {
-        return Boolean(
-            (this._lastCompatibilityPassthroughRequested === true ||
-             snapshot.compatibilityPassthroughRequested !== 0)
-        );
+    _isWheelPassthrough(snapshot) {
+        // Profile 1 is the shared compatibility convention. Requests may still be pending.
+        return (snapshot.activeProfileId === 1);
     }
 
-    _setCompatibilityPassthroughRequested(enabled) {
-        if (this._lastCompatibilityPassthroughRequested === enabled)
-            return this._lastCompatibilityPassthroughRequested === true;
-
-        if (this._ipc.setCompatibilityPassthroughRequested(enabled))
-            this._lastCompatibilityPassthroughRequested = enabled;
-
-        return this._lastCompatibilityPassthroughRequested === true;
+    _setRequestedProfile(id) {
+        if (this._lastRequestedProfile === id)
+            return;
+        if (this._ipc.setRequestedProfile(id))
+            this._lastRequestedProfile = id;
     }
 }

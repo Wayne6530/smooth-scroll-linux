@@ -44,23 +44,38 @@ ss-status
 Example output:
 
 ```json
-{"pid":12345,"connected":true,"keyboard_passthrough":false,"compatibility_passthrough_requested":false,"drag_view":false,"free_spin":false,"auto_scroll":true,"auto_scroll_horizontal_enabled":true,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":12,"auto_scroll_offset_y":-24,"horizontal":false,"direction":"negative","speed":0}
+{"pid":12345,"connected":true,"keyboard_passthrough":false,"requested_profile_id":1,"active_profile_id":0,"drag_view":false,"free_spin":true,"auto_scroll":false,"auto_scroll_horizontal_enabled":false,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":0,"auto_scroll_offset_y":0,"horizontal":false,"direction":"positive","speed":0}
 ```
 
-`ss-stop` brakes ordinary inertia and either re-anchors a held Auto Scroll gesture or exits latched Auto Scroll:
+Here profile 1 has been requested, but profile 0 remains active while Free Spin
+is held. `requested_profile_id` records the target; `active_profile_id` records
+the actual selection.
+
+`ss-stop` brakes ordinary inertia, re-anchors a held Auto Scroll gesture, or
+exits latched Auto Scroll.
 
 ```bash
 ss-stop
 ```
 
-`ss-passthrough` toggles or sets compatibility-passthrough mode. The request
-takes effect after any active Free Spin, Drag View, or Auto Scroll interaction
-finishes:
+`ss-profile <id>` requests a configured profile:
 
 ```bash
-ss-passthrough       # Toggle the compatibility-passthrough request
-ss-passthrough 1     # Request compatibility passthrough
-ss-passthrough off   # Clear the compatibility-passthrough request
+ss-profile 1    # Request compatibility passthrough
+ss-profile 0    # Return to the default profile
 ```
 
-The daemon must be running before these commands can connect to `/dev/shm/smooth_scroll_shm`.
+The request waits for special interactions and all keys in the union of profile
+passthrough bindings to be released. Ordinary inertia stops on switching.
+Requests are processed on input/tick wakeups; idle confirmation can be delayed.
+An unknown ID leaves the active profile unchanged. Use `ss-status` to observe it.
+
+
+IDs follow configuration order: top-level options are profile 0 and successive
+`[[profiles]]` tables are 1, 2, and so on. The default config includes profile 1
+for compatibility passthrough. `ss-profile --help` prints usage without requiring
+a running daemon. A successful request write does not mean the switch has finished.
+
+The daemon must be running and expose IPC v3 at `/dev/shm/smooth_scroll_shm`.
+Avoid competing profile writes from CLI commands while a desktop plugin manages
+selection from the window under the pointer.

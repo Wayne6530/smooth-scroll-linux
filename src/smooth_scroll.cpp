@@ -143,9 +143,14 @@ int main(int argc, char* argv[])
   if (!ipc.initialize())
     return -1;
 
-  std::vector<unsigned int> relevant_keyboard_keys = config.session.keyboard_braking_keys;
-  relevant_keyboard_keys.insert(relevant_keyboard_keys.end(), config.session.keyboard_passthrough_keys.begin(),
-                                config.session.keyboard_passthrough_keys.end());
+  std::vector<unsigned int> relevant_keyboard_keys;
+  for (const auto& profile : config.session.profiles)
+  {
+    relevant_keyboard_keys.insert(relevant_keyboard_keys.end(), profile.keyboard_braking_keys.begin(),
+                                  profile.keyboard_braking_keys.end());
+    relevant_keyboard_keys.insert(relevant_keyboard_keys.end(), profile.keyboard_passthrough_keys.begin(),
+                                  profile.keyboard_passthrough_keys.end());
+  }
 
   DeviceManager device_manager{ config.device_manager, relevant_keyboard_keys, kShutdown, kShutdownFd };
 
