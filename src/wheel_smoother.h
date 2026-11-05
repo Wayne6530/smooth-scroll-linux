@@ -17,6 +17,12 @@
 namespace smooth_scroll
 {
 
+struct MouseFrameState
+{
+  int rel_x = 0;
+  int rel_y = 0;
+};
+
 class WheelSmoother
 {
   enum class AutoScrollState
@@ -165,11 +171,11 @@ public:
 
   std::optional<std::chrono::microseconds> next_tick_time() const noexcept;
 
-  [[nodiscard]] bool handleRelXEvent(struct input_event& ev) noexcept;
+  [[nodiscard]] bool handleRelXEvent(struct input_event& ev, MouseFrameState& frame) noexcept;
 
-  [[nodiscard]] bool handleRelYEvent(struct input_event& ev) noexcept;
+  [[nodiscard]] bool handleRelYEvent(struct input_event& ev, MouseFrameState& frame) noexcept;
 
-  [[nodiscard]] ReportResult handleReportEvent(const struct timeval& time) noexcept;
+  [[nodiscard]] ReportResult handleReportEvent(const struct timeval& time, const MouseFrameState& frame) noexcept;
 
   [[nodiscard]] bool positive() const noexcept
   {
@@ -308,8 +314,6 @@ private:
   double free_spin_deviation_ = 0;
   int total_delta_ = 0;
   int braking_times_ = 0;
-  int rel_x_ = 0;
-  int rel_y_ = 0;
   int64_t auto_scroll_offset_x_ = 0;
   int64_t auto_scroll_offset_y_ = 0;
   double drag_view_deviation_x_ = 0;

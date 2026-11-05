@@ -393,6 +393,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           if (event.type == EV_SYN && event.code == SYN_DROPPED)
           {
             events_.clear();
+            mouse_frame_ = {};
             wheel_smoother_.hardReset();
             ipc_.resetMotionState();
             read_flag = LIBEVDEV_READ_FLAG_SYNC;
@@ -447,11 +448,11 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
                   events_.push_back(event);
                 break;
               case REL_X:
-                if (wheel_smoother_.handleRelXEvent(event))
+                if (wheel_smoother_.handleRelXEvent(event, mouse_frame_))
                   events_.push_back(event);
                 break;
               case REL_Y:
-                if (wheel_smoother_.handleRelYEvent(event))
+                if (wheel_smoother_.handleRelYEvent(event, mouse_frame_))
                   events_.push_back(event);
                 break;
               default:
@@ -535,7 +536,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
           case EV_SYN:
             if (event.code == SYN_REPORT)
             {
-              switch (wheel_smoother_.handleReportEvent(event.time))
+              switch (wheel_smoother_.handleReportEvent(event.time, mouse_frame_))
               {
                 case WheelSmoother::ReportResult::ScrollStopped:
                   ipc_.setSpeed(0, false, false);
@@ -547,6 +548,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
                 case WheelSmoother::ReportResult::None:
                   break;
               }
+              mouse_frame_ = {};
               if (!writeEvents(event.time))
                 return RunResult::InputOutputError;
             }

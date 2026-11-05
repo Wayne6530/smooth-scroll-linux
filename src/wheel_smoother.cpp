@@ -101,8 +101,6 @@ void WheelSmoother::hardReset() noexcept
   drag_view_ = false;
   drag_view_deviation_x_ = 0;
   drag_view_deviation_y_ = 0;
-  rel_x_ = 0;
-  rel_y_ = 0;
 }
 
 bool WheelSmoother::handleFreeSpinButton(int value) noexcept
@@ -1163,13 +1161,13 @@ std::optional<std::chrono::microseconds> WheelSmoother::next_tick_time() const n
   return next_tick_time_;
 }
 
-bool WheelSmoother::handleRelXEvent(struct input_event& ev) noexcept
+bool WheelSmoother::handleRelXEvent(struct input_event& ev, MouseFrameState& frame) noexcept
 {
   if (auto_scroll())
   {
     if (auto_scroll_horizontal_enabled())
     {
-      rel_x_ += ev.value;
+      frame.rel_x += ev.value;
     }
     return false;
   }
@@ -1183,17 +1181,17 @@ bool WheelSmoother::handleRelXEvent(struct input_event& ev) noexcept
     return ev.value != 0;
   }
 
-  rel_x_ += ev.value;
+  frame.rel_x += ev.value;
   return true;
 }
 
-bool WheelSmoother::handleRelYEvent(struct input_event& ev) noexcept
+bool WheelSmoother::handleRelYEvent(struct input_event& ev, MouseFrameState& frame) noexcept
 {
   if (auto_scroll())
   {
     if (auto_scroll_vertical_enabled())
     {
-      rel_y_ += ev.value;
+      frame.rel_y += ev.value;
     }
     return false;
   }
@@ -1207,13 +1205,13 @@ bool WheelSmoother::handleRelYEvent(struct input_event& ev) noexcept
     return ev.value != 0;
   }
 
-  rel_y_ += ev.value;
+  frame.rel_y += ev.value;
   return true;
 }
 
-WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeval& time) noexcept
+WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeval& time, const MouseFrameState& frame) noexcept
 {
-  if (rel_x_ == 0 && rel_y_ == 0)
+  if (frame.rel_x == 0 && frame.rel_y == 0)
   {
     return ReportResult::None;
   }
@@ -1221,11 +1219,9 @@ WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeva
   if (auto_scroll())
   {
     auto_scroll_offset_x_ =
-        std::clamp(auto_scroll_offset_x_ + rel_x_, -auto_scroll_max_offset_, auto_scroll_max_offset_);
+        std::clamp(auto_scroll_offset_x_ + frame.rel_x, -auto_scroll_max_offset_, auto_scroll_max_offset_);
     auto_scroll_offset_y_ =
-        std::clamp(auto_scroll_offset_y_ + rel_y_, -auto_scroll_max_offset_, auto_scroll_max_offset_);
-    rel_x_ = 0;
-    rel_y_ = 0;
+        std::clamp(auto_scroll_offset_y_ + frame.rel_y, -auto_scroll_max_offset_, auto_scroll_max_offset_);
     return ReportResult::AutoScrollOffsetChanged;
   }
 
@@ -1237,7 +1233,7 @@ WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeva
     if (event_time > last_event_time_ + std::chrono::microseconds{ options_.mouse_movement_delay_microseconds })
     {
       auto result =
-          mouse_movement_buffer_.add(std::chrono::duration_cast<std::chrono::milliseconds>(event_time), rel_x_, rel_y_);
+          mouse_movement_buffer_.add(std::chrono::duration_cast<std::chrono::milliseconds>(event_time), frame.rel_x, frame.rel_y);
 
       int squared_distance = result.x * result.x + result.y * result.y;
       if (squared_distance > squared_max_mouse_movement_distance_)
@@ -1245,15 +1241,11 @@ WheelSmoother::ReportResult WheelSmoother::handleReportEvent(const struct timeva
         SPDLOG_DEBUG("movement stop");
         stopScroll();
 
-        rel_x_ = 0;
-        rel_y_ = 0;
         return ReportResult::ScrollStopped;
       }
     }
   }
 
-  rel_x_ = 0;
-  rel_y_ = 0;
   return ReportResult::None;
 }
 

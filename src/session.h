@@ -80,6 +80,7 @@ private:
   std::array<bool, KEY_CNT> mouse_passthrough_pressed_{};
   std::vector<int> supported_mouse_keys_;
   std::vector<input_event> events_;
+  MouseFrameState mouse_frame_;
   int mouse_num_passthrough_ = 0;
   int num_passthrough_ = 0;
   int shutdown_fd_ = -1;

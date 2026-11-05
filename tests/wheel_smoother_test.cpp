@@ -11,7 +11,32 @@
 #include <cmath>
 #include <iostream>
 
-using smooth_scroll::WheelSmoother;
+// Test fixture owns the input frame, just as Session does in the daemon.
+class WheelSmoother : public smooth_scroll::WheelSmoother
+{
+public:
+  using smooth_scroll::WheelSmoother::WheelSmoother;
+  bool handleRelXEvent(input_event& event)
+  {
+    return smooth_scroll::WheelSmoother::handleRelXEvent(event, frame);
+  }
+  bool handleRelYEvent(input_event& event)
+  {
+    return smooth_scroll::WheelSmoother::handleRelYEvent(event, frame);
+  }
+  ReportResult handleReportEvent(const timeval& time)
+  {
+    const auto result = smooth_scroll::WheelSmoother::handleReportEvent(time, frame);
+    frame = {};
+    return result;
+  }
+  void hardReset()
+  {
+    frame = {};
+    smooth_scroll::WheelSmoother::hardReset();
+  }
+  smooth_scroll::MouseFrameState frame;
+};
 
 namespace
 {
@@ -51,6 +76,20 @@ void move(WheelSmoother& smoother, int x, int y, int64_t milliseconds)
     assert(!smoother.handleRelYEvent(ev));
   }
   static_cast<void>(smoother.handleReportEvent(atMilliseconds(milliseconds)));
+}
+
+void testFrameSurvivesProcessorChange()
+{
+  smooth_scroll::WheelSmoother first{ autoOptions() };
+  smooth_scroll::WheelSmoother second{ autoOptions() };
+  smooth_scroll::MouseFrameState frame;
+  auto event = relativeEvent(REL_X, 12, 1);
+  assert(first.handleRelXEvent(event, frame));
+  first.stop();
+  second.handleAutoScrollButton(atMilliseconds(1), BTN_MIDDLE, 1);
+  assert(second.handleReportEvent(atMilliseconds(2), frame) ==
+         smooth_scroll::WheelSmoother::ReportResult::AutoScrollOffsetChanged);
+  assert(second.auto_scroll_offset_x() == 12);
 }
 
 void testReleaseWithoutLatch()
@@ -694,6 +733,7 @@ void testProcessingMode()
 
 int main()
 {
+  testFrameSurvivesProcessorChange();
   testReleaseWithoutLatch();
   testAutoScrollSpeedExponent();
   testReportBuffersAutoScrollOffset();
