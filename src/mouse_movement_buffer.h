@@ -21,6 +21,8 @@ public:
 
   explicit MouseMovementBuffer(std::chrono::milliseconds window);
 
+  void clear() noexcept;
+
   Result add(std::chrono::milliseconds time, int rel_x, int rel_y) noexcept;
 
 private:

@@ -682,10 +682,92 @@ void testSpecialModeActive()
   assert(!auto_scroll.specialModeActive());
 }
 
+void testMovementBufferClear()
+{
+  using namespace std::chrono;
+  smooth_scroll::MouseMovementBuffer buffer{ milliseconds{ 5 } };
+  buffer.clear();
+  buffer.clear();
+  // Exercise clearing at every ring position, same-millisecond samples, and
+  // wrapping past the sentinel. Compare against a genuinely fresh buffer.
+  for (int pass = 0; pass < 16; ++pass)
+  {
+    const int base = 100 + pass * 30;
+    buffer.add(milliseconds{ base }, 100, -100);
+    buffer.clear();
+    smooth_scroll::MouseMovementBuffer fresh{ milliseconds{ 5 } };
+    for (int tick = 0; tick < 20; ++tick)
+    {
+      for (int sample = 0; sample < 2; ++sample)
+      {
+        const auto actual = buffer.add(milliseconds{ base + tick }, 1, -2);
+        const auto expected = fresh.add(milliseconds{ base + tick }, 1, -2);
+        assert(actual.x == expected.x && actual.y == expected.y);
+      }
+    }
+  }
+}
+
+void testMovementHistoryStartsWithScroll()
+{
+  for (const auto mode : { WheelSmoother::SmoothMode::Speed, WheelSmoother::SmoothMode::Distance,
+                           WheelSmoother::SmoothMode::Hybrid })
+  {
+    for (int restart = 0; restart < 6; ++restart)
+    {
+      WheelSmoother::Options options;
+      options.smooth_mode = mode;
+      options.mouse_movement_window_milliseconds = 10000;
+      options.mouse_movement_delay_microseconds = 0;
+      options.max_mouse_movement_distance = 30;
+      options.max_reverse_scroll_braking_times = 1;
+      options.use_reverse_scroll_braking = restart != 4;
+      WheelSmoother smoother{ options };
+      smoother.handleEvent(atMilliseconds(1000), true, false);
+      smoother.frame = { 20, 0 };
+      assert(smoother.handleReportEvent(atMilliseconds(1001)) == WheelSmoother::ReportResult::None);
+      int64_t start = 1004;
+      bool positive = true;
+      bool horizontal = false;
+      switch (restart)
+      {
+        case 0: smoother.stop(); break;
+        case 1: smoother.hardReset(); break;
+        case 2: horizontal = true; break; // Axis change stops and starts within handleEvent().
+        case 3:
+          smoother.handleEvent(atMilliseconds(1002), false, false); // Reverse braking consumes this tick.
+          assert(!smoother.next_tick_time());
+          positive = false;
+          break;
+        case 4: positive = false; break; // Immediate reversal without reverse braking.
+        case 5:
+          while (auto next = smoother.next_tick_time())
+          {
+            start = std::chrono::duration_cast<std::chrono::milliseconds>(*next).count() + 2;
+            assert(start < 10000);
+            smoother.tick();
+          }
+          break;
+      }
+      smoother.handleEvent(atMilliseconds(start), positive, horizontal);
+      smoother.frame = { 20, 0 };
+      assert(smoother.handleReportEvent(atMilliseconds(start + 1)) == WheelSmoother::ReportResult::None);
+      assert(smoother.next_tick_time());
+      // A further wheel tick continues this scroll: its movement history must survive.
+      smoother.handleEvent(atMilliseconds(start + 2), positive, horizontal);
+      smoother.frame = { 11, 0 };
+      assert(smoother.handleReportEvent(atMilliseconds(start + 3)) ==
+             WheelSmoother::ReportResult::ScrollStopped);
+    }
+  }
+}
+
 }  // namespace
 
 int main()
 {
+  testMovementBufferClear();
+  testMovementHistoryStartsWithScroll();
   testFrameSurvivesProcessorChange();
   testReleaseWithoutLatch();
   testAutoScrollSpeedExponent();

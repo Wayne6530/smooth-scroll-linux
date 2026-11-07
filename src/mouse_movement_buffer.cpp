@@ -16,6 +16,12 @@ MouseMovementBuffer::MouseMovementBuffer(std::chrono::milliseconds window)
   assert(window.count() > 1);
 }
 
+void MouseMovementBuffer::clear() noexcept
+{
+  // The next sample advances past this sentinel; backward scans cannot reach old history.
+  buffer_[pos_] = { std::chrono::milliseconds::min(), 0, 0 };
+}
+
 MouseMovementBuffer::Result MouseMovementBuffer::add(std::chrono::milliseconds time, int rel_x, int rel_y) noexcept
 {
   if (time <= buffer_[pos_].time)

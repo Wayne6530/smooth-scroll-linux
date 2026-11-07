@@ -391,6 +391,7 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
 
       braking_times_ = 0;
 
+      mouse_movement_buffer_.clear();
       delta_ = start_delta;
       last_event_time_ = event_time;
       next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
@@ -427,6 +428,7 @@ std::optional<struct input_event> WheelSmoother::handleSpeedEvent(const struct t
     return std::nullopt;
   }
 
+  mouse_movement_buffer_.clear();
   event_intervals_.clear();
   delta_ = initial_delta_;
   last_event_time_ = event_time;
@@ -498,6 +500,7 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
       braking_times_ = 0;
 
       free_spin_deviation_ = 0;
+      mouse_movement_buffer_.clear();
       delta_ = start_delta;
       last_event_time_ = event_time;
       next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
@@ -635,6 +638,7 @@ std::optional<struct input_event> WheelSmoother::handleHybridEvent(const struct 
     return makeWheelEvent(time, round_delta);
   }
 
+  mouse_movement_buffer_.clear();
   event_intervals_.clear();
   free_spin_deviation_ = 0;
   delta_ = initial_delta_;
@@ -755,6 +759,7 @@ std::optional<struct input_event> WheelSmoother::handleDistanceEvent(const struc
     return std::nullopt;
   }
 
+  mouse_movement_buffer_.clear();
   last_event_time_ = event_time;
   next_tick_time_ = event_time + std::chrono::microseconds{ options_.tick_interval_microseconds };
   positive_ = positive;
