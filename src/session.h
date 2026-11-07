@@ -35,7 +35,7 @@ public:
     InputOutputError,
   };
 
-  [[nodiscard]] static std::unique_ptr<Session> create(SessionResources resources, const SessionConfig& config,
+  [[nodiscard]] static std::unique_ptr<Session> create(SessionResources resources, ProfileSet& profile_set,
                                                        VirtualDevice& virtual_device, IpcServer& ipc,
                                                        const std::atomic_bool& shutdown, int shutdown_fd,
                                                        CreateResult& result);
@@ -55,7 +55,7 @@ private:
     KeyboardPassthroughState passthrough;
   };
 
-  Session(SessionResources resources, const SessionConfig& config, VirtualDevice& virtual_device, IpcServer& ipc,
+  Session(SessionResources resources, ProfileSet& profile_set, VirtualDevice& virtual_device, IpcServer& ipc,
           int shutdown_fd);
 
   [[nodiscard]] CreateResult initialize(const std::atomic_bool& shutdown);
@@ -76,10 +76,10 @@ private:
   std::unique_ptr<DeviceMonitor> monitor_;
   VirtualDevice& virtual_device_;
   IpcServer& ipc_;
-  std::vector<ProfileRuntime> profiles_;
+  // Owned by the main loop; Session teardown resets the active smoother before reuse.
+  ProfileSet& profile_set_;
   ProfileId active_profile_index_ = 0;
-  ProfileRuntime& activeProfile() noexcept { return profiles_[active_profile_index_]; }
-  std::array<bool, KEY_CNT> passthrough_union_keys_{};
+  ProfileRuntime& activeProfile() noexcept { return profile_set_.profiles[active_profile_index_]; }
   KeyboardPassthroughState mouse_passthrough_;
   std::vector<int> supported_mouse_keys_;
   std::vector<input_event> events_;

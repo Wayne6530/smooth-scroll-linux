@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cassert>
+#include <vector>
 #include "config.h"
 
 namespace smooth_scroll
@@ -32,6 +33,25 @@ struct ProfileRuntime
   WheelSmoother smoother;
   std::array<bool, KEY_CNT> braking_keys{};
   std::array<bool, KEY_CNT> passthrough_keys{};
+};
+
+// Configuration-derived data and processors shared across successive Sessions.
+struct ProfileSet
+{
+  explicit ProfileSet(const SessionConfig& config)
+  {
+    assert(!config.profiles.empty());
+    profiles.reserve(config.profiles.size());
+    for (const auto& profile : config.profiles)
+    {
+      profiles.emplace_back(profile);
+      for (auto key : profile.keyboard_passthrough_keys)
+        passthrough_union_keys[key] = true;
+    }
+  }
+
+  std::vector<ProfileRuntime> profiles;
+  std::array<bool, KEY_CNT> passthrough_union_keys{};
 };
 
 // Physical state belongs to an input source, not a profile.

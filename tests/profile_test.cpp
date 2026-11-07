@@ -87,6 +87,15 @@ int main(int argc, char** argv)
   assert(alternate.smoother.mouse_movement_window_milliseconds == 40);
   assert(config.session.profiles[2].wheel_passthrough);
 
+  SessionConfig union_config;
+  union_config.profiles.resize(3);
+  union_config.profiles[0].keyboard_passthrough_keys = { KEY_LEFTCTRL };
+  union_config.profiles[1].keyboard_passthrough_keys = { KEY_LEFTCTRL, KEY_RIGHTCTRL };
+  union_config.profiles[2].keyboard_passthrough_keys = {};
+  ProfileSet profile_set{ union_config };
+  for (unsigned int key = 0; key < KEY_CNT; ++key)
+    assert(profile_set.passthrough_union_keys[key] == (key == KEY_LEFTCTRL || key == KEY_RIGHTCTRL));
+
   ProfileRuntime runtime{ alternate };
   KeyboardPassthroughState first, second;
   assert(first.update(KEY_LEFTCTRL, 1, false) == 1);

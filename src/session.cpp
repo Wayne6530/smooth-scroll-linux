@@ -17,12 +17,12 @@
 namespace smooth_scroll
 {
 
-std::unique_ptr<Session> Session::create(SessionResources resources, const SessionConfig& config,
+std::unique_ptr<Session> Session::create(SessionResources resources, ProfileSet& profile_set,
                                          VirtualDevice& virtual_device, IpcServer& ipc,
                                          const std::atomic_bool& shutdown, int shutdown_fd, CreateResult& result)
 {
   auto session = std::unique_ptr<Session>{
-    new Session{ std::move(resources), config, virtual_device, ipc, shutdown_fd }
+    new Session{ std::move(resources), profile_set, virtual_device, ipc, shutdown_fd }
   };
   result = session->initialize(shutdown);
   if (result != CreateResult::Success)
@@ -30,26 +30,18 @@ std::unique_ptr<Session> Session::create(SessionResources resources, const Sessi
   return session;
 }
 
-Session::Session(SessionResources resources, const SessionConfig& config, VirtualDevice& virtual_device,
+Session::Session(SessionResources resources, ProfileSet& profile_set, VirtualDevice& virtual_device,
                  IpcServer& ipc, int shutdown_fd)
   : mouse_{ std::move(resources.devices.mouse) }
   , monitor_{ std::move(resources.monitor) }
   , virtual_device_{ virtual_device }
   , ipc_{ ipc }
+  , profile_set_{ profile_set }
   , shutdown_fd_{ shutdown_fd }
 {
   keyboards_.reserve(resources.devices.keyboards.size());
   for (auto& device : resources.devices.keyboards)
     keyboards_.push_back({ std::move(device), {} });
-
-  profiles_.reserve(config.profiles.size());
-  for (const auto& profile : config.profiles)
-  {
-    profiles_.emplace_back(profile);
-    for (auto key : profile.keyboard_passthrough_keys)
-      passthrough_union_keys_[key] = true;
-  }
-  assert(!profiles_.empty());
 
   for (std::size_t code = 0; code < mouse_.info().capabilities.keys.size(); ++code)
   {
@@ -61,6 +53,8 @@ Session::Session(SessionResources resources, const SessionConfig& config, Virtua
 
 Session::~Session()
 {
+  // Device loss may prevent special-button releases from ever arriving.
+  smoother().hardReset();
   if (grabbed_)
     libevdev_grab(mouse_.evdev(), LIBEVDEV_UNGRAB);
   ipc_.setDisconnected();
@@ -125,7 +119,7 @@ Session::CreateResult Session::initialize(const std::atomic_bool& shutdown)
   {
     for (unsigned int key = 0; key < KEY_CNT; ++key)
     {
-      if (passthrough_union_keys_[key] &&
+      if (profile_set_.passthrough_union_keys[key] &&
           libevdev_get_event_value(keyboard.device.evdev(), EV_KEY, key) != 0)
         handleObservedKey(key, 1, keyboard.passthrough);
     }
@@ -208,7 +202,7 @@ void Session::handleObservedKey(unsigned int code, int value, KeyboardPassthroug
     return;
   if (activeProfile().braking_keys[code])
     stopMotion();
-  if (!passthrough_union_keys_[code])
+  if (!profile_set_.passthrough_union_keys[code])
     return;
   const bool active = activeProfile().passthrough_keys[code];
   const int change = source.update(code, value, active);
@@ -233,7 +227,7 @@ bool Session::processIpcRequests()
 
   // Braking can end a latched mode and make a pending profile switch eligible.
   const auto requested = ipc_.requestedProfileId();
-  if (requested >= profiles_.size() || requested == active_profile_index_ ||
+  if (requested >= profile_set_.profiles.size() || requested == active_profile_index_ ||
       !activeProfile().canDeactivate(num_union_pressed_))
     return braked;
   smoother().stop();
@@ -575,7 +569,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
 
     if (restart_pending && !anyPhysicalKeyPressed() && events_.empty())
     {
-      stopMotion();
+      // Teardown resets motion; the next Session rebuilds device-local input state.
       return RunResult::RestartRequested;
     }
   }

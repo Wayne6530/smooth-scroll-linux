@@ -155,6 +155,7 @@ int main(int argc, char* argv[])
   DeviceManager device_manager{ config.device_manager, relevant_keyboard_keys, kShutdown, kShutdownFd };
 
   VirtualDevice virtual_device;
+  ProfileSet profiles{ config.session };
   while (!kShutdown.load(std::memory_order_relaxed))
   {
     AcquireResult acquisition = device_manager.acquireSessionDevices();
@@ -167,7 +168,7 @@ int main(int argc, char* argv[])
       return -1;
 
     Session::CreateResult create_result = Session::CreateResult::InputOutputError;
-    auto session = Session::create(std::move(*acquisition.resources), config.session, virtual_device, ipc, kShutdown,
+    auto session = Session::create(std::move(*acquisition.resources), profiles, virtual_device, ipc, kShutdown,
                                    kShutdownFd, create_result);
     if (!session)
     {
