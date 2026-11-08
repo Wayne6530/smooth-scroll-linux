@@ -5,6 +5,7 @@
 
 #include "ipc_client.h"
 #include "overlay_item.h"
+#include "shell_profiles.h"
 
 #include <effect/effect.h>
 
@@ -53,6 +54,8 @@ struct Config
   bool stopOnPointerLeaveWindow = true;
   int pollIntervalMs = 4;
   uint32_t shellProfileId = 1;
+  ProfileMap windowTypeProfiles;
+  ProfileMap effectProfiles;
   QList<ProfileRule> profileRules;
 };
 
@@ -94,11 +97,19 @@ private:
   void loadConfig();
   void applyOverlayConfig();
   bool maybeReloadConfig();
-  bool shellOverviewActive() const;
+  struct PointerTarget
+  {
+    QString effect;
+    KWin::EffectWindow* window = nullptr;
+  };
+  PointerTarget pointerTarget(const QPointF& pos) const;
   KWin::EffectWindow* windowAt(const QPointF& pos) const;
+  static QString windowTypeName(KWin::EffectWindow* window);
+  uint32_t requestedProfileForTarget(const PointerTarget& target, QString* reason = nullptr) const;
   static bool isRegularApplicationWindow(KWin::EffectWindow* window);
   static WindowInfo infoForWindow(KWin::EffectWindow* window);
-  uint32_t requestedProfileForWindow(KWin::EffectWindow* window, const WindowInfo& info) const;
+  uint32_t requestedProfileForWindow(KWin::EffectWindow* window, const WindowInfo& info,
+                                     QString* reason = nullptr) const;
   bool ruleMatches(const ProfileRule& rule, const WindowInfo& info) const;
   bool setRequestedProfile(uint32_t id);
   void initializeOverlayViews();
@@ -123,7 +134,7 @@ private:
   static QPoint visualOffsetForMode(const Config& config, IndicatorMode mode);
   static double alphaForMode(const Config& config, IndicatorMode mode, uint32_t speed);
   static double alphaForSpeed(const DotVisualConfig& config, uint32_t speed);
-  void updatePointerLeaveBrake(const IpcSnapshot& snapshot, KWin::EffectWindow* pointerWindow);
+  void updatePointerLeaveBrake(const IpcSnapshot& snapshot, const QString& pointerWindowKey);
   void requestAnchorStop(const IpcSnapshot& snapshot);
   void resetScrollAnchor();
   void resetState();

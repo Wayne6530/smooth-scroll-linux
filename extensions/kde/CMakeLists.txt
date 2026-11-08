@@ -73,3 +73,11 @@ install(TARGETS kwin_smooth_scroll
 install(PROGRAMS bin/smooth-scroll-kde-rule
     DESTINATION "${KDE_INSTALL_BINDIR}"
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(shell_profiles_test tests/shell_profiles_test.cpp)
+    target_include_directories(shell_profiles_test PRIVATE src)
+    target_link_libraries(shell_profiles_test PRIVATE Qt6::Core)
+    add_test(NAME kde_shell_profiles COMMAND shell_profiles_test)
+endif()

@@ -59,5 +59,7 @@
     "poll_interval_ms": 4
   },
   "profile_rules": [],
+  "window_type_profiles": {},
+  "effect_profiles": {},
   "shell_profile_id": 1
 }

@@ -19,7 +19,7 @@ Examples:
 Commands:
   pick      Add or update a rule for the window under the pointer.
   preview   Print the rule that would be written.
-  info      Print KWin window ids for the window under the pointer.
+  info      Print target ids, window type, effect and profile selection.
 
 Options:
   --profile ID   Request this daemon profile (required for pick/preview).

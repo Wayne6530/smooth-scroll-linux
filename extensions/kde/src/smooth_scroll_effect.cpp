@@ -124,13 +124,6 @@ bool stringMatches(const QString& pattern, const QString& value)
   return false;
 }
 
-bool isOverviewEffectName(const QString& name)
-{
-  return name == QLatin1String("overview") || name == QLatin1String("windowview") ||
-         name == QLatin1String("desktopgrid") || name == QLatin1String("presentwindows") ||
-         name == QLatin1String("presentwindows_current") || name == QLatin1String("presentwindows_all");
-}
-
 RuleMatcher ruleMatcherForInfo(const WindowInfo& info)
 {
   if (!info.desktopFileName.isEmpty())
@@ -416,7 +409,8 @@ void SmoothScrollEffect::reconfigure(ReconfigureFlags flags)
 QVariantMap SmoothScrollEffect::currentWindowInfo() const
 {
   const QPointF pointer = KWin::effects->cursorPos();
-  KWin::EffectWindow* window = windowAt(pointer);
+  const PointerTarget target = pointerTarget(pointer);
+  KWin::EffectWindow* window = target.window;
   const WindowInfo info = infoForWindow(window);
   const RuleMatcher matcher = ruleMatcherForInfo(info);
   const bool regular = isRegularApplicationWindow(window);
@@ -435,8 +429,11 @@ QVariantMap SmoothScrollEffect::currentWindowInfo() const
   map.insert(QStringLiteral("recommended_rule_key"), matcher.key);
   map.insert(QStringLiteral("recommended_rule_value"), matcher.value);
   map.insert(QStringLiteral("recommended_rule_source"), matcher.source);
-  map.insert(QStringLiteral("requested_profile_now"),
-             requestedProfileForWindow(window, info));
+  QString reason;
+  map.insert(QStringLiteral("requested_profile_now"), requestedProfileForTarget(target, &reason));
+  map.insert(QStringLiteral("profile_reason"), reason);
+  map.insert(QStringLiteral("interaction_effect"), target.effect);
+  map.insert(QStringLiteral("window_type_name"), windowTypeName(window));
   return map;
 }
 
@@ -581,11 +578,10 @@ void SmoothScrollEffect::tick()
   }
 
   const QPointF pointer = KWin::effects->cursorPos();
-  const bool shellOverview = shellOverviewActive();
-  KWin::EffectWindow* pointerWindow = shellOverview ? nullptr : windowAt(pointer);
-  const WindowInfo pointerInfo = infoForWindow(pointerWindow);
+  const PointerTarget target = pointerTarget(pointer);
+  KWin::EffectWindow* pointerWindow = target.window;
 
-  const uint32_t requestedProfileId = requestedProfileForWindow(pointerWindow, pointerInfo);
+  const uint32_t requestedProfileId = requestedProfileForTarget(target);
   IpcSnapshot effectiveSnapshot = snapshot;
   if (setRequestedProfile(requestedProfileId))
   {
@@ -608,7 +604,9 @@ void SmoothScrollEffect::tick()
   }
   else
   {
-    updatePointerLeaveBrake(effectiveSnapshot, pointerWindow);
+    const QString targetKey =
+        target.effect.isEmpty() ? infoForWindow(pointerWindow).key : QStringLiteral("effect:") + target.effect;
+    updatePointerLeaveBrake(effectiveSnapshot, targetKey);
   }
 
   m_lastSpeed = snapshot.speed;
@@ -688,6 +686,9 @@ void SmoothScrollEffect::loadConfig()
 
   next.passthrough.enabled = readBool(passthroughVisual, QStringLiteral("enabled"), next.passthrough.enabled);
   next.shellProfileId = static_cast<uint32_t>(root.value(QStringLiteral("shell_profile_id")).toDouble(1));
+  next.windowTypeProfiles =
+      readProfileMap(root.value(QStringLiteral("window_type_profiles")).toObject(), next.shellProfileId);
+  next.effectProfiles = readProfileMap(root.value(QStringLiteral("effect_profiles")).toObject(), next.shellProfileId);
   next.passthrough.offsetX =
       readInt(passthroughVisual, QStringLiteral("offset_x"), next.passthrough.offsetX, -10000, 10000);
   next.passthrough.offsetY =
@@ -817,10 +818,12 @@ bool SmoothScrollEffect::maybeReloadConfig()
   return true;
 }
 
-bool SmoothScrollEffect::shellOverviewActive() const
+SmoothScrollEffect::PointerTarget SmoothScrollEffect::pointerTarget(const QPointF& pos) const
 {
-  const QStringList activeEffects = KWin::effects->activeEffects();
-  return std::any_of(activeEffects.begin(), activeEffects.end(), isOverviewEffectName);
+  PointerTarget target;
+  target.effect = interactionEffect(KWin::effects->activeEffects());
+  target.window = target.effect.isEmpty() ? windowAt(pos) : nullptr;
+  return target;
 }
 
 KWin::EffectWindow* SmoothScrollEffect::windowAt(const QPointF& pos) const
@@ -861,6 +864,105 @@ bool SmoothScrollEffect::isRegularApplicationWindow(KWin::EffectWindow* window)
   return window->isNormalWindow() || window->isDialog();
 }
 
+QString SmoothScrollEffect::windowTypeName(KWin::EffectWindow* window)
+{
+  if (!window)
+  {
+    return {};
+  }
+  if (window->isLockScreen())
+  {
+    return QStringLiteral("lock_screen");
+  }
+  if (window->isInputMethod())
+  {
+    return QStringLiteral("input_method");
+  }
+  if (window->isOutline())
+  {
+    return QStringLiteral("outline");
+  }
+  if (window->isDesktop())
+  {
+    return QStringLiteral("desktop");
+  }
+  if (window->isDock())
+  {
+    return QStringLiteral("dock");
+  }
+  if (window->isMenu())
+  {
+    return QStringLiteral("menu");
+  }
+  if (window->isDropdownMenu())
+  {
+    return QStringLiteral("dropdown_menu");
+  }
+  if (window->isPopupMenu())
+  {
+    return QStringLiteral("popup_menu");
+  }
+  if (window->isTooltip())
+  {
+    return QStringLiteral("tooltip");
+  }
+  if (window->isCriticalNotification())
+  {
+    return QStringLiteral("critical_notification");
+  }
+  if (window->isNotification())
+  {
+    return QStringLiteral("notification");
+  }
+  if (window->isOnScreenDisplay())
+  {
+    return QStringLiteral("on_screen_display");
+  }
+  if (window->isComboBox())
+  {
+    return QStringLiteral("combo_box");
+  }
+  if (window->isDNDIcon())
+  {
+    return QStringLiteral("dnd_icon");
+  }
+  if (window->isAppletPopup())
+  {
+    return QStringLiteral("applet_popup");
+  }
+  if (window->isDialog())
+  {
+    return QStringLiteral("dialog");
+  }
+  if (window->isNormalWindow())
+  {
+    return QStringLiteral("normal");
+  }
+  if (window->isToolbar())
+  {
+    return QStringLiteral("toolbar");
+  }
+  if (window->isSplash())
+  {
+    return QStringLiteral("splash");
+  }
+  if (window->isUtility())
+  {
+    return QStringLiteral("utility");
+  }
+  return QStringLiteral("unknown");
+}
+
+uint32_t SmoothScrollEffect::requestedProfileForTarget(const PointerTarget& target, QString* reason) const
+{
+  if (!target.effect.isEmpty() || !isRegularApplicationWindow(target.window))
+  {
+    return shellProfile(target.effect, windowTypeName(target.window), m_config.effectProfiles,
+                        m_config.windowTypeProfiles, m_config.shellProfileId, reason);
+  }
+  return requestedProfileForWindow(target.window, infoForWindow(target.window), reason);
+}
+
 WindowInfo SmoothScrollEffect::infoForWindow(KWin::EffectWindow* window)
 {
   WindowInfo info;
@@ -883,11 +985,18 @@ WindowInfo SmoothScrollEffect::infoForWindow(KWin::EffectWindow* window)
   return info;
 }
 
-uint32_t SmoothScrollEffect::requestedProfileForWindow(KWin::EffectWindow* window,
-                                                                const WindowInfo& info) const
+uint32_t SmoothScrollEffect::requestedProfileForWindow(KWin::EffectWindow* window, const WindowInfo& info,
+                                                       QString* reason) const
 {
+  const auto setReason = [reason](const char* value) {
+    if (reason)
+    {
+      *reason = QString::fromLatin1(value);
+    }
+  };
   if (!isRegularApplicationWindow(window))
   {
+    setReason("shell_default");
     return m_config.shellProfileId;
   }
 
@@ -908,14 +1017,17 @@ uint32_t SmoothScrollEffect::requestedProfileForWindow(KWin::EffectWindow* windo
       const QRegularExpressionMatch match = titleRule.title.match(info.title);
       if (match.hasMatch())
       {
+        setReason("title_rule");
         return titleRule.profileId;
       }
     }
 
+    setReason("application_rule");
     return rule.profileId;
   }
 
-  return false;
+  setReason("application_default");
+  return 0;
 }
 
 bool SmoothScrollEffect::ruleMatches(const ProfileRule& rule, const WindowInfo& info) const
@@ -1374,7 +1486,7 @@ double SmoothScrollEffect::alphaForSpeed(const DotVisualConfig& config, uint32_t
   return std::clamp(config.minAlpha + (config.maxAlpha - config.minAlpha) * t, 0.0, 1.0);
 }
 
-void SmoothScrollEffect::updatePointerLeaveBrake(const IpcSnapshot& snapshot, KWin::EffectWindow* pointerWindow)
+void SmoothScrollEffect::updatePointerLeaveBrake(const IpcSnapshot& snapshot, const QString& pointerWindowKey)
 {
   if (!m_config.stopOnPointerLeaveWindow || snapshot.speed == 0)
   {
@@ -1385,7 +1497,6 @@ void SmoothScrollEffect::updatePointerLeaveBrake(const IpcSnapshot& snapshot, KW
     return;
   }
 
-  const QString pointerWindowKey = infoForWindow(pointerWindow).key;
   if (m_lastSpeed == 0)
   {
     m_anchorWindowKey = pointerWindowKey;
