@@ -1,4 +1,5 @@
 {
+  "X-KDE-ConfigModule": "kwin_smooth_scroll_config",
   "KPlugin": {
     "Authors": [
       {
@@ -7,9 +8,9 @@
       }
     ],
     "Category": "Accessibility",
-    "Description": "KWin companion for Smooth Scroll Linux shared-memory IPC.",
+    "Description": "Switch scrolling profiles by window and show indicators near the pointer. Requires the Smooth Scroll Linux daemon.",
     "EnabledByDefault": false,
     "License": "MIT",
-    "Name": "Smooth Scroll Linux"
+    "Name": "Smooth Scroll"
   }
 }

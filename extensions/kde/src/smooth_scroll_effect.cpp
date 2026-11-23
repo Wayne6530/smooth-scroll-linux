@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Wayne6530
 
 #include "smooth_scroll_effect.h"
+#include "effect_settings.h"
 
 #include <core/output.h>
 #include <effect/effecthandler.h>
@@ -13,17 +14,11 @@
 
 #include <QDBusConnection>
 #include <QDBusError>
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonParseError>
 #include <QLoggingCategory>
 #include <QQuickItem>
-#include <QSaveFile>
-#include <QStandardPaths>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -38,11 +33,8 @@ namespace
 {
 constexpr int MinPollIntervalMs = 1;
 constexpr int MaxPollIntervalMs = 1000;
-constexpr int ConfigReloadIntervalMs = 250;
 constexpr int OverlayRepaintMargin = 4;
 constexpr int OverlayCanvasMargin = 4;
-constexpr const char* ConfigDirName = "smooth-scroll-kde-effect";
-constexpr const char* ConfigFileName = "config.json";
 constexpr const char* DbusServiceName = "org.smooth_scroll.KWinEffect";
 constexpr const char* DbusObjectPath = "/SmoothScrollKWinEffect";
 
@@ -99,31 +91,6 @@ QColor readColor(const QJsonObject& object, const QString& key, const QColor& fa
   return color.isValid() ? color : fallback;
 }
 
-bool stringMatches(const QString& pattern, const QString& value)
-{
-  if (pattern.isEmpty())
-  {
-    return true;
-  }
-
-  if (value == pattern)
-  {
-    return true;
-  }
-
-  if (!pattern.endsWith(QLatin1String(".desktop")) && value == pattern + QLatin1String(".desktop"))
-  {
-    return true;
-  }
-
-  if (pattern.endsWith(QLatin1String(".desktop")) && pattern.chopped(8) == value)
-  {
-    return true;
-  }
-
-  return false;
-}
-
 RuleMatcher ruleMatcherForInfo(const WindowInfo& info)
 {
   if (!info.desktopFileName.isEmpty())
@@ -150,7 +117,7 @@ QString exactTitleRegex(const QString& title)
   return QStringLiteral("^%1$").arg(QRegularExpression::escape(title));
 }
 
-QJsonObject makeRuleObject(const WindowInfo& info, uint32_t profileId, bool includeTitle)
+QJsonObject makeRuleObject(const WindowInfo& info, uint32_t profileId, bool includeTitle, uint32_t defaultProfileId)
 {
   const RuleMatcher matcher = ruleMatcherForInfo(info);
   QJsonObject rule;
@@ -161,7 +128,7 @@ QJsonObject makeRuleObject(const WindowInfo& info, uint32_t profileId, bool incl
 
   rule.insert(QStringLiteral("enabled"), true);
   rule.insert(matcher.key, matcher.value);
-  rule.insert(QStringLiteral("profile_id"), static_cast<double>(includeTitle ? 0u : profileId));
+  rule.insert(QStringLiteral("profile_id"), static_cast<double>(includeTitle ? defaultProfileId : profileId));
 
   if (includeTitle && !info.title.isEmpty())
   {
@@ -185,33 +152,6 @@ QString indentedJson(const QJsonObject& object)
   return QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Indented)).trimmed();
 }
 
-bool objectHasMatcher(const QJsonObject& object, const RuleMatcher& matcher)
-{
-  if (matcher.key.isEmpty())
-  {
-    return false;
-  }
-
-  const QString pattern = object.value(matcher.key).toString();
-  return !pattern.isEmpty() && stringMatches(pattern, matcher.value);
-}
-
-int findMatchingRuleIndex(const QJsonArray& rules, const RuleMatcher& matcher)
-{
-  for (qsizetype i = 0; i < rules.size(); ++i)
-  {
-    if (!rules.at(i).isObject())
-    {
-      continue;
-    }
-    if (objectHasMatcher(rules.at(i).toObject(), matcher))
-    {
-      return static_cast<int>(i);
-    }
-  }
-  return -1;
-}
-
 bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, uint32_t profileId)
 {
   bool updated = false;
@@ -223,7 +163,9 @@ bool upsertTitleRule(QJsonObject& rule, const QString& titlePattern, uint32_t pr
       continue;
     }
     QJsonObject titleObject = titles.at(i).toObject();
-    if (titleObject.value(QStringLiteral("title")).toString() != titlePattern)
+    if (titleObject.value(QStringLiteral("title")).toString() != titlePattern ||
+        titleObject.value(QStringLiteral("mode")).toString(QStringLiteral("regex")) != QStringLiteral("regex") ||
+        titleObject.value(QStringLiteral("ignore_case")).toBool())
     {
       continue;
     }
@@ -263,17 +205,11 @@ void requestOverlayRepaint(const QRect& geometry)
 
 SmoothScrollEffect::SmoothScrollEffect(QObject* parent) : KWin::Effect(parent)
 {
-  const QString configRoot = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
-  m_configPath =
-      QDir(configRoot)
-          .filePath(QStringLiteral("%1/%2").arg(QLatin1String(ConfigDirName), QLatin1String(ConfigFileName)));
-
   loadConfig();
   initializeOverlayViews();
 
   connect(&m_timer, &QTimer::timeout, this, &SmoothScrollEffect::tick);
   m_timer.setTimerType(Qt::PreciseTimer);
-  m_configReloadTimer.start();
   applyTimerInterval();
   m_timer.start();
   registerDbus();
@@ -415,16 +351,12 @@ QVariantMap SmoothScrollEffect::currentWindowInfo() const
   const RuleMatcher matcher = ruleMatcherForInfo(info);
   const bool regular = isRegularApplicationWindow(window);
 
-  QVariantMap map;
+  QVariantMap map = info.toMap();
   map.insert(QStringLiteral("found"), window != nullptr);
   map.insert(QStringLiteral("regular_window"), regular);
   map.insert(QStringLiteral("cursor_x"), pointer.x());
   map.insert(QStringLiteral("cursor_y"), pointer.y());
   map.insert(QStringLiteral("key"), info.key);
-  map.insert(QStringLiteral("desktop_file_name"), info.desktopFileName);
-  map.insert(QStringLiteral("resource_class"), info.resourceClass);
-  map.insert(QStringLiteral("resource_name"), info.resourceName);
-  map.insert(QStringLiteral("window_class"), info.windowClass);
   map.insert(QStringLiteral("title"), info.title);
   map.insert(QStringLiteral("recommended_rule_key"), matcher.key);
   map.insert(QStringLiteral("recommended_rule_value"), matcher.value);
@@ -437,6 +369,35 @@ QVariantMap SmoothScrollEffect::currentWindowInfo() const
   return map;
 }
 
+QVariantMap SmoothScrollEffect::pickedWindow(const QString& uuid) const
+{
+  const QUuid id(uuid);
+  for (auto* window : KWin::effects->stackingOrder())
+  {
+    if (!window || window->internalId() != id || !isRegularApplicationWindow(window))
+      continue;
+    const auto info = infoForWindow(window);
+    const auto matcher = ruleMatcherForInfo(info);
+    if (!matcher.key.isEmpty())
+    {
+      auto picked = info.toMap();
+      picked.insert("key", matcher.key);
+      picked.insert("value", matcher.value);
+      picked.insert("title", info.title);
+      return picked;
+    }
+  }
+  return {};
+}
+
+QVariantMap SmoothScrollEffect::profileStatus()
+{
+  const auto state = m_ipc.readSnapshot();
+  return { { "available", state.valid && state.connected },
+           { "requested", state.requestedProfileId },
+           { "active", state.activeProfileId } };
+}
+
 QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId,
                                                                                    bool includeTitle) const
 {
@@ -447,7 +408,7 @@ QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId,
   }
 
   const WindowInfo info = infoForWindow(window);
-  const QJsonObject rule = makeRuleObject(info, profileId, includeTitle);
+  const QJsonObject rule = makeRuleObject(info, profileId, includeTitle, m_config.defaultProfileId);
   if (rule.isEmpty())
   {
     return QStringLiteral("ERROR: the window does not expose a usable app or class id");
@@ -472,34 +433,19 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
     return QStringLiteral("ERROR: the window does not expose a usable app or class id");
   }
 
-  QJsonObject root;
-  QFile file(m_configPath);
-  if (file.exists())
-  {
-    if (!file.open(QIODevice::ReadOnly))
-    {
-      return QStringLiteral("ERROR: failed to read %1: %2").arg(m_configPath, file.errorString());
-    }
-
-    QJsonParseError parseError;
-    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (parseError.error != QJsonParseError::NoError || !document.isObject())
-    {
-      return QStringLiteral("ERROR: failed to parse %1: %2").arg(m_configPath, parseError.errorString());
-    }
-
-    root = document.object();
-  }
+  const auto baseline = readSettings();
+  if (!baseline.value("profile_rules").isArray())
+    return QStringLiteral("ERROR: saved application rules could not be read");
+  auto root = baseline;
 
   QJsonArray rules = root.value(QStringLiteral("profile_rules")).toArray();
-  const int existingRuleIndex = findMatchingRuleIndex(rules, matcher);
+  const int existingRuleIndex = info.matchingRuleIndex(rules);
   const bool ruleExists = existingRuleIndex >= 0;
   bool titleRuleUpdated = false;
   QJsonObject rule =
-      ruleExists ? rules.at(existingRuleIndex).toObject() : makeRuleObject(info, profileId, includeTitle);
+      ruleExists ? rules.at(existingRuleIndex).toObject() : makeRuleObject(info, profileId, includeTitle, baseline.value("default_profile_id").toInteger());
 
   rule.insert(QStringLiteral("enabled"), true);
-  rule.insert(matcher.key, matcher.value);
 
   if (includeTitle)
   {
@@ -528,23 +474,9 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
   }
   root.insert(QStringLiteral("profile_rules"), rules);
 
-  const QFileInfo configInfo(m_configPath);
-  if (!QDir().mkpath(configInfo.absolutePath()))
-  {
-    return QStringLiteral("ERROR: failed to create %1").arg(configInfo.absolutePath());
-  }
-
-  QSaveFile saveFile(m_configPath);
-  if (!saveFile.open(QIODevice::WriteOnly))
-  {
-    return QStringLiteral("ERROR: failed to write %1: %2").arg(m_configPath, saveFile.errorString());
-  }
-
-  saveFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-  if (!saveFile.commit())
-  {
-    return QStringLiteral("ERROR: failed to commit %1: %2").arg(m_configPath, saveFile.errorString());
-  }
+  QString error;
+  if (!writeSettings(root, baseline, &error))
+    return QStringLiteral("ERROR: ") + error;
 
   loadConfig();
   applyOverlayConfig();
@@ -553,16 +485,14 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
   const QString action = ruleExists ? (includeTitle && !titleRuleUpdated ? QStringLiteral("Added title override") :
                                                                            QStringLiteral("Updated")) :
                                       QStringLiteral("Added");
-  return QStringLiteral("%1 %2=%3 profile_id=%4 in %5\n%6")
+  return QStringLiteral("%1 %2=%3 profile_id=%4\n%5")
       .arg(action, matcher.key, matcher.value,
            QString::number(profileId),
-           m_configPath, compactJson(rule));
+           compactJson(rule));
 }
 
 void SmoothScrollEffect::tick()
 {
-  maybeReloadConfig();
-
   const IpcSnapshot snapshot = m_ipc.readSnapshot();
   if (!snapshot.valid)
   {
@@ -616,26 +546,8 @@ void SmoothScrollEffect::loadConfig()
 {
   Config next;
 
-  const QFileInfo fileInfo(m_configPath);
-  m_configLastModified = fileInfo.exists() ? fileInfo.lastModified() : QDateTime();
-
-  QFile file(m_configPath);
-  if (!file.open(QIODevice::ReadOnly))
-  {
-    m_config = next;
-    return;
-  }
-
-  QJsonParseError parseError;
-  const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
-  if (parseError.error != QJsonParseError::NoError || !document.isObject())
-  {
-    qCWarning(SMOOTH_SCROLL_KWIN) << "Failed to parse config" << m_configPath << parseError.errorString();
-    m_config = next;
-    return;
-  }
-
-  const QJsonObject root = document.object();
+  const auto root = readSettings();
+  next.defaultProfileId = uint(root.value("default_profile_id").toInteger());
   const QJsonObject dot = root.value(QStringLiteral("dot")).toObject();
   const QJsonObject freeSpin = root.value(QStringLiteral("free_spin")).toObject();
   const QJsonObject arrow = root.value(QStringLiteral("arrow")).toObject();
@@ -745,7 +657,7 @@ void SmoothScrollEffect::loadConfig()
       titleRule.enabled = readBool(titleObject, QStringLiteral("enabled"), true);
       titleRule.profileId =
           static_cast<uint32_t>(titleObject.value(QStringLiteral("profile_id")).toDouble(rule.profileId));
-      titleRule.title = QRegularExpression(pattern);
+      titleRule.title = titleExpression(titleObject);
       if (!titleRule.title.isValid())
       {
         qCWarning(SMOOTH_SCROLL_KWIN) << "Ignoring invalid title regex" << pattern << titleRule.title.errorString();
@@ -791,31 +703,6 @@ void SmoothScrollEffect::applyOverlayConfig()
     m_autoScrollDotContentDirty = true;
     requestOverlayRepaint(m_autoScrollDotGeometry);
   }
-}
-
-bool SmoothScrollEffect::maybeReloadConfig()
-{
-  if (m_configReloadTimer.isValid() && !m_configReloadTimer.hasExpired(ConfigReloadIntervalMs))
-  {
-    return false;
-  }
-  m_configReloadTimer.restart();
-
-  const QFileInfo fileInfo(m_configPath);
-  const QDateTime modified = fileInfo.exists() ? fileInfo.lastModified() : QDateTime();
-  if (modified == m_configLastModified)
-  {
-    return false;
-  }
-
-  const int oldInterval = m_config.pollIntervalMs;
-  loadConfig();
-  applyOverlayConfig();
-  if (oldInterval != m_config.pollIntervalMs)
-  {
-    applyTimerInterval();
-  }
-  return true;
 }
 
 SmoothScrollEffect::PointerTarget SmoothScrollEffect::pointerTarget(const QPointF& pos) const
@@ -1027,29 +914,12 @@ uint32_t SmoothScrollEffect::requestedProfileForWindow(KWin::EffectWindow* windo
   }
 
   setReason("application_default");
-  return 0;
+  return m_config.defaultProfileId;
 }
 
 bool SmoothScrollEffect::ruleMatches(const ProfileRule& rule, const WindowInfo& info) const
 {
-  if (!rule.enabled)
-  {
-    return false;
-  }
-
-  if (!rule.app.isEmpty())
-  {
-    return stringMatches(rule.app, info.desktopFileName) || stringMatches(rule.app, info.resourceClass) ||
-           stringMatches(rule.app, info.windowClass);
-  }
-
-  if (!rule.windowClass.isEmpty())
-  {
-    return stringMatches(rule.windowClass, info.resourceClass) || stringMatches(rule.windowClass, info.resourceName) ||
-           stringMatches(rule.windowClass, info.windowClass);
-  }
-
-  return false;
+  return rule.enabled && info.matches(rule.app, rule.windowClass);
 }
 
 bool SmoothScrollEffect::setRequestedProfile(uint32_t id)

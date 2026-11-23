@@ -5,7 +5,9 @@
 
 #include <smooth_scroll/ipc_protocol.h>
 
+#include <chrono>
 #include <cstdint>
+#include <string>
 
 namespace SmoothScrollKWin
 {
@@ -34,7 +36,7 @@ struct IpcSnapshot
 class IpcClient
 {
 public:
-  IpcClient() = default;
+  explicit IpcClient(const char* name = smooth_scroll::IPC_SHM_NAME) : m_name(name) {}
   ~IpcClient();
 
   IpcClient(const IpcClient&) = delete;
@@ -49,6 +51,13 @@ private:
   bool connect();
   bool isMappedValid() const;
   static IpcSnapshot invalidSnapshot();
+  bool daemonAlive(uint32_t pid);
+
+  std::string m_name;
+  uint32_t m_pid = 0;
+  int m_pidfd = -1;
+  bool m_alive = false;
+  std::chrono::steady_clock::time_point m_nextProbe{};
 
   int m_fd = -1;
   smooth_scroll::SmoothScrollIPC* m_ipc = nullptr;

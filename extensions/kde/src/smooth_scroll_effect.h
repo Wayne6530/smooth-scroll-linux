@@ -3,15 +3,13 @@
 
 #pragma once
 
+#include "effect_settings.h"
 #include "ipc_client.h"
 #include "overlay_item.h"
 #include "shell_profiles.h"
 
 #include <effect/effect.h>
 
-#include <QDateTime>
-#include <QElapsedTimer>
-#include <QFileSystemWatcher>
 #include <QRegularExpression>
 #include <QTimer>
 #include <QVariantMap>
@@ -53,19 +51,16 @@ struct Config
   PassthroughVisualConfig passthrough;
   bool stopOnPointerLeaveWindow = true;
   int pollIntervalMs = 4;
+  uint32_t defaultProfileId = 0;
   uint32_t shellProfileId = 1;
   ProfileMap windowTypeProfiles;
   ProfileMap effectProfiles;
   QList<ProfileRule> profileRules;
 };
 
-struct WindowInfo
+struct WindowInfo : WindowIdentity
 {
   QString key;
-  QString desktopFileName;
-  QString resourceClass;
-  QString resourceName;
-  QString windowClass;
   QString title;
 };
 
@@ -86,6 +81,8 @@ public:
   void reconfigure(ReconfigureFlags flags) override;
 
 public Q_SLOTS:
+  Q_SCRIPTABLE QVariantMap pickedWindow(const QString& uuid) const;
+  Q_SCRIPTABLE QVariantMap profileStatus();
   Q_SCRIPTABLE QVariantMap currentWindowInfo() const;
   Q_SCRIPTABLE QString suggestedProfileRuleForCurrentWindow(uint profileId,
                                                                                bool includeTitle) const;
@@ -96,7 +93,6 @@ private:
   void tick();
   void loadConfig();
   void applyOverlayConfig();
-  bool maybeReloadConfig();
   struct PointerTarget
   {
     QString effect;
@@ -143,9 +139,6 @@ private:
   void unregisterDbus();
 
   Config m_config;
-  QString m_configPath;
-  QDateTime m_configLastModified;
-  QElapsedTimer m_configReloadTimer;
   QTimer m_timer;
   IpcClient m_ipc;
   std::unique_ptr<KWin::OffscreenQuickView> m_overlayView;

@@ -21,7 +21,7 @@ set(KDE_INSTALL_QTPLUGINDIR "${CMAKE_INSTALL_LIBDIR}/qt6/plugins" CACHE PATH "Qt
 set(KDE_INSTALL_PLUGINDIR "${KDE_INSTALL_QTPLUGINDIR}" CACHE PATH "KDE plugin install directory" FORCE)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Quick Widgets)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons Config WindowSystem)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons Config KCMUtils WindowSystem)
 find_package(KWin REQUIRED)
 
 if(KWin_VERSION VERSION_GREATER_EQUAL "6.7.0")
@@ -31,6 +31,10 @@ else()
 endif()
 
 set(KWIN_QT_PLUGIN_DIR "${CMAKE_INSTALL_LIBDIR}/qt6/plugins")
+
+add_library(smooth_scroll_settings STATIC src/effect_settings.cpp)
+set_target_properties(smooth_scroll_settings PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(smooth_scroll_settings PUBLIC KF6::ConfigCore Qt6::Core)
 
 add_library(kwin_smooth_scroll MODULE
     src/ipc_client.cpp
@@ -56,6 +60,7 @@ target_compile_definitions(kwin_smooth_scroll
 
 target_link_libraries(kwin_smooth_scroll
     PRIVATE
+        smooth_scroll_settings
         KWin::kwin
         Qt6::Core
         Qt6::DBus
@@ -70,12 +75,35 @@ install(TARGETS kwin_smooth_scroll
     LIBRARY DESTINATION "${KWIN_QT_PLUGIN_DIR}/kwin/effects/plugins"
 )
 
-install(PROGRAMS bin/smooth-scroll-kde-rule
-    DESTINATION "${KDE_INSTALL_BINDIR}"
+add_library(kwin_smooth_scroll_config MODULE src/config_module.cpp src/rules_page.cpp)
+set_target_properties(kwin_smooth_scroll_config PROPERTIES
+    PREFIX ""
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/kwin/effects/configs"
 )
+install(TARGETS kwin_smooth_scroll_config
+    LIBRARY DESTINATION "${KWIN_QT_PLUGIN_DIR}/kwin/effects/configs"
+)
+target_link_libraries(kwin_smooth_scroll_config PRIVATE smooth_scroll_settings
+    KF6::KCMUtils Qt6::Widgets Qt6::DBus)
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(ipc_client_test tests/ipc_client_test.cpp src/ipc_client.cpp)
+    target_include_directories(ipc_client_test PRIVATE src ../../include)
+    add_test(NAME kde_ipc_client COMMAND ipc_client_test)
+
+    add_executable(effect_settings_test tests/effect_settings_test.cpp)
+    target_include_directories(effect_settings_test PRIVATE src)
+    target_link_libraries(effect_settings_test PRIVATE smooth_scroll_settings)
+    add_test(NAME kde_effect_settings COMMAND effect_settings_test)
+
+    add_executable(config_module_test tests/config_module_test.cpp)
+    target_include_directories(config_module_test PRIVATE src)
+    target_link_libraries(config_module_test PRIVATE smooth_scroll_settings KF6::KCMUtils Qt6::Widgets)
+    add_test(NAME kde_config_module COMMAND config_module_test $<TARGET_FILE:kwin_smooth_scroll_config>)
+    set_tests_properties(kde_config_module PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/smooth-scroll-test-bus")
+
     add_executable(shell_profiles_test tests/shell_profiles_test.cpp)
     target_include_directories(shell_profiles_test PRIVATE src)
     target_link_libraries(shell_profiles_test PRIVATE Qt6::Core)

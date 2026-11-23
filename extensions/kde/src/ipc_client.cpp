@@ -3,7 +3,13 @@
 
 #include "ipc_client.h"
 
+#include <cerrno>
+#include <csignal>
 #include <fcntl.h>
+#include <limits>
+#include <poll.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -24,7 +30,7 @@ IpcSnapshot IpcClient::readSnapshot()
   }
 
   const uint32_t pid = m_ipc->daemon_pid.load(std::memory_order_relaxed);
-  if (pid == 0)
+  if (!daemonAlive(pid))
   {
     return invalidSnapshot();
   }
@@ -80,8 +86,42 @@ bool IpcClient::setRequestedProfile(uint32_t id)
   return true;
 }
 
+bool IpcClient::daemonAlive(uint32_t pid)
+{
+  const auto now = std::chrono::steady_clock::now();
+  if (pid == m_pid && now < m_nextProbe)
+    return m_alive;
+
+  if (pid != m_pid && m_pidfd >= 0)
+  {
+    ::close(m_pidfd);
+    m_pidfd = -1;
+  }
+  m_pid = pid;
+  m_nextProbe = now + std::chrono::seconds(1);
+  m_alive = false;
+  if (!pid || pid > std::numeric_limits<pid_t>::max())
+    return false;
+
+  if (m_pidfd < 0)
+    m_pidfd = syscall(SYS_pidfd_open, pid, 0);
+  if (m_pidfd >= 0)
+  {
+    pollfd descriptor{m_pidfd, POLLIN, 0};
+    m_alive = poll(&descriptor, 1, 0) == 0;
+  }
+  else
+    m_alive = kill(static_cast<pid_t>(pid), 0) == 0 || errno == EPERM;
+  return m_alive;
+}
+
 void IpcClient::close()
 {
+  if (m_pidfd >= 0)
+    ::close(m_pidfd);
+  m_pidfd = -1;
+  m_pid = 0;
+  m_alive = false;
   if (m_ipc)
   {
     munmap(m_ipc, sizeof(smooth_scroll::SmoothScrollIPC));
@@ -102,9 +142,16 @@ bool IpcClient::connect()
     return true;
   }
 
-  m_fd = shm_open(smooth_scroll::IPC_SHM_NAME, O_RDWR, 0666);
+  m_fd = shm_open(m_name.c_str(), O_RDWR, 0666);
   if (m_fd == -1)
   {
+    return false;
+  }
+
+  struct stat info{};
+  if (fstat(m_fd, &info) < 0 || info.st_size < static_cast<off_t>(sizeof(smooth_scroll::SmoothScrollIPC)))
+  {
+    close();
     return false;
   }
 
@@ -128,7 +175,7 @@ bool IpcClient::connect()
 
 bool IpcClient::isMappedValid() const
 {
-  return m_ipc && m_ipc->magic_version.load(std::memory_order_relaxed) == smooth_scroll::IPC_MAGIC_VERSION_EXPECTED;
+  return m_ipc && m_ipc->magic_version.load(std::memory_order_acquire) == smooth_scroll::IPC_MAGIC_VERSION_EXPECTED;
 }
 
 IpcSnapshot IpcClient::invalidSnapshot()
