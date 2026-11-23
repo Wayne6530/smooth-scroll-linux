@@ -1,7 +1,15 @@
 {
   "uuid": "smooth-scroll@wayne6530",
-  "name": "Smooth Scroll IPC Companion",
-  "description": "GNOME Shell companion for Smooth Scroll Linux using only the shared-memory IPC protocol.",
-  "shell-version": ["45", "46", "47", "48", "49", "50"],
-  "url": "https://github.com/Wayne6530/smooth-scroll-linux"
+  "name": "Smooth Scroll",
+  "description": "Switch scrolling profiles by application or window title, show scroll indicators near the pointer, and stop inertia when the pointer leaves a window. Requires the Smooth Scroll Linux daemon.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "url": "https://github.com/Wayne6530/smooth-scroll-linux",
+  "settings-schema": "org.gnome.shell.extensions.smooth-scroll"
 }

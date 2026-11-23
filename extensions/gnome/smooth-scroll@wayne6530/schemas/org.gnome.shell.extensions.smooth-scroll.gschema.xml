@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.smooth-scroll" path="/org/gnome/shell/extensions/smooth-scroll/">
+    <key name="dot-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="dot-offset-x" type="d">
+      <default>12</default>
+      <summary>Horizontal offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="dot-offset-y" type="d">
+      <default>0</default>
+      <summary>Vertical offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="dot-size" type="d">
+      <default>8</default>
+      <summary>Size (px)</summary>
+      <range min="1.0" max="64.0"/>
+    </key>
+    <key name="dot-color" type="s">
+      <default>&quot;#4ea1ff&quot;</default>
+      <summary>Color</summary>
+    </key>
+    <key name="dot-min-alpha" type="d">
+      <default>0.16</default>
+      <summary>Minimum opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="dot-min-alpha-speed" type="d">
+      <default>100</default>
+      <summary>Speed at minimum opacity</summary>
+      <range min="0.0" max="65535.0"/>
+    </key>
+    <key name="dot-max-alpha" type="d">
+      <default>0.9</default>
+      <summary>Maximum opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="dot-max-alpha-speed" type="d">
+      <default>3200</default>
+      <summary>Speed at maximum opacity</summary>
+      <range min="0.0" max="65535.0"/>
+    </key>
+    <key name="free-spin-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="free-spin-color" type="s">
+      <default>&quot;#4ea1ff&quot;</default>
+      <summary>Color</summary>
+    </key>
+    <key name="free-spin-alpha" type="d">
+      <default>0.9</default>
+      <summary>Opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="free-spin-ring-gap" type="d">
+      <default>1</default>
+      <summary>Ring gap (px)</summary>
+      <range min="0.0" max="32.0"/>
+    </key>
+    <key name="free-spin-ring-width" type="d">
+      <default>2</default>
+      <summary>Ring width (px)</summary>
+      <range min="1.0" max="16.0"/>
+    </key>
+    <key name="arrow-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="arrow-offset-x" type="d">
+      <default>12</default>
+      <summary>Horizontal offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="arrow-offset-y" type="d">
+      <default>0</default>
+      <summary>Vertical offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="arrow-size" type="d">
+      <default>22</default>
+      <summary>Size (px)</summary>
+      <range min="4.0" max="256.0"/>
+    </key>
+    <key name="arrow-color" type="s">
+      <default>&quot;#4ea1ff&quot;</default>
+      <summary>Color</summary>
+    </key>
+    <key name="arrow-alpha" type="d">
+      <default>0.9</default>
+      <summary>Opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="arrow-padding-scale" type="d">
+      <default>0.12</default>
+      <summary>Padding scale</summary>
+      <range min="0.0" max="0.45"/>
+    </key>
+    <key name="arrow-min-padding" type="d">
+      <default>2</default>
+      <summary>Min padding</summary>
+      <range min="0.0" max="64.0"/>
+    </key>
+    <key name="arrow-head-size-scale" type="d">
+      <default>0.18</default>
+      <summary>Head size scale</summary>
+      <range min="0.05" max="0.45"/>
+    </key>
+    <key name="arrow-min-head-size" type="d">
+      <default>3</default>
+      <summary>Min head size</summary>
+      <range min="1.0" max="64.0"/>
+    </key>
+    <key name="arrow-line-width-scale" type="d">
+      <default>0.08</default>
+      <summary>Line width scale</summary>
+      <range min="0.01" max="0.4"/>
+    </key>
+    <key name="arrow-min-line-width" type="d">
+      <default>1</default>
+      <summary>Min line width</summary>
+      <range min="1.0" max="32.0"/>
+    </key>
+    <key name="arrow-head-width-scale" type="d">
+      <default>0.5</default>
+      <summary>Head width scale</summary>
+      <range min="0.1" max="1.5"/>
+    </key>
+    <key name="auto-scroll-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="auto-scroll-offset-x" type="d">
+      <default>12</default>
+      <summary>Horizontal offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="auto-scroll-offset-y" type="d">
+      <default>0</default>
+      <summary>Vertical offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="auto-scroll-size" type="d">
+      <default>24</default>
+      <summary>Size (px)</summary>
+      <range min="20.0" max="256.0"/>
+    </key>
+    <key name="auto-scroll-color" type="s">
+      <default>&quot;#cbd5e1&quot;</default>
+      <summary>Color</summary>
+    </key>
+    <key name="auto-scroll-dot-color" type="s">
+      <default>&quot;#4ea1ff&quot;</default>
+      <summary>Moving dot color</summary>
+    </key>
+    <key name="auto-scroll-alpha" type="d">
+      <default>0.95</default>
+      <summary>Opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="auto-scroll-dot-size" type="d">
+      <default>6</default>
+      <summary>Moving dot size (px)</summary>
+      <range min="2.0" max="64.0"/>
+    </key>
+    <key name="passthrough-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="passthrough-offset-x" type="d">
+      <default>12</default>
+      <summary>Horizontal offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="passthrough-offset-y" type="d">
+      <default>0</default>
+      <summary>Vertical offset (px)</summary>
+      <range min="-256.0" max="256.0"/>
+    </key>
+    <key name="passthrough-size" type="d">
+      <default>12</default>
+      <summary>Size (px)</summary>
+      <range min="4.0" max="256.0"/>
+    </key>
+    <key name="passthrough-padding-scale" type="d">
+      <default>0.22</default>
+      <summary>Padding scale</summary>
+      <range min="0.0" max="0.45"/>
+    </key>
+    <key name="passthrough-min-padding" type="d">
+      <default>3</default>
+      <summary>Min padding</summary>
+      <range min="0.0" max="64.0"/>
+    </key>
+    <key name="passthrough-line-width-scale" type="d">
+      <default>0.12</default>
+      <summary>Line width scale</summary>
+      <range min="0.01" max="0.5"/>
+    </key>
+    <key name="passthrough-min-line-width" type="d">
+      <default>2</default>
+      <summary>Min line width</summary>
+      <range min="1.0" max="32.0"/>
+    </key>
+    <key name="passthrough-color" type="s">
+      <default>&quot;#ff5c5c&quot;</default>
+      <summary>Color</summary>
+    </key>
+    <key name="passthrough-alpha" type="d">
+      <default>0.9</default>
+      <summary>Opacity</summary>
+      <range min="0.0" max="1.0"/>
+    </key>
+    <key name="scroll-stop-on-pointer-leave-window" type="b">
+      <default>true</default>
+      <summary>Stop inertia when leaving the window</summary>
+    </key>
+    <key name="scroll-poll-interval-ms" type="d">
+      <default>8</default>
+      <summary>IPC poll interval (ms)</summary>
+      <range min="8.0" max="250.0"/>
+    </key>
+    <key name="pointer-fallback-enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+    </key>
+    <key name="pointer-fallback-interval-ms" type="d">
+      <default>4</default>
+      <summary>Pointer sampling interval (ms)</summary>
+      <range min="1.0" max="250.0"/>
+    </key>
+    <key name="pointer-fallback-event-fresh-ms" type="d">
+      <default>6</default>
+      <summary>Pointer event freshness (ms)</summary>
+      <range min="0.0" max="1000.0"/>
+    </key>
+    <key name="default-profile-id" type="u">
+      <default>0</default>
+      <summary>Profile ID for applications without an enabled rule</summary>
+    </key>
+    <key name="shell-profile-id" type="u">
+      <default>1</default>
+      <summary>Profile ID for desktop and Shell UI</summary>
+    </key>
+    <key name="profile-rules" type="a(sssbua(bssbu))">
+      <default>[]</default>
+      <summary>Application rules and ordered title exceptions</summary>
+      <description>Each application stores desktop ID, display name, icon, enabled, profile ID and title exceptions. Each exception stores enabled, match mode, text, ignore case and profile ID.</description>
+    </key>
+  </schema>
+</schemalist>

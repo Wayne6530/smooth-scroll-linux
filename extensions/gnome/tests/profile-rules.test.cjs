@@ -4,19 +4,20 @@ const vm = require('node:vm');
 const source = fs.readFileSync(__dirname + '/../smooth-scroll@wayne6530/extension.js', 'utf8');
 const context = vm.createContext({Extension: class {}, Clutter: {EventType: {}}, console: {warn() {}},
   global: {get_pointer: () => [0, 0]}});
-vm.runInContext(source.replace(/^import .*;$/gm, '').replace('export default class ', 'class ') + `
-  globalThis.api = {normalizeConfig, profileForWindow, SmoothScrollIpcCompanionExtension};
+const shared = ['settings.js', 'rules.js'].map(name => fs.readFileSync(__dirname + '/../smooth-scroll@wayne6530/' + name, 'utf8').replace(/^export /gm, '')).join('\n');
+vm.runInContext(shared + '\n' + source.replace(/^import .*;$/gm, '').replace('export default class ', 'class ') + `
+  globalThis.api = {normalizeRules, profileForWindow, SmoothScrollIpcCompanionExtension};
 `, context);
-const {normalizeConfig, profileForWindow, SmoothScrollIpcCompanionExtension} = context.api;
-const config = normalizeConfig(JSON.parse(JSON.stringify({shell_profile_id: 1, profile_rules: [
-  {app: 'disabled', enabled: false, profile_id: 9},
-  {app: 'browser', profile_id: 2, titles: [
-    {title: '[', profile_id: 8},
-    {title: 'Private', enabled: false, profile_id: 7},
-    {title: '^Private', profile_id: 3},
-    {title: '^Inherited'},
+const {normalizeRules, profileForWindow, SmoothScrollIpcCompanionExtension} = context.api;
+const config = {default_profile_id: 6, shell_profile_id: 1, scroll: {stop_on_pointer_leave_window: true}, profile_rules: normalizeRules([
+  {app: 'disabled', enabled: false, profile_id: 9, titles: []},
+  {app: 'browser', enabled: true, profile_id: 2, titles: [
+    {title: '[', mode: 'regex', enabled: true, profile_id: 8},
+    {title: 'Private', mode: 'regex', enabled: false, profile_id: 7},
+    {title: '^Private', mode: 'regex', enabled: true, profile_id: 3},
+    {title: '^Inherited', mode: 'regex', enabled: true, profile_id: 2},
   ]},
-]})));
+])};
 assert.equal(profileForWindow(config.profile_rules, null), 0);
 assert.equal(profileForWindow(config.profile_rules, {appIds: ['disabled'], title: ''}), 0);
 assert.equal(profileForWindow(config.profile_rules, {appIds: ['browser'], title: 'Normal'}), 2);
@@ -30,6 +31,8 @@ extension._resolver = {shellInteractionActive: () => false};
 const info = {appIds: ['browser'], title: 'Normal'};
 assert.equal(extension._requestedProfileForWindow(null, null, 0, 0), 1);
 assert.equal(extension._requestedProfileForWindow({}, info, 0, 0), 2);
+assert.equal(extension._requestedProfileForWindow({}, {appIds: ['disabled'], title: ''}, 0, 0), 6);
+assert.equal(extension._requestedProfileForWindow({}, null, 0, 0), 6);
 extension._resolver.shellInteractionActive = () => true;
 assert.equal(extension._requestedProfileForWindow({}, info, 0, 0), 1);
 assert.equal(extension._isWheelPassthrough({requestedProfileId: 1, activeProfileId: 0}), false);

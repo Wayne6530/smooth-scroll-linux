@@ -1,234 +1,83 @@
-# Smooth Scroll IPC Companion
+# Using Smooth Scroll on GNOME
 
-This GNOME Shell extension adds visual indicators and per-window
-profile rules for Smooth Scroll Linux. It communicates with
-the daemon through the shared-memory IPC file:
+The Smooth Scroll extension shows scrolling indicators near your pointer and
+selects a scrolling profile when you move the pointer over an application. Use
+the [Web Configurator](https://wayne6530.github.io/smooth-scroll-linux/config.html)
+to configure profiles and note their numeric IDs. Use the GNOME extension's
+preferences to choose where each ID applies.
 
-```text
-/dev/shm/smooth_scroll_shm
-```
+## Install and open preferences
 
-While this extension is enabled, avoid running other tools that write Smooth
-Scroll IPC control fields, including the bundled CLI control commands. Competing
-writes to `scroll_id` or `requested_profile_id` can make
-profile selection or braking behavior unpredictable.
+The extension supports GNOME Shell 45–50 and works with the Smooth Scroll daemon.
+If you need to install the daemon first, follow the [project guide](../../README.md).
 
-## Features
+1. Open the [GitHub Release](https://github.com/Wayne6530/smooth-scroll-linux/releases)
+   matching your daemon version. Under **Assets**, download
+   `smooth-scroll@wayne6530.shell-extension.zip`. In the folder containing the
+   downloaded ZIP, run:
 
-- Draws a small dot near the pointer while inertial scrolling is active.
-- Draws a four-way arrow near the pointer while Drag View is active.
-- Draws a stationary circled four-triangle origin marker during Auto Scroll,
-  with a blue dot that follows the IPC pointer offset.
-- Draws an X near the pointer while Compatibility Passthrough is ready. While
-  an existing special mode is finishing, its current indicator turns red.
-- Draws an outer ring while Free Spin is active, including at zero speed.
-- Stops inertial scrolling when the pointer leaves the window where scrolling
-  started.
-- Applies numeric `profile_id` from per-window rules based on the window
-  under the pointer.
+   ```sh
+   gnome-extensions install --force ./smooth-scroll@wayne6530.shell-extension.zip
+   ```
 
-## Install
+2. Log out and log back in so GNOME loads the extension.
+3. Open **Extensions**, enable **Smooth Scroll**, and open its
+   preferences. If the extension is already enabled, you can open preferences
+   directly with `gnome-extensions prefs smooth-scroll@wayne6530`.
 
-Before installing, change to this extension directory:
+## Use a profile for an application
 
-```bash
-cd extensions/gnome
-```
+1. Open the application you want to configure and leave its window visible.
+2. In preferences, open **Application rules** and click **+** beside **Applications**.
+   Preferences will hide so you can click the target window. Press **Esc** to cancel.
+3. Set **Default Profile ID** to the ID you chose in the Web Configurator and click
+   **Save**. The rule applies whenever the pointer is over a window of that application.
 
-Then install the extension and example config:
+GNOME identifies the application from the selected window. To change a saved rule,
+use its edit button in **Applications**, even when the application is closed.
+Use the switch beside a saved rule to enable or disable it immediately.
+Under **Default profiles**, set **Default Profile ID** for applications without
+an enabled rule (initially **0**). For the desktop, dock,
+overview and Shell menus, set **Shell Profile ID** on the same page (default **1**).
 
-```bash
-mkdir -p ~/.local/share/gnome-shell/extensions ~/.config/smooth-scroll-gnome-extension \
-  && cp -r smooth-scroll@wayne6530 ~/.local/share/gnome-shell/extensions/ \
-  && cp config.example.json ~/.config/smooth-scroll-gnome-extension/config.json
-```
+## Use a different profile for particular window titles
 
-Make sure GNOME's global user-extension switch allows locally installed
-extensions:
+For example, to use a different profile for a browser window whose title contains
+“Maps”, open the browser's application rule:
 
-```bash
-gsettings set org.gnome.shell disable-user-extensions false
-```
+1. Click **+** beside **Window title exceptions**. Choose **Contains** and enter
+   `Maps` in **Title text**. To copy an actual title, click **Get title from a window** beside the text,
+   click a window of the same application, and keep the part you want to match.
+2. Set **Profile ID** for these windows and click **Save**.
+3. Click **Save** in the application rule to apply your changes. **Cancel** discards
+   the draft, including any exceptions you edited.
 
-On Wayland, log out and log back in after copying the extension so GNOME Shell
-can discover it. Then enable the extension:
+Matching uses the window title shown by the application. Choose **Equals**,
+**Starts with** or **Ends with** for a more specific match. Ordinary text is
+case-sensitive unless you enable **Ignore case**. If multiple exceptions match,
+the first enabled one wins. Toggle individual exceptions in the exception list
+and click **Save** to apply your changes. Use the arrow buttons to move a more specific
+exception above a broader one. Other titles use the application's default profile.
 
-```bash
-gnome-extensions enable smooth-scroll@wayne6530
-```
+## Adjust scrolling behavior and indicators
 
-On X11, `Alt+F2`, then `r`, then Enter is usually enough before enabling.
+Open **Behavior** to control whether inertia stops when the pointer leaves a
+window. Open **Indicators** to adjust the appearance of the inertia dot, Free
+Spin ring, Drag View arrow, Auto Scroll marker or compatibility indicator.
+For example, change the Auto Scroll size to resize its marker (default **24 px**).
+Changes on these pages apply immediately. Use the reset button beside a group
+heading to restore that group's defaults.
 
-If the extension still does not start, check both switches:
+## Check which profile is active
 
-```bash
-gsettings get org.gnome.shell disable-user-extensions
-gnome-extensions info smooth-scroll@wayne6530
-```
+Open **Application rules** and move the pointer over the window you want to check.
+At the top of the page, **Requested** is the ID selected by the extension and
+**Active** is the ID in use by the daemon.
 
-`disable-user-extensions` must be `false`, and the extension must be listed as
-enabled.
-
-## Configure
-
-The extension reads its own config file:
-
-```text
-~/.config/smooth-scroll-gnome-extension/config.json
-```
-
-The install command above copies the example config to this path. The extension
-reloads the config when the file changes.
-
-Under `dot`, `offset_x` and `offset_y` place the inertial-scroll dot center
-relative to the pointer, not the top-left corner of the indicator.
-
-`arrow` controls the Drag View arrow independently from `dot`. `"enabled":
-false` disables the arrow. `offset_x`, `offset_y`, `size`, `color`, and `alpha`
-control placement and appearance; `padding_scale`, `head_size_scale`,
-`line_width_scale`, and `head_width_scale` control the arrow geometry.
-
-`free_spin` controls the ring drawn around the current indicator while Free
-Spin is active. `color` and `alpha` control its normal appearance;
-`ring_gap` is the transparent gap outside the current indicator and
-`ring_width` is the stroke width. The ring remains visible by itself when Free
-Spin reaches zero speed. It uses the `dot` placement when no other indicator is
-active.
-
-`auto_scroll` controls the Auto Scroll origin marker independently from the
-other indicators. The circle and four unconnected triangles remain fixed while
-the blue dot follows `auto_scroll_offset` from IPC. `offset_x`, `offset_y`,
-`size`, `color`, `dot_color`, `dot_size`, and `alpha` control its placement and
-appearance. The blue dot uses the IPC offset directly and may move outside the
-origin circle; the daemon limits that offset at the displacement corresponding
-to the configured maximum Auto Scroll speed.
-
-`passthrough` controls the full X drawn while compatibility passthrough is
-active (profile 1), and the warning color used when a profile change is pending
-during a special mode.
-`"enabled": false` disables both behaviors. `offset_x` and `offset_y` control
-the full X placement relative to the pointer. `size`, `padding_scale`,
-`min_padding`, `line_width_scale`, `min_line_width`, and `alpha` control the X;
-`color` controls both the X and the warning recolor. Drag View's arrow and the
-Free Spin dot/ring use this color while pending. Auto Scroll keeps its neutral
-origin frame and recolors its moving dot.
-
-`poll_interval_ms` controls how often the extension reads IPC state. Pointer
-position updates are event-driven, so the indicator follows mouse movement
-without waiting for the next IPC poll.
-
-`pointer_fallback` controls pointer sampling while an indicator is visible. The
-extension uses pointer events immediately when GNOME Shell receives them; if no
-pointer event arrives for `event_fresh_ms`, it samples `global.get_pointer()`
-every `interval_ms` to keep indicators responsive over regular application
-windows. The defaults, `interval_ms = 4` and `event_fresh_ms = 6`, are tuned for
-120 Hz displays.
-
-## Window Rules
-
-When the pointer is on GNOME Desktop, GNOME Dock / Ubuntu Dock / Dash to Dock, the GNOME
-overview, workspace switcher, menus, or other Shell UI, the extension requests
-`shell_profile_id` (default 1, compatibility passthrough). The full X appears
-when profile 1 is active. If a different profile is requested during Free Spin,
-Drag View or Auto Scroll, that interaction continues with its indicator recolored
-to the configured passthrough color while the request is pending.
-
-Use `profile_rules` to select a profile for application windows. App rules use these fields:
-
-- `app`: exact app id from Looking Glass, for example
-  `firefox_firefox.desktop`.
-- `profile_id`: profile selected for this app (default 0).
-- `titles`: optional title-specific overrides for this app.
-
-Each item under `titles` uses:
-
-- `title`: JavaScript regular expression matched against the window title.
-- `profile_id`: profile selected when the title matches; omitted values use
-  the app rule’s profile.
-
-The first app rule whose `app` matches is used. Inside that rule, title rules
-are checked in order; the first matching title rule overrides the app default.
-If no app rule matches the current window, profile 0 is requested for
-that window.
-
-### Finding Window Values
-
-Use GNOME Shell Looking Glass:
-
-1. Press `Alt+F2`, type `lg`, and press Enter.
-2. Open the Windows tab.
-3. Find the target window by title.
-4. Copy the value after `app:` into the rule's `app` field.
-
-Looking Glass shows entries like:
-
-```text
-Example Page - Mozilla Firefox
-wmclass: firefox
-app: firefox_firefox.desktop
-```
-
-Use the `app:` value:
-
-```json
-{
-  "app": "firefox_firefox.desktop",
-  "profile_id": 1
-}
-```
-
-`wmclass` is shown by Looking Glass to help you identify the window, but this
-extension's rule system only uses `app`.
-
-Use `titles` when only some windows inside an app need different behavior. The
-`title` value is a regular expression, so it can match a stable part of the
-window title instead of the whole title:
-
-```json
-{
-  "app": "microsoft-edge.desktop",
-  "profile_id": 0,
-  "titles": [
-    {
-      "title": "Google Docs",
-      "profile_id": 1
-    }
-  ]
-}
-```
-
-This means Edge normally does not use compatibility passthrough, but Edge
-windows whose title contains `Google Docs` do.
-
-Put app rules inside `profile_rules`:
-
-```json
-{
-  "profile_rules": [
-    {
-      "app": "firefox_firefox.desktop",
-      "profile_id": 1
-    }
-  ]
-}
-```
-
-Set `enabled: false` on an app or title rule to skip it.
-
-After adding or editing rules, save `config.json`. The extension reloads it
-automatically. Move the pointer over the target window; if compatibility
-passthrough (profile 1) is active, the full X appears near the pointer. If a
-profile change is pending during Free Spin, Drag View or Auto Scroll, its
-indicator uses the configured passthrough color (red by default).
-
-Profile IDs correspond to the daemon configuration: top-level options are 0,
-and successive `[[profiles]]` tables are 1, 2, and so on. The default configuration
-reserves profile 1 for compatibility passthrough. Other IDs select your custom
-profiles; they do not display the compatibility X. Set `shell_profile_id` at the
-JSON root to choose a different profile for Shell UI.
-
-Requests wait for Free Spin, Drag View and Auto Scroll to finish and for all
-keyboard passthrough keys configured in any profile to be released. Ordinary
-inertia stops on switching. An idle daemon may apply the request on the next
-input. Ensure the requested ID exists; an unknown ID leaves the active profile
-unchanged. The plugin and daemon must use IPC v3.
+- If **Requested** is unexpected, check that the application rule is enabled and
+  that its first matching title exception uses the intended ID.
+- If you see **Not yet applied**, finish the current scrolling action and try
+  scrolling again. If the IDs still differ, check the ID in the Web Configurator
+  and update the rule if the profile's ID has changed.
+- If window selection is unavailable, check that the extension is enabled.
+  If GNOME cannot identify the application, try selecting its main window.

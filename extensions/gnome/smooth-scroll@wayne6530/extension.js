@@ -7,6 +7,10 @@ import St from 'gi://St';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {DEFAULT_CONFIG} from './settings.js';
+import {profileId, profileForWindow} from './rules.js';
+import {ConfigManager} from './settingsStore.js';
+import {ShellBridge} from './shellBridge.js';
 
 const IPC_PATH = '/dev/shm/smooth_scroll_shm';
 const IPC_SIZE = 32;
@@ -18,99 +22,8 @@ const IPC_OFFSET_SCROLL_ID = 0x0c;
 const IPC_OFFSET_REQUESTED_PROFILE = 0x10;
 const IPC_OFFSET_AUTO_SCROLL = 0x14;
 
-const CONFIG_DIR_NAME = 'smooth-scroll-gnome-extension';
-const CONFIG_FILE_NAME = 'config.json';
-
-const DEFAULT_CONFIG = {
-    dot: {
-        enabled: true,
-        offset_x: 12,
-        offset_y: 0,
-        size: 8,
-        color: '#4ea1ff',
-        min_alpha: 0.16,
-        min_alpha_speed: 100,
-        max_alpha: 0.9,
-        max_alpha_speed: 3200,
-    },
-    free_spin: {
-        enabled: true,
-        color: '#4ea1ff',
-        alpha: 0.9,
-        ring_gap: 1,
-        ring_width: 2,
-    },
-    arrow: {
-        enabled: true,
-        offset_x: 12,
-        offset_y: 0,
-        size: 22,
-        color: '#4ea1ff',
-        alpha: 0.9,
-        padding_scale: 0.12,
-        min_padding: 2,
-        head_size_scale: 0.18,
-        min_head_size: 3,
-        line_width_scale: 0.08,
-        min_line_width: 1,
-        head_width_scale: 0.5,
-    },
-    auto_scroll: {
-        enabled: true,
-        offset_x: 12,
-        offset_y: 0,
-        size: 48,
-        color: '#cbd5e1',
-        dot_color: '#4ea1ff',
-        alpha: 0.95,
-        dot_size: 6,
-    },
-    passthrough: {
-        enabled: true,
-        offset_x: 12,
-        offset_y: 0,
-        size: 12,
-        padding_scale: 0.22,
-        min_padding: 3,
-        line_width_scale: 0.12,
-        min_line_width: 2,
-        color: '#ff5c5c',
-        alpha: 0.9,
-    },
-    scroll: {
-        stop_on_pointer_leave_window: true,
-        poll_interval_ms: 8,
-    },
-    pointer_fallback: {
-        enabled: true,
-        interval_ms: 4,
-        event_fresh_ms: 6,
-    },
-    profile_rules: [],
-    shell_profile_id: 1,
-};
-
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
-}
-
-function boolValue(value, fallback) {
-    return typeof value === 'boolean' ? value : fallback;
-}
-
-function numberValue(value, fallback, min, max) {
-    if (typeof value !== 'number' || Number.isNaN(value))
-        return fallback;
-
-    return clamp(value, min, max);
-}
-
-function cloneDefaultConfig() {
-    return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-}
-
-function isPlainObject(value) {
-    return value && typeof value === 'object' && !Array.isArray(value);
 }
 
 function parseColor(color) {
@@ -136,18 +49,6 @@ function parseColor(color) {
     }
 
     return { r: 0.31, g: 0.63, b: 1.0 };
-}
-
-function decodeBytes(contents) {
-    return new TextDecoder('utf-8').decode(contents);
-}
-
-function readFileContents(file) {
-    const result = file.load_contents(null);
-    if (typeof result[0] === 'boolean')
-        return result[0] ? result[1] : null;
-
-    return result[0];
 }
 
 function viewForBytes(contents) {
@@ -181,174 +82,6 @@ function eventType(event) {
 
 function isPointerCapturedEvent(event) {
     return POINTER_CAPTURED_EVENT_TYPES.includes(eventType(event));
-}
-
-function compileRegex(pattern) {
-    if (typeof pattern !== 'string' || pattern === '')
-        return undefined;
-
-    try {
-        return new RegExp(pattern);
-    } catch (error) {
-        console.warn(`Smooth Scroll IPC Companion: invalid regex "${pattern}": ${error.message}`);
-        return null;
-    }
-}
-
-function normalizeConfig(config) {
-    const fallback = DEFAULT_CONFIG;
-
-    if (!isPlainObject(config))
-        config = cloneDefaultConfig();
-
-    if (!isPlainObject(config.dot))
-        config.dot = {};
-    if (!isPlainObject(config.free_spin))
-        config.free_spin = {};
-    if (!isPlainObject(config.arrow))
-        config.arrow = {};
-    if (!isPlainObject(config.auto_scroll))
-        config.auto_scroll = {};
-    if (!isPlainObject(config.passthrough))
-        config.passthrough = {};
-    if (!isPlainObject(config.scroll))
-        config.scroll = {};
-    if (!isPlainObject(config.pointer_fallback))
-        config.pointer_fallback = {};
-    config.dot.enabled = boolValue(config.dot.enabled, fallback.dot.enabled);
-    config.dot.offset_x = numberValue(config.dot.offset_x, fallback.dot.offset_x, -256, 256);
-    config.dot.offset_y = numberValue(config.dot.offset_y, fallback.dot.offset_y, -256, 256);
-    config.dot.size = numberValue(config.dot.size, fallback.dot.size, 1, 64);
-    config.dot.color = typeof config.dot.color === 'string' && config.dot.color !== ''
-        ? config.dot.color
-        : fallback.dot.color;
-    config.dot.min_alpha = numberValue(config.dot.min_alpha, fallback.dot.min_alpha, 0, 1);
-    config.dot.max_alpha = numberValue(config.dot.max_alpha, fallback.dot.max_alpha, 0, 1);
-    config.dot.min_alpha_speed = numberValue(config.dot.min_alpha_speed, fallback.dot.min_alpha_speed, 0, 65535);
-    config.dot.max_alpha_speed = numberValue(config.dot.max_alpha_speed, fallback.dot.max_alpha_speed, 0, 65535);
-
-    config.free_spin.enabled = boolValue(config.free_spin.enabled, fallback.free_spin.enabled);
-    config.free_spin.color = typeof config.free_spin.color === 'string' && config.free_spin.color !== ''
-        ? config.free_spin.color
-        : fallback.free_spin.color;
-    config.free_spin.alpha = numberValue(config.free_spin.alpha, fallback.free_spin.alpha, 0, 1);
-    config.free_spin.ring_gap = numberValue(config.free_spin.ring_gap, fallback.free_spin.ring_gap, 0, 32);
-    config.free_spin.ring_width = numberValue(
-        config.free_spin.ring_width, fallback.free_spin.ring_width, 1, 16);
-
-    config.arrow.enabled = boolValue(config.arrow.enabled, fallback.arrow.enabled);
-    config.arrow.offset_x = numberValue(config.arrow.offset_x, fallback.arrow.offset_x, -256, 256);
-    config.arrow.offset_y = numberValue(config.arrow.offset_y, fallback.arrow.offset_y, -256, 256);
-    config.arrow.size = Math.round(numberValue(config.arrow.size, fallback.arrow.size, 4, 256));
-    config.arrow.color = typeof config.arrow.color === 'string' && config.arrow.color !== ''
-        ? config.arrow.color
-        : fallback.arrow.color;
-    config.arrow.alpha = numberValue(config.arrow.alpha, fallback.arrow.alpha, 0, 1);
-    config.arrow.padding_scale = numberValue(config.arrow.padding_scale, fallback.arrow.padding_scale, 0, 0.45);
-    config.arrow.min_padding = Math.round(numberValue(config.arrow.min_padding, fallback.arrow.min_padding, 0, 64));
-    config.arrow.head_size_scale = numberValue(config.arrow.head_size_scale, fallback.arrow.head_size_scale, 0.05, 0.45);
-    config.arrow.min_head_size = Math.round(numberValue(config.arrow.min_head_size, fallback.arrow.min_head_size, 1, 64));
-    config.arrow.line_width_scale = numberValue(config.arrow.line_width_scale, fallback.arrow.line_width_scale, 0.01, 0.4);
-    config.arrow.min_line_width = Math.round(numberValue(config.arrow.min_line_width, fallback.arrow.min_line_width, 1, 32));
-    config.arrow.head_width_scale = numberValue(config.arrow.head_width_scale, fallback.arrow.head_width_scale, 0.1, 1.5);
-
-    config.auto_scroll.enabled = boolValue(config.auto_scroll.enabled, fallback.auto_scroll.enabled);
-    config.auto_scroll.offset_x = numberValue(config.auto_scroll.offset_x, fallback.auto_scroll.offset_x, -256, 256);
-    config.auto_scroll.offset_y = numberValue(config.auto_scroll.offset_y, fallback.auto_scroll.offset_y, -256, 256);
-    config.auto_scroll.size = Math.round(numberValue(config.auto_scroll.size, fallback.auto_scroll.size, 20, 256));
-    config.auto_scroll.color = typeof config.auto_scroll.color === 'string' && config.auto_scroll.color !== ''
-        ? config.auto_scroll.color
-        : fallback.auto_scroll.color;
-    config.auto_scroll.dot_color =
-        typeof config.auto_scroll.dot_color === 'string' && config.auto_scroll.dot_color !== ''
-            ? config.auto_scroll.dot_color
-            : fallback.auto_scroll.dot_color;
-    config.auto_scroll.alpha = numberValue(config.auto_scroll.alpha, fallback.auto_scroll.alpha, 0, 1);
-    config.auto_scroll.dot_size = numberValue(config.auto_scroll.dot_size, fallback.auto_scroll.dot_size, 2, 64);
-
-    config.passthrough.enabled = boolValue(config.passthrough.enabled, fallback.passthrough.enabled);
-    config.passthrough.offset_x = numberValue(config.passthrough.offset_x, fallback.passthrough.offset_x, -256, 256);
-    config.passthrough.offset_y = numberValue(config.passthrough.offset_y, fallback.passthrough.offset_y, -256, 256);
-    config.passthrough.size = Math.round(numberValue(config.passthrough.size, fallback.passthrough.size, 4, 256));
-    config.passthrough.padding_scale = numberValue(config.passthrough.padding_scale, fallback.passthrough.padding_scale, 0, 0.45);
-    config.passthrough.min_padding = Math.round(numberValue(config.passthrough.min_padding, fallback.passthrough.min_padding, 0, 64));
-    config.passthrough.line_width_scale = numberValue(config.passthrough.line_width_scale, fallback.passthrough.line_width_scale, 0.01, 0.5);
-    config.passthrough.min_line_width = Math.round(numberValue(config.passthrough.min_line_width, fallback.passthrough.min_line_width, 1, 32));
-    config.passthrough.color = typeof config.passthrough.color === 'string' && config.passthrough.color !== ''
-        ? config.passthrough.color
-        : fallback.passthrough.color;
-    config.passthrough.alpha = numberValue(config.passthrough.alpha, fallback.passthrough.alpha, 0, 1);
-
-    config.scroll.stop_on_pointer_leave_window = boolValue(
-        config.scroll.stop_on_pointer_leave_window,
-        fallback.scroll.stop_on_pointer_leave_window);
-    config.scroll.poll_interval_ms = Math.round(numberValue(
-        config.scroll.poll_interval_ms,
-        fallback.scroll.poll_interval_ms,
-        8,
-        250));
-
-    config.pointer_fallback.enabled = boolValue(
-        config.pointer_fallback.enabled,
-        fallback.pointer_fallback.enabled);
-    config.pointer_fallback.interval_ms = Math.round(numberValue(
-        config.pointer_fallback.interval_ms,
-        fallback.pointer_fallback.interval_ms,
-        1,
-        250));
-    config.pointer_fallback.event_fresh_ms = Math.round(numberValue(
-        config.pointer_fallback.event_fresh_ms,
-        fallback.pointer_fallback.event_fresh_ms,
-        0,
-        1000));
-
-    if (!Array.isArray(config.profile_rules))
-        config.profile_rules = fallback.profile_rules;
-
-    config.profile_rules = config.profile_rules
-        .filter(rule => isPlainObject(rule) && typeof rule.app === 'string' && rule.app !== '')
-        .map(rule => {
-            rule.enabled = rule.enabled !== false;
-            rule.profile_id = profileId(rule.profile_id);
-
-            if (!Array.isArray(rule.titles))
-                rule.titles = [];
-
-            rule.titles = rule.titles
-                .filter(titleRule => (
-                    isPlainObject(titleRule) &&
-                    typeof titleRule.title === 'string' &&
-                    titleRule.title !== ''
-                ))
-                .map(titleRule => {
-                    titleRule.enabled = titleRule.enabled !== false;
-                    titleRule.profile_id = profileId(titleRule.profile_id ?? rule.profile_id);
-                    titleRule._titleRegex = compileRegex(titleRule.title);
-                    titleRule._invalidRegex = !titleRule._titleRegex;
-                    return titleRule;
-                });
-
-            return rule;
-        });
-
-    return config;
-}
-
-function loadConfig(path) {
-    const file = Gio.File.new_for_path(path);
-    if (!file.query_exists(null))
-        return normalizeConfig(cloneDefaultConfig());
-
-    try {
-        const contents = readFileContents(file);
-        if (!contents)
-            return normalizeConfig(cloneDefaultConfig());
-
-        return normalizeConfig(JSON.parse(decodeBytes(contents)));
-    } catch (error) {
-        console.warn(`Smooth Scroll IPC Companion: failed to load config: ${error.message}`);
-        return normalizeConfig(cloneDefaultConfig());
-    }
 }
 
 class SmoothScrollIpcClient {
@@ -528,75 +261,6 @@ class SmoothScrollIpcClient {
     }
 }
 
-class ConfigManager {
-    constructor(path, onReload) {
-        this.path = path;
-        this.config = loadConfig(path);
-        this._onReload = onReload;
-        this._monitor = null;
-        this._monitorChangedId = 0;
-        this._reloadSourceId = 0;
-    }
-
-    start() {
-        const file = Gio.File.new_for_path(this.path);
-        let monitorFile = file;
-        let monitorDirectory = false;
-
-        if (!file.query_exists(null)) {
-            const parent = file.get_parent();
-            if (!parent || !parent.query_exists(null))
-                return;
-
-            monitorFile = parent;
-            monitorDirectory = true;
-        }
-
-        try {
-            this._monitor = monitorDirectory
-                ? monitorFile.monitor_directory(Gio.FileMonitorFlags.NONE, null)
-                : monitorFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
-            this._monitorChangedId = this._monitor.connect('changed', (_monitor, changedFile) => {
-                if (monitorDirectory && changedFile.get_path() !== this.path)
-                    return;
-
-                this._scheduleReload();
-            });
-        } catch (error) {
-            console.warn(`Smooth Scroll IPC Companion: failed to monitor config: ${error.message}`);
-        }
-    }
-
-    stop() {
-        if (this._reloadSourceId) {
-            GLib.source_remove(this._reloadSourceId);
-            this._reloadSourceId = 0;
-        }
-
-        if (this._monitorChangedId && this._monitor) {
-            this._monitor.disconnect(this._monitorChangedId);
-            this._monitorChangedId = 0;
-        }
-
-        if (this._monitor) {
-            this._monitor.cancel();
-            this._monitor = null;
-        }
-    }
-
-    _scheduleReload() {
-        if (this._reloadSourceId)
-            GLib.source_remove(this._reloadSourceId);
-
-        this._reloadSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-            this._reloadSourceId = 0;
-            this.config = loadConfig(this.path);
-            this._onReload(this.config);
-            return GLib.SOURCE_REMOVE;
-        });
-    }
-}
-
 class PointerWindowResolver {
     constructor() {
         this._tracker = Shell.WindowTracker.get_default();
@@ -672,7 +336,7 @@ class PointerWindowResolver {
         return window.get_description?.() || null;
     }
 
-    infoForWindow(window) {
+    infoForWindow(window, includePresentation = false) {
         if (!window)
             return null;
 
@@ -683,19 +347,20 @@ class PointerWindowResolver {
             app = null;
         }
 
-        const appIds = [
-            app?.get_id?.(),
-            window.get_gtk_application_id?.(),
-            window.get_sandboxed_app_id?.(),
-            window.get_startup_id?.(),
-        ].filter(value => typeof value === 'string' && value !== '');
-
-        return {
-            appIds,
+        // Only desktop-backed Shell applications have persistent identities suitable
+        // for new rules. Never persist startup IDs or transient window-backed IDs.
+        const desktop = app?.get_app_info?.();
+        const appId = desktop ? app.get_id() : null;
+        const info = {
+            appIds: appId ? [appId] : [],
+            app: appId || '',
             title: window.get_title?.() || '',
-            wmClass: window.get_wm_class?.() || '',
-            wmClassInstance: window.get_wm_class_instance?.() || '',
         };
+        if (includePresentation) {
+            info.name = app?.get_name?.() || '';
+            info.icon = desktop?.get_icon()?.to_string() || '';
+        }
+        return info;
     }
 
     _isPointerWindowCandidate(window, x, y) {
@@ -1271,40 +936,8 @@ class DotOverlay {
     }
 }
 
-function profileId(value) {
-    return Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0;
-}
-
-function profileForWindow(rules, info) {
-    if (!info)
-        return 0;
-
-    for (const rule of rules) {
-        if (!rule.enabled || !info.appIds.includes(rule.app))
-            continue;
-
-        for (const titleRule of rule.titles) {
-            if (!titleRule.enabled || titleRule._invalidRegex)
-                continue;
-
-            if (titleRule._titleRegex.test(info.title))
-                return titleRule.profile_id;
-        }
-
-        return rule.profile_id;
-    }
-
-    return 0;
-}
-
 export default class SmoothScrollIpcCompanionExtension extends Extension {
     enable() {
-        this._configPath = GLib.build_filenamev([
-            GLib.get_user_config_dir(),
-            CONFIG_DIR_NAME,
-            CONFIG_FILE_NAME,
-        ]);
-
         this._ipc = new SmoothScrollIpcClient(IPC_PATH);
         this._resolver = new PointerWindowResolver();
         this._dot = new DotOverlay();
@@ -1321,7 +954,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._lastPointerEventTimeMs = 0;
         this._unredirectDisabled = false;
 
-        this._configManager = new ConfigManager(this._configPath, config => this._onConfigReload(config));
+        this._configManager = new ConfigManager(this.getSettings(), config => this._onConfigReload(config));
         this._configManager.start();
         this._config = this._configManager.config;
         this._dot.applyConfig(this._config);
@@ -1331,10 +964,13 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
             'captured-event',
             (_stage, event) => this._onStageCapturedEvent(event));
 
+        this._bridge = new ShellBridge(this._resolver, () => this._ipc.readSnapshot());
         this._startPoll();
     }
 
     disable() {
+        this._bridge?.destroy();
+        this._bridge = null;
         if (this._stageCapturedEventId && this._stage) {
             this._stage.disconnect(this._stageCapturedEventId);
             this._stageCapturedEventId = 0;
@@ -1405,7 +1041,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
                 try {
                     this._tick();
                 } catch (error) {
-                    console.warn(`Smooth Scroll IPC Companion: poll failed: ${error.message}`);
+                    console.warn(`Smooth Scroll: poll failed: ${error.message}`);
                 }
 
                 return GLib.SOURCE_CONTINUE;
@@ -1558,7 +1194,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
             updateUnredirect(global.display);
             this._unredirectDisabled = disabled;
         } catch (error) {
-            console.warn(`Smooth Scroll IPC Companion: failed to update unredirect state: ${error.message}`);
+            console.warn(`Smooth Scroll: failed to update unredirect state: ${error.message}`);
         }
     }
 
@@ -1652,7 +1288,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
     _requestedProfileForWindow(pointerWindow, pointerWindowInfo, x, y) {
         if (this._resolver.shellInteractionActive(x, y) || !pointerWindow)
             return profileId(this._config.shell_profile_id);
-        return profileForWindow(this._config.profile_rules, pointerWindowInfo);
+        return profileForWindow(this._config.profile_rules, pointerWindowInfo, this._config.default_profile_id);
     }
 
     _updateRequestedProfile(pointerWindow, pointerWindowInfo, x, y) {

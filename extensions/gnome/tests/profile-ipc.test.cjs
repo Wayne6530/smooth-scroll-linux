@@ -16,8 +16,8 @@ const file = {
 };
 const context = vm.createContext({Gio: {File: {new_for_path: () => file}}, GLib: {SeekType: {SET: 0}},
   viewForBytes: data => new DataView(data.buffer, data.byteOffset, data.byteLength)});
-vm.runInContext(source.slice(source.indexOf('const IPC_PATH'), source.indexOf('const CONFIG_DIR_NAME')) +
-  source.slice(source.indexOf('class SmoothScrollIpcClient'), source.indexOf('class ConfigManager')) +
+vm.runInContext(source.slice(source.indexOf('const IPC_PATH'), source.indexOf('function clamp')) +
+  source.slice(source.indexOf('class SmoothScrollIpcClient'), source.indexOf('class PointerWindowResolver')) +
   '\nglobalThis.client = new SmoothScrollIpcClient("test");', context);
 const client = context.client;
 view.setUint32(0, 0x53530002, true);
