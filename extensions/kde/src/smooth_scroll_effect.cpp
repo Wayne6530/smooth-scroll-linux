@@ -398,8 +398,7 @@ QVariantMap SmoothScrollEffect::profileStatus()
            { "active", state.activeProfileId } };
 }
 
-QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId,
-                                                                                   bool includeTitle) const
+QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId, bool includeTitle) const
 {
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
@@ -417,8 +416,7 @@ QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId,
   return indentedJson(rule);
 }
 
-QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
-                                                                             bool includeTitle)
+QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId, bool includeTitle)
 {
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
@@ -443,7 +441,8 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
   const bool ruleExists = existingRuleIndex >= 0;
   bool titleRuleUpdated = false;
   QJsonObject rule =
-      ruleExists ? rules.at(existingRuleIndex).toObject() : makeRuleObject(info, profileId, includeTitle, baseline.value("default_profile_id").toInteger());
+      ruleExists ? rules.at(existingRuleIndex).toObject() :
+                   makeRuleObject(info, profileId, includeTitle, baseline.value("default_profile_id").toInteger());
 
   rule.insert(QStringLiteral("enabled"), true);
 
@@ -486,9 +485,7 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId,
                                                                            QStringLiteral("Updated")) :
                                       QStringLiteral("Added");
   return QStringLiteral("%1 %2=%3 profile_id=%4\n%5")
-      .arg(action, matcher.key, matcher.value,
-           QString::number(profileId),
-           compactJson(rule));
+      .arg(action, matcher.key, matcher.value, QString::number(profileId), compactJson(rule));
 }
 
 void SmoothScrollEffect::tick()
@@ -518,7 +515,7 @@ void SmoothScrollEffect::tick()
     effectiveSnapshot.requestedProfileId = requestedProfileId;
   }
 
-  if (!effectiveSnapshot.connected)
+  if (!effectiveSnapshot.connected || effectiveSnapshot.directMode)
   {
     resetScrollAnchor();
     hideOverlay();
@@ -635,8 +632,7 @@ void SmoothScrollEffect::loadConfig()
     rule.enabled = readBool(ruleObject, QStringLiteral("enabled"), true);
     rule.app = readString(ruleObject, QStringLiteral("app"));
     rule.windowClass = readString(ruleObject, QStringLiteral("class"));
-    rule.profileId =
-        static_cast<uint32_t>(ruleObject.value(QStringLiteral("profile_id")).toDouble(0));
+    rule.profileId = static_cast<uint32_t>(ruleObject.value(QStringLiteral("profile_id")).toDouble(0));
 
     const QJsonArray titleRules = ruleObject.value(QStringLiteral("titles")).toArray();
     for (const QJsonValue& titleValue : titleRules)

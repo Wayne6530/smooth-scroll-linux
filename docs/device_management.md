@@ -12,18 +12,22 @@ ownership, concurrency, and lifecycle contracts that must be preserved when the 
   same socket is moved into a low-priority `DeviceMonitor` worker owned by the returned Session resources. Events
   arriving during that ownership transfer remain queued on the socket, so there is no unmonitored gap.
 - `VirtualDevice` is owned by `main`. It stays alive across Session restarts and is rebuilt only between Sessions
-  when a newly selected mouse requires capabilities that the current uinput device does not expose.
+  when a newly selected mouse requires capabilities that the current uinput device does not expose. Session
+  tracks key state, and `VirtualDevice` provides the uinput capabilities and output transport.
 - `Session` takes ownership of one mouse handle, the current keyboard handles, and the running `DeviceMonitor`.
-  A successfully constructed Session has already waited for every key exposed by the physical mouse event node
-  to be released and grabbed the mouse. Destroying it ungrabs the mouse and disconnects IPC state. A graceful
-  restart first reaches a physical- and virtual-key-neutral frame; `VirtualDevice` therefore remains only the
-  persistent uinput capability and output transport and does not track key state.
+  The daemon starts in profile mode. Each Session inherits the last selected mode, including after mouse replacement.
+  In profile mode it waits for all keys on the mouse node to be
+  released before grabbing it. In direct mode it keeps the handle open and monitors it for disconnects.
+  The Session releases its grab only when its output queue is empty and its last processed mouse state has
+  all keys up. Unread movement, wheel events or clicks at that boundary may be lost. Before reacquiring the
+  grab, the Session drains the mouse queue and checks that all keys are up. Teardown releases any grab and
+  disconnects IPC state.
 - `main` coordinates completed Session lifetimes, but it does not retry failed discovery attempts or interpret
   device-change reasons. `DeviceMonitor` sends the active Session only an `eventfd` restart signal.
 
 The real-time loop never polls udev, enumerates devices, opens a new device, or communicates with the monitor
 thread through a lock. Its only added work is checking the monitor notification fd and the process shutdown fd in
-the same `select()` call used for mouse and keyboard input. The monitor worker inherits a blocked
+the same `ppoll()` call used for mouse and keyboard input. The monitor worker inherits a blocked
 `SIGINT`/`SIGTERM` mask, so process shutdown is always handled by the main thread that owns this blocking input
 loop.
 
@@ -36,7 +40,8 @@ immediately. There is no active-detection timeout or timed discovery retry. A si
 ## Hotplug behavior
 
 Each `add` event is classified immediately. Virtual devices, excluded models, and event nodes that are neither a
-compatible mouse nor a relevant keyboard are ignored. A relevant event starts a sliding
+compatible mouse nor a relevant keyboard are ignored. Keyboard nodes exposing the configured toggle key are
+relevant. A relevant event starts a sliding
 `device_event_debounce_milliseconds` interval; further relevant event nodes extend the same interval. This
 coalesces the multiple `/dev/input/event*` nodes commonly created by a composite USB or wireless device without
 tracking physical-device groups or paths.
@@ -48,7 +53,7 @@ lost; it can still cause one harmless restart if it arrives immediately after th
 
 `remove` events never request a restart:
 
-- loss of the active mouse is reported directly by libevdev as `-ENODEV`, which ends the Session;
+- loss of the active mouse is reported by a poll hangup/error or by libevdev as `-ENODEV`, which ends the Session;
 - loss of a keyboard is handled inside the Session by removing that keyboard handle and updating keyboard-passthrough
   state;
 - loss of any inactive device has no effect on the active input path.
@@ -56,9 +61,9 @@ lost; it can still cause one harmless restart if it arrives immediately after th
 An `add` followed by an immediate `remove` may still request one restart. Unstable or unrelated device models are
 outside the monitor's recovery policy and can be excluded with `ignored_devices`.
 
-A manager-requested restart is graceful. The Session latches the request and continues through the normal input
-path until the physical mouse has no pressed keys and the pending output frame is empty. The event-transformation
-contract guarantees that no virtual key can remain pressed at this boundary: keyboard-passthrough presses have matching
+A manager-requested restart is graceful. In direct mode the Session can restart immediately. A Session holding
+the mouse grab continues processing input until all mouse keys are released and the pending output frame is empty.
+The event-transformation contract guarantees that no virtual key can remain pressed at this boundary: keyboard-passthrough presses have matching
 releases, handled buttons do not create a virtual press, and replayed clicks emit their press and release together.
 Session therefore does not separately track or query virtual key state. It then stops the smoother and returns
 without a timeout or synthetic releases, so every forwarded press and release remains paired while the physical
@@ -101,10 +106,11 @@ activity. This keeps hotplug behavior independent of state retained by `main`.
 
 ## Remapped mouse buttons
 
-If a mouse and keyboard share one event node, Session forwards all of that node's key capabilities through uinput
+When Session grabs a shared mouse and keyboard event node, it forwards all of that node's key capabilities through uinput
 and applies `keyboard_braking_keys` and `keyboard_passthrough_keys` to its keyboard-like key events. This includes
-`KEY_*` events produced when a mouse driver maps a physical mouse button to a keyboard key. The same mapped key has
-the same semantics when the driver exposes it through a separate keyboard event node.
+`KEY_*` events produced when a mouse driver maps a physical mouse button to a keyboard key. These bindings also apply
+when the driver reports the mapped key on a separate keyboard node. Only a selected node other than
+the active mouse can supply the direct-mode toggle, including a separate keyboard interface on the same mouse.
 
 Pointer button codes from `BTN_MOUSE` through `BTN_TASK` always retain mouse-button semantics, regardless of their
 event node, and are rejected in both keyboard key lists. Keyboard-like keys on the grabbed mouse node participate

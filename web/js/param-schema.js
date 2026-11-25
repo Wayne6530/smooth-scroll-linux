@@ -6,7 +6,7 @@
 // eslint-disable-next-line no-unused-vars
 const ParamSchema = (() => {
 
-  const CONFIG_VERSION = 10;
+  const CONFIG_VERSION = 11;
 
   const BUTTON_CODES = {
     0: 'DISABLED',
@@ -189,6 +189,27 @@ const ParamSchema = (() => {
       'desc-zh': '按厂商/产品 ID 选择需要排除的无关或不稳定 HID 设备型号。为空时自动发现所有兼容鼠标和键盘。受浏览器安全限制，只有标准接口的设备可能不会显示。',
       type: 'hid-device-list',
       group: 'device',
+    },
+    {
+      key: 'direct_mode_toggle_key',
+      value: 70,
+      defaultValue: 70,
+      'label-en': 'Direct mode toggle key',
+      'label-zh': '直连模式切换键',
+      'desc-en': 'In direct mode, mouse input goes directly to the system, avoiding daemon forwarding latency. Release the mouse buttons before pressing the toggle key.',
+      'desc-zh': '直连模式下，鼠标输入直接交给系统，省去 daemon 处理和转发的延迟。松开鼠标按键后再按切换键。',
+      type: 'int',
+      min: 0,
+      max: 767,
+      step: 1,
+      group: 'device',
+      enum: [0, 70, 119],
+      'enum-labels-en': '0=Disabled|70=Scroll Lock|119=Pause/Break',
+      'enum-labels-zh': '0=禁用|70=Scroll Lock|119=Pause/Break',
+      enumLabels: {
+        en: { 0: 'Disabled', 70: 'Scroll Lock', 119: 'Pause/Break' },
+        zh: { 0: '禁用', 70: 'Scroll Lock', 119: 'Pause/Break' },
+      },
     },
     {
       key: 'wheel_passthrough', value: false, defaultValue: false,

@@ -132,6 +132,7 @@ class SmoothScrollIpcClient {
             return {
                 valid: true,
                 pid,
+                directMode: (stateBits & (1 << 9)) !== 0,
                 connected: (stateBits & (1 << 0)) !== 0,
                 keyboardPassthrough: (stateBits & (1 << 1)) !== 0,
                 dragView: (stateBits & (1 << 2)) !== 0,
@@ -174,6 +175,7 @@ class SmoothScrollIpcClient {
             valid: false,
             pid: 0,
             connected: false,
+            directMode: false,
             keyboardPassthrough: false,
             dragView: false,
             freeSpin: false,
@@ -1084,7 +1086,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._lastPointerEventTimeMs = monotonicMillis();
         const snapshot = this._lastSnapshot;
 
-        if (!snapshot.connected) {
+        if (!snapshot.connected || snapshot.directMode) {
             this._schedulePointerState(x, y);
             return false;
         }
@@ -1129,7 +1131,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
         this._updateRequestedProfile(pointerWindow, pointerWindowInfo, x, y);
         const wheelPassthrough = (snapshot.activeProfileId === 1);
 
-        if (!snapshot.connected) {
+        if (!snapshot.connected || snapshot.directMode) {
             this._resetScrollAnchor();
             this._hideDot();
             return;

@@ -33,9 +33,10 @@ int main()
     _exit(0);
   }
   ipc->daemon_pid.store(child);
-  ipc->state_bits.store(IPC_STATE_CONNECTED);
+  ipc->state_bits.store(IPC_STATE_CONNECTED | IPC_STATE_DIRECT_MODE);
   ipc->magic_version.store(IPC_MAGIC_VERSION_EXPECTED);
-  const bool connected = client.readSnapshot().connected;
+  const auto snapshot = client.readSnapshot();
+  const bool connected = snapshot.connected && snapshot.directMode;
   shm_unlink(name.c_str());
   kill(child, SIGKILL);
   waitpid(child, nullptr, 0);

@@ -74,7 +74,8 @@ static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size mismatch");
   - `Bit 6`: **AutoScroll** (1 = Auto Scroll owns the pointer, including while paused)
   - `Bit 7`: **AutoScrollHorizontalEnabled** (1 = the configured Auto Scroll mode enables the horizontal axis)
   - `Bit 8`: **AutoScrollVerticalEnabled** (1 = the configured Auto Scroll mode enables the vertical axis)
-  - `Bits 9-15`: *Reserved*
+  - `Bit 9`: **DirectMode** (direct mode selected; retained across device disconnects until the daemon exits)
+  - `Bits 10-15`: *Reserved*
   - `Bits 16-31`: **Speed** (unsigned 16-bit ordinary continuous-scroll speed; zero while Auto Scroll is active)
 
 The Auto Scroll axis bits form these modes:

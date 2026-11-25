@@ -28,11 +28,11 @@ int main()
 
     uint32_t current_state = ipc->state_bits.load(std::memory_order_relaxed);
     uint32_t current_auto_scroll_offset = ipc->auto_scroll_offset.load(std::memory_order_relaxed);
-    uint32_t current_requested_profile_id =
-        ipc->requested_profile_id.load(std::memory_order_relaxed);
+    uint32_t current_requested_profile_id = ipc->requested_profile_id.load(std::memory_order_relaxed);
 
     const uint32_t active_profile_id = ipc->active_profile_id.load(std::memory_order_relaxed);
-    if (active_profile_id != last_active_profile_id || current_state != last_state || current_auto_scroll_offset != last_auto_scroll_offset ||
+    if (active_profile_id != last_active_profile_id || current_state != last_state ||
+        current_auto_scroll_offset != last_auto_scroll_offset ||
         current_requested_profile_id != last_requested_profile_id)
     {
       bool connected = current_state & smooth_scroll::IPC_STATE_CONNECTED;
@@ -43,8 +43,7 @@ int main()
       bool horizontal = current_state & smooth_scroll::IPC_STATE_HORIZONTAL;
       bool direction = current_state & smooth_scroll::IPC_STATE_DIRECTION;
       bool auto_scroll = current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL;
-      bool auto_scroll_horizontal_enabled =
-          current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED;
+      bool auto_scroll_horizontal_enabled = current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED;
       bool auto_scroll_vertical_enabled = current_state & smooth_scroll::IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED;
       int16_t auto_scroll_offset_x = smooth_scroll::autoScrollHorizontalOffset(current_auto_scroll_offset);
       int16_t auto_scroll_offset_y = smooth_scroll::autoScrollVerticalOffset(current_auto_scroll_offset);
@@ -53,17 +52,16 @@ int main()
       std::cout << "{"
                 << "\"pid\":" << pid << ","
                 << "\"connected\":" << (connected ? "true" : "false") << ","
+                << "\"direct_mode\":" << ((current_state & smooth_scroll::IPC_STATE_DIRECT_MODE) ? "true" : "false")
+                << ","
                 << "\"keyboard_passthrough\":" << (keyboard_passthrough ? "true" : "false") << ","
-                << "\"requested_profile_id\":"
-                << current_requested_profile_id << ","
+                << "\"requested_profile_id\":" << current_requested_profile_id << ","
                 << "\"active_profile_id\":" << active_profile_id << ","
                 << "\"drag_view\":" << (drag_view ? "true" : "false") << ","
                 << "\"free_spin\":" << (free_spin ? "true" : "false") << ","
                 << "\"auto_scroll\":" << (auto_scroll ? "true" : "false") << ","
-                << "\"auto_scroll_horizontal_enabled\":"
-                << (auto_scroll_horizontal_enabled ? "true" : "false") << ","
-                << "\"auto_scroll_vertical_enabled\":" << (auto_scroll_vertical_enabled ? "true" : "false")
-                << ","
+                << "\"auto_scroll_horizontal_enabled\":" << (auto_scroll_horizontal_enabled ? "true" : "false") << ","
+                << "\"auto_scroll_vertical_enabled\":" << (auto_scroll_vertical_enabled ? "true" : "false") << ","
                 << "\"auto_scroll_offset_x\":" << auto_scroll_offset_x << ","
                 << "\"auto_scroll_offset_y\":" << auto_scroll_offset_y << ","
                 << "\"horizontal\":" << (horizontal ? "true" : "false") << ","

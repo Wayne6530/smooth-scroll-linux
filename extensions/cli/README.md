@@ -44,7 +44,7 @@ ss-status
 Example output:
 
 ```json
-{"pid":12345,"connected":true,"keyboard_passthrough":false,"requested_profile_id":1,"active_profile_id":0,"drag_view":false,"free_spin":true,"auto_scroll":false,"auto_scroll_horizontal_enabled":false,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":0,"auto_scroll_offset_y":0,"horizontal":false,"direction":"positive","speed":0}
+{"pid":12345,"connected":true,"direct_mode":false,"keyboard_passthrough":false,"requested_profile_id":1,"active_profile_id":0,"drag_view":false,"free_spin":true,"auto_scroll":false,"auto_scroll_horizontal_enabled":false,"auto_scroll_vertical_enabled":true,"auto_scroll_offset_x":0,"auto_scroll_offset_y":0,"horizontal":false,"direction":"positive","speed":0}
 ```
 
 Here profile 1 has been requested, but profile 0 remains active while Free Spin

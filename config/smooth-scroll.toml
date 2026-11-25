@@ -1,7 +1,7 @@
 # Smooth Scroll for Linux - Configuration File
 # https://github.com/Wayne6530/smooth-scroll-linux
 
-# @config_version: 10
+# @config_version: 11
 
 ## Reference: Button Codes
 # DISABLED    0
@@ -69,6 +69,20 @@ ignored_devices = []
 # Example: ignored_devices = [
 #   { vendor_id = 0x046d, product_id = 0xc547 },
 # ]
+
+# @label-en: Direct mode toggle key
+# @label-zh: 直连模式切换键
+# @desc-en: In direct mode, mouse input goes directly to the system, avoiding daemon forwarding latency. Release the mouse buttons before pressing the toggle key.
+# @desc-zh: 直连模式下，鼠标输入直接交给系统，省去 daemon 处理和转发的延迟。松开鼠标按键后再按切换键。
+# @type: int
+# @min: 0
+# @max: 767
+# @step: 1
+# @group: device
+# @enum: 0|70|119
+# @enum-labels-en: 0=Disabled|70=Scroll Lock|119=Pause/Break
+# @enum-labels-zh: 0=禁用|70=Scroll Lock|119=Pause/Break
+direct_mode_toggle_key = 70
 
 # --- Scroll ---
 

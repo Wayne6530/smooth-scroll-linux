@@ -3,6 +3,9 @@
 
 #include "ipc_server.h"
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cstdlib>
 #include <cstdint>
@@ -42,12 +45,26 @@ void testProfileRequestDoesNotBrake()
       std::abort();
     auto* ipc = static_cast<SmoothScrollIPC*>(address);
 
+    assert(!server.directMode());
     assert(!server.requestedProfileId());
     assert(!server.checkBrakeRequest());
 
     ipc->requested_profile_id.store(1, std::memory_order_relaxed);
     assert(server.requestedProfileId());
     assert(!server.checkBrakeRequest());
+
+    server.setDirectModeConnected();
+    assert(ipc->state_bits.load() == (smooth_scroll::IPC_STATE_CONNECTED | smooth_scroll::IPC_STATE_DIRECT_MODE));
+    server.setDisconnected();
+    assert(server.directMode());
+    assert(ipc->state_bits.load() == smooth_scroll::IPC_STATE_DIRECT_MODE);
+    server.setDirectModeConnected();
+    server.resetMotionState();
+    assert(ipc->state_bits.load() & smooth_scroll::IPC_STATE_DIRECT_MODE);
+    server.setConnected();
+    assert(ipc->state_bits.load() == smooth_scroll::IPC_STATE_CONNECTED);
+    server.setDisconnected();
+    assert(ipc->state_bits.load() == 0);
 
     server.setActiveProfileId(42);
     assert(ipc->active_profile_id.load() == 42);
@@ -61,10 +78,18 @@ void testProfileRequestDoesNotBrake()
     assert(server.checkBrakeRequest());
     assert(!server.checkBrakeRequest());
 
+    server.setDirectModeConnected();
     if (munmap(address, sizeof(SmoothScrollIPC)) != 0)
       std::abort();
     if (close(fd) != 0)
       std::abort();
+  }
+
+  {
+    IpcServer restarted{ shm_name };
+    if (!restarted.initialize())
+      std::abort();
+    assert(!restarted.directMode());
   }
 
   if (shm_unlink(shm_name.c_str()) != 0)

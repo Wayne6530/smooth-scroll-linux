@@ -24,7 +24,8 @@ struct alignas(32) SmoothScrollIPC
 
 static_assert(sizeof(SmoothScrollIPC) == 32, "IPC struct size must be exactly 32 bytes");
 static_assert(offsetof(SmoothScrollIPC, requested_profile_id) == 0x10,
-              "Profile request must remain at IPC offset 0x10");
+              "Profile request must remain at IPC offset "
+              "0x10");
 static_assert(offsetof(SmoothScrollIPC, auto_scroll_offset) == 0x14,
               "Auto Scroll offset must remain at IPC offset 0x14");
 
@@ -42,6 +43,7 @@ inline constexpr uint32_t IPC_STATE_DIRECTION = 1u << 5;
 inline constexpr uint32_t IPC_STATE_AUTO_SCROLL = 1u << 6;
 inline constexpr uint32_t IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED = 1u << 7;
 inline constexpr uint32_t IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED = 1u << 8;
+inline constexpr uint32_t IPC_STATE_DIRECT_MODE = 1u << 9;
 inline constexpr uint32_t IPC_STATE_SPEED_SHIFT = 16;
 
 inline constexpr uint32_t packAutoScrollOffset(int16_t horizontal, int16_t vertical) noexcept
@@ -51,8 +53,7 @@ inline constexpr uint32_t packAutoScrollOffset(int16_t horizontal, int16_t verti
 
 inline constexpr int16_t decodeAutoScrollOffsetComponent(uint16_t value) noexcept
 {
-  return value <= 0x7FFFu ? static_cast<int16_t>(value)
-                          : static_cast<int16_t>(static_cast<int32_t>(value) - 0x10000);
+  return value <= 0x7FFFu ? static_cast<int16_t>(value) : static_cast<int16_t>(static_cast<int32_t>(value) - 0x10000);
 }
 
 inline constexpr int16_t autoScrollHorizontalOffset(uint32_t packed) noexcept

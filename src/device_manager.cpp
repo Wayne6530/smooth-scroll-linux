@@ -212,9 +212,8 @@ DeviceMonitor::~DeviceMonitor()
 std::unique_ptr<DeviceMonitor> DeviceMonitor::start(std::unique_ptr<UdevInputSource> source, DeviceConfig config,
                                                     std::vector<unsigned int> relevant_keyboard_keys)
 {
-  auto monitor = std::unique_ptr<DeviceMonitor>{
-    new DeviceMonitor{ std::move(source), std::move(config), std::move(relevant_keyboard_keys) }
-  };
+  auto monitor = std::unique_ptr<DeviceMonitor>{ new DeviceMonitor{ std::move(source), std::move(config),
+                                                                    std::move(relevant_keyboard_keys) } };
   if (!monitor->initialize())
     return nullptr;
   return monitor;
@@ -577,7 +576,7 @@ AcquireResult DeviceManager::acquireSessionDevices()
     if (!monitor)
       return { AcquireStatus::FatalError, std::nullopt };
 
-    SessionResources resources{ std::move(devices), std::move(monitor) };
+    SessionResources resources{ std::move(devices), std::move(monitor), config_.direct_mode_toggle_key };
     return { AcquireStatus::Success, std::move(resources) };
   }
 

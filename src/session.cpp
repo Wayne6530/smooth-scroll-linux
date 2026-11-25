@@ -9,7 +9,6 @@
 #include <cstring>
 #include <poll.h>
 #include <sys/eventfd.h>
-#include <sys/select.h>
 #include <unistd.h>
 
 #include <spdlog/spdlog.h>
@@ -21,23 +20,23 @@ std::unique_ptr<Session> Session::create(SessionResources resources, ProfileSet&
                                          VirtualDevice& virtual_device, IpcServer& ipc,
                                          const std::atomic_bool& shutdown, int shutdown_fd, CreateResult& result)
 {
-  auto session = std::unique_ptr<Session>{
-    new Session{ std::move(resources), profile_set, virtual_device, ipc, shutdown_fd }
-  };
+  auto session =
+      std::unique_ptr<Session>{ new Session{ std::move(resources), profile_set, virtual_device, ipc, shutdown_fd } };
   result = session->initialize(shutdown);
   if (result != CreateResult::Success)
     return nullptr;
   return session;
 }
 
-Session::Session(SessionResources resources, ProfileSet& profile_set, VirtualDevice& virtual_device,
-                 IpcServer& ipc, int shutdown_fd)
+Session::Session(SessionResources resources, ProfileSet& profile_set, VirtualDevice& virtual_device, IpcServer& ipc,
+                 int shutdown_fd)
   : mouse_{ std::move(resources.devices.mouse) }
   , monitor_{ std::move(resources.monitor) }
   , virtual_device_{ virtual_device }
   , ipc_{ ipc }
   , profile_set_{ profile_set }
   , shutdown_fd_{ shutdown_fd }
+  , direct_mode_toggle_key_{ resources.direct_mode_toggle_key }
 {
   keyboards_.reserve(resources.devices.keyboards.size());
   for (auto& device : resources.devices.keyboards)
@@ -66,54 +65,32 @@ Session::CreateResult Session::initialize(const std::atomic_bool& shutdown)
   SPDLOG_INFO("Input device ID: bus {:#x} vendor {:#x} product {:#x}", mouse_.info().bus_type, mouse_.info().vendor_id,
               mouse_.info().product_id);
 
-  while (!shutdown.load(std::memory_order_relaxed))
+  if (direct_mode_toggle_key_ &&
+      std::none_of(keyboards_.begin(), keyboards_.end(), [&](const KeyboardState& keyboard) {
+        return keyboard.device.info().capabilities.keys[direct_mode_toggle_key_];
+      }))
+    SPDLOG_WARN("No other input node supports direct_mode_toggle_key {}", direct_mode_toggle_key_);
+
+  if (ipc_.directMode())
   {
-    CreateResult result = discardPendingMouseEvents();
-    if (result != CreateResult::Success)
-      return result;
-    result = waitUntilAllKeysReleased(shutdown);
-    if (result != CreateResult::Success)
-      return result;
-
-    const int grab_result = libevdev_grab(mouse_.evdev(), LIBEVDEV_GRAB);
-    if (grab_result < 0)
-    {
-      if (grab_result == -ENODEV)
-      {
-        SPDLOG_WARN("Mouse device lost before Session grab: {}", mouse_.info().path);
-        return CreateResult::MouseLost;
-      }
-      SPDLOG_ERROR("Failed to grab {}: {}", mouse_.info().path, std::strerror(-grab_result));
-      return CreateResult::InputOutputError;
-    }
-    grabbed_ = true;
-
-    // Events queued before EVIOCGRAB were already visible to the desktop.
-    // Drop them, but retry outside the grab if a key crossed the boundary so
-    // its physical release can reach the original consumer.
-    result = discardPendingMouseEvents();
-    if (result != CreateResult::Success)
-      return result;
-    if (!anyPhysicalKeyPressed())
-      break;
-
-    const int ungrab_result = libevdev_grab(mouse_.evdev(), LIBEVDEV_UNGRAB);
-    if (ungrab_result < 0)
-    {
-      if (ungrab_result == -ENODEV)
-      {
-        SPDLOG_WARN("Mouse device lost while establishing the Session boundary: {}", mouse_.info().path);
-        return CreateResult::MouseLost;
-      }
-      SPDLOG_ERROR("Failed to ungrab {} while establishing the Session boundary: {}", mouse_.info().path,
-                   std::strerror(-ungrab_result));
-      return CreateResult::InputOutputError;
-    }
-    grabbed_ = false;
+    // The active-mouse detector may have consumed only part of a queued frame.
+    const auto status = discardPendingMouseEvents();
+    if (status != CreateResult::Success)
+      return status;
   }
-
-  if (!grabbed_)
-    return CreateResult::Shutdown;
+  else
+  {
+    while (!grabbed_)
+    {
+      auto result = discardPendingMouseEvents();
+      if (result == CreateResult::Success)
+        result = waitUntilAllKeysReleased(shutdown);
+      if (result == CreateResult::Success)
+        result = tryGrabMouse();
+      if (result != CreateResult::Success)
+        return result;
+    }
+  }
 
   for (KeyboardState& keyboard : keyboards_)
   {
@@ -125,9 +102,38 @@ Session::CreateResult Session::initialize(const std::atomic_bool& shutdown)
     }
   }
 
-  ipc_.setConnected();
+  if (grabbed_)
+    ipc_.setConnected();
+  else
+    ipc_.setDirectModeConnected();
   publishProfileState();
   return CreateResult::Success;
+}
+
+// A press crossing EVIOCGRAB must still release through the original device.
+Session::CreateResult Session::tryGrabMouse()
+{
+  int result = libevdev_grab(mouse_.evdev(), LIBEVDEV_GRAB);
+  if (!result)
+  {
+    grabbed_ = true;
+    auto status = discardPendingMouseEvents();
+    if (status != CreateResult::Success || !anyPhysicalKeyPressed())
+      return status;
+    result = libevdev_grab(mouse_.evdev(), LIBEVDEV_UNGRAB);
+    if (!result)
+    {
+      grabbed_ = false;
+      return CreateResult::Success;
+    }
+  }
+  if (result == -EBUSY && !grabbed_)
+  {
+    SPDLOG_WARN("Mouse is grabbed by another client");
+    return CreateResult::MouseBusy;
+  }
+  SPDLOG_ERROR("Mouse grab transition failed: {}", std::strerror(-result));
+  return result == -ENODEV ? CreateResult::MouseLost : CreateResult::InputOutputError;
 }
 
 Session::CreateResult Session::discardPendingMouseEvents()
@@ -148,10 +154,10 @@ Session::CreateResult Session::discardPendingMouseEvents()
       return CreateResult::Success;
     if (result == -ENODEV)
     {
-      SPDLOG_WARN("Mouse device lost before Session start: {}", mouse_.info().path);
+      SPDLOG_WARN("Device lost at input boundary: {}", mouse_.info().path);
       return CreateResult::MouseLost;
     }
-    SPDLOG_ERROR("Failed to read mouse {} before Session start: {}", mouse_.info().path, std::strerror(-result));
+    SPDLOG_ERROR("Failed to drain {} at input boundary: {}", mouse_.info().path, std::strerror(-result));
     return CreateResult::InputOutputError;
   }
 }
@@ -250,41 +256,251 @@ void Session::updateAutoScrollIpc()
   ipc_.setAutoScrollOffset(smoother().auto_scroll_offset_x(), smoother().auto_scroll_offset_y());
 }
 
+std::optional<Session::RunResult> Session::readGrabbedMouseEvents(std::optional<timeval>& last_input_event_time)
+{
+  input_event event{};
+  int result;
+  int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
+  while (true)
+  {
+    result = libevdev_next_event(mouse_.evdev(), read_flag, &event);
+    if (result == LIBEVDEV_READ_STATUS_SYNC)
+    {
+      read_flag = LIBEVDEV_READ_FLAG_SYNC;
+      if (event.type == EV_SYN && event.code == SYN_DROPPED)
+      {
+        events_.clear();
+        mouse_frame_ = {};
+        smoother().hardReset();
+        ipc_.resetMotionState();
+        continue;
+      }
+      if (event.type == EV_SYN && event.code == SYN_REPORT)
+      {
+        if (!writeEvents(event.time))
+          return RunResult::InputOutputError;
+      }
+      else if (event.type != EV_MSC)
+      {
+        if (event.type == EV_KEY)
+          handleObservedKey(event.code, event.value, mouse_passthrough_);
+        events_.push_back(event);
+      }
+      last_input_event_time = event.time;
+      continue;
+    }
+    if (result != LIBEVDEV_READ_STATUS_SUCCESS)
+      break;
+
+    last_input_event_time = event.time;
+    processIpcRequests();
+    const auto& profile = activeProfile().config;
+    const bool wheel_passthrough = profile.wheel_passthrough;
+    switch (event.type)
+    {
+      case EV_REL:
+        switch (event.code)
+        {
+          case REL_WHEEL:
+          case REL_HWHEEL:
+            if (num_passthrough_ || wheel_passthrough)
+            {
+              events_.push_back(event);
+            }
+            else
+            {
+              if (auto wheel_event = smoother().handleEvent(event.time, event.value > 0, event.code == REL_HWHEEL))
+                events_.push_back(*wheel_event);
+              ipc_.setSpeed(smoother().speed(), smoother().positive(), smoother().horizontal());
+              updateAutoScrollIpc();
+            }
+            break;
+          case REL_WHEEL_HI_RES:
+          case REL_HWHEEL_HI_RES:
+            if (num_passthrough_ || wheel_passthrough)
+              events_.push_back(event);
+            break;
+          case REL_X:
+            if (smoother().handleRelXEvent(event, mouse_frame_))
+              events_.push_back(event);
+            break;
+          case REL_Y:
+            if (smoother().handleRelYEvent(event, mouse_frame_))
+              events_.push_back(event);
+            break;
+          default:
+            events_.push_back(event);
+            break;
+        }
+        break;
+
+      case EV_KEY: {
+        handleObservedKey(event.code, event.value, mouse_passthrough_);
+        // Composite mice can expose keyboard or consumer keys on the same
+        // grabbed event node. Forward those keys, but do not reinterpret
+        // them as pointer buttons that can control mouse-only modes.
+        if (!isPointerButton(event.code))
+        {
+          events_.push_back(event);
+          break;
+        }
+        if (event.code == profile.auto_scroll_button)
+        {
+          const auto button_result = smoother().handleAutoScrollButton(event.time, event.code, event.value);
+          if (button_result == WheelSmoother::ButtonResult::ReplayClick)
+          {
+            input_event press_event = event;
+            press_event.value = 1;
+            events_.push_back(press_event);
+            events_.push_back({ event.time, EV_SYN, SYN_REPORT, 0 });
+            events_.push_back(event);
+          }
+          else if (button_result == WheelSmoother::ButtonResult::Passthrough)
+          {
+            events_.push_back(event);
+          }
+          ipc_.setSpeed(0, false, false);
+          updateAutoScrollIpc();
+        }
+        else if (event.code == profile.drag_view_button)
+        {
+          const auto button_result = smoother().handleDragViewButton(event.time, event.value);
+          if (button_result == WheelSmoother::ButtonResult::ReplayClick)
+          {
+            input_event press_event = event;
+            press_event.value = 1;
+            events_.push_back(press_event);
+            events_.push_back({ event.time, EV_SYN, SYN_REPORT, 0 });
+            events_.push_back(event);
+          }
+          else if (button_result == WheelSmoother::ButtonResult::Passthrough)
+          {
+            events_.push_back(event);
+          }
+          ipc_.setSpeed(0, false, false);
+          updateAutoScrollIpc();
+          ipc_.setDragView(smoother().drag_view());
+        }
+        else if (event.code == profile.free_spin_button)
+        {
+          if (!smoother().handleFreeSpinButton(event.value))
+            events_.push_back(event);
+          ipc_.setFreeSpin(smoother().free_spin());
+        }
+        else
+        {
+          const auto button_result = smoother().handleOrdinaryButton(event.code, event.value);
+          if (button_result == WheelSmoother::ButtonResult::Passthrough)
+            events_.push_back(event);
+          ipc_.setSpeed(0, false, false);
+          updateAutoScrollIpc();
+        }
+        break;
+      }
+
+      case EV_MSC:
+        break;
+
+      case EV_SYN:
+        if (event.code == SYN_REPORT)
+        {
+          switch (smoother().handleReportEvent(event.time, mouse_frame_))
+          {
+            case WheelSmoother::ReportResult::ScrollStopped:
+              ipc_.setSpeed(0, false, false);
+              break;
+            case WheelSmoother::ReportResult::AutoScrollOffsetChanged:
+              ipc_.setAutoScrollOffset(smoother().auto_scroll_offset_x(), smoother().auto_scroll_offset_y());
+              break;
+            case WheelSmoother::ReportResult::None:
+              break;
+          }
+          mouse_frame_ = {};
+          if (!writeEvents(event.time))
+            return RunResult::InputOutputError;
+        }
+        break;
+
+      default:
+        events_.push_back(event);
+        break;
+    }
+  }
+  if (result == -ENODEV)
+  {
+    SPDLOG_WARN("Mouse device lost: {}", mouse_.info().path);
+    return RunResult::MouseLost;
+  }
+  if (result < 0 && result != -EAGAIN)
+  {
+    SPDLOG_ERROR("Failed to read mouse {}: {}", mouse_.info().path, std::strerror(-result));
+    return RunResult::InputOutputError;
+  }
+  return std::nullopt;
+}
+
+std::optional<Session::RunResult> Session::tryToggleMouseMode()
+{
+  if (grabbed_)
+  {
+    if (!events_.empty() || anyPhysicalKeyPressed())
+      return std::nullopt;
+
+    const int result = libevdev_grab(mouse_.evdev(), LIBEVDEV_UNGRAB);
+    if (result < 0)
+      return result == -ENODEV ? RunResult::MouseLost : RunResult::InputOutputError;
+    grabbed_ = false;
+    smoother().hardReset();
+    ipc_.resetMotionState();
+    ipc_.setDirectModeConnected();
+  }
+  else
+  {
+    // Direct-mode events have already reached applications. Drain them to refresh the cached key state.
+    auto result = discardPendingMouseEvents();
+    if (result == CreateResult::Success && anyPhysicalKeyPressed())
+      return std::nullopt;
+    if (result == CreateResult::Success)
+      result = tryGrabMouse();
+    if (result == CreateResult::MouseBusy)
+      return std::nullopt;
+    if (result != CreateResult::Success)
+      return result == CreateResult::MouseLost ? RunResult::MouseLost : RunResult::InputOutputError;
+    if (!grabbed_)
+      return std::nullopt;
+    ipc_.setConnected();
+  }
+  processIpcRequests();
+  return std::nullopt;
+}
+
 Session::RunResult Session::run(const std::atomic_bool& shutdown)
 {
   input_event event{};
-  fd_set descriptors;
-  int max_fd = -1;
-  const int stop_fd = monitor_->stopFd();
-  const auto rebuildDescriptors = [&] {
-    FD_ZERO(&descriptors);
-    FD_SET(mouse_.fd(), &descriptors);
-    FD_SET(stop_fd, &descriptors);
-    FD_SET(shutdown_fd_, &descriptors);
-    max_fd = std::max({ mouse_.fd(), stop_fd, shutdown_fd_ });
-    for (const KeyboardState& keyboard : keyboards_)
-    {
-      FD_SET(keyboard.device.fd(), &descriptors);
-      max_fd = std::max(max_fd, keyboard.device.fd());
-    }
-  };
-  rebuildDescriptors();
+  const int stop_fd = monitor_ ? monitor_->stopFd() : -1;
+  std::vector<pollfd> descriptors{ { mouse_.fd(), POLLIN, 0 }, { stop_fd, POLLIN, 0 }, { shutdown_fd_, POLLIN, 0 } };
+  for (const auto& keyboard : keyboards_)
+    descriptors.push_back({ keyboard.device.fd(), POLLIN, 0 });
   bool restart_pending = false;
   while (!shutdown.load(std::memory_order_relaxed))
   {
-    fd_set read_fds = descriptors;
+    // Keep the idle physical fd for hangups, without waking on every movement.
+    descriptors[0].events = grabbed_ ? POLLIN : 0;
 
     processIpcRequests();
     auto timeout = smoother().timeout();
-    const int select_result = select(max_fd + 1, &read_fds, nullptr, nullptr, timeout ? &*timeout : nullptr);
-    if (select_result < 0)
+    timespec interval{};
+    if (timeout)
+      interval = { timeout->tv_sec, timeout->tv_usec * 1000 };
+    const int poll_result = ppoll(descriptors.data(), descriptors.size(), timeout ? &interval : nullptr, nullptr);
+    if (poll_result < 0)
     {
       if (errno == EINTR)
         continue;
-      SPDLOG_ERROR("select failed: {}", std::strerror(errno));
+      SPDLOG_ERROR("ppoll failed: {}", std::strerror(errno));
       return RunResult::InputOutputError;
     }
-    if (select_result == 0)
+    if (poll_result == 0)
     {
       if (!processIpcRequests())
       {
@@ -298,10 +514,10 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
       continue;
     }
 
-    if (FD_ISSET(shutdown_fd_, &read_fds))
+    if (descriptors[2].revents)
       return RunResult::Shutdown;
 
-    if (FD_ISSET(stop_fd, &read_fds))
+    if (descriptors[1].revents)
     {
       eventfd_t value;
       while (eventfd_read(stop_fd, &value) == 0)
@@ -312,238 +528,65 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
 
     std::optional<timeval> last_input_event_time;
 
-    for (auto iterator = keyboards_.begin(); iterator != keyboards_.end();)
+    for (size_t index = 0; index < keyboards_.size();)
     {
-      if (!FD_ISSET(iterator->device.fd(), &read_fds))
+      const size_t poll_index = 3 + index;  // Mouse, monitor and shutdown precede the keyboards.
+      if (!descriptors[poll_index].revents)
       {
-        ++iterator;
+        ++index;
         continue;
       }
 
-      int result = 0;
+      auto& keyboard = keyboards_[index];
+      int result;
       int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
       while (true)
       {
-        result = libevdev_next_event(iterator->device.evdev(), read_flag, &event);
+        result = libevdev_next_event(keyboard.device.evdev(), read_flag, &event);
         if (result == LIBEVDEV_READ_STATUS_SYNC)
-        {
-          if (event.type == EV_SYN && event.code == SYN_DROPPED)
-            read_flag = LIBEVDEV_READ_FLAG_SYNC;
-        }
-        else if (result != LIBEVDEV_READ_STATUS_SUCCESS)
-        {
-          break;
-        }
-
-        last_input_event_time = event.time;
-        if (read_flag == LIBEVDEV_READ_FLAG_NORMAL)
+          read_flag = LIBEVDEV_READ_FLAG_SYNC;
+        else if (result == LIBEVDEV_READ_STATUS_SUCCESS)
           processIpcRequests();
-        if (event.type == EV_KEY)
-          handleObservedKey(event.code, event.value, iterator->passthrough);
-      }
-
-      if (result == -ENODEV)
-      {
-        SPDLOG_WARN("Keyboard device lost: {}", iterator->device.info().path);
-        num_passthrough_ -= iterator->passthrough.active_pressed;
-        num_union_pressed_ -= iterator->passthrough.union_pressed;
-        ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
-        iterator = keyboards_.erase(iterator);
-        rebuildDescriptors();
-      }
-      else if (result < 0 && result != -EAGAIN)
-      {
-        SPDLOG_ERROR("Failed to read keyboard {}: {}", iterator->device.info().path, std::strerror(-result));
-        return RunResult::InputOutputError;
-      }
-      else
-      {
-        ++iterator;
-      }
-    }
-
-    if (FD_ISSET(mouse_.fd(), &read_fds))
-    {
-      int result = 0;
-      int read_flag = LIBEVDEV_READ_FLAG_NORMAL;
-      while (true)
-      {
-        result = libevdev_next_event(mouse_.evdev(), read_flag, &event);
-        if (result == LIBEVDEV_READ_STATUS_SYNC)
-        {
-          if (event.type == EV_SYN && event.code == SYN_DROPPED)
-          {
-            events_.clear();
-            mouse_frame_ = {};
-            smoother().hardReset();
-            ipc_.resetMotionState();
-            read_flag = LIBEVDEV_READ_FLAG_SYNC;
-            continue;
-          }
-          if (event.type == EV_SYN && event.code == SYN_REPORT)
-          {
-            if (!writeEvents(event.time))
-              return RunResult::InputOutputError;
-          }
-          else if (event.type != EV_MSC)
-          {
-            if (event.type == EV_KEY)
-              handleObservedKey(event.code, event.value, mouse_passthrough_);
-            events_.push_back(event);
-          }
-          last_input_event_time = event.time;
-          continue;
-        }
-        if (result != LIBEVDEV_READ_STATUS_SUCCESS)
+        else
           break;
 
         last_input_event_time = event.time;
-        processIpcRequests();
-        const auto& profile = activeProfile().config;
-        const bool wheel_passthrough = profile.wheel_passthrough;
-        switch (event.type)
+        if (event.type == EV_KEY)
         {
-          case EV_REL:
-            switch (event.code)
-            {
-              case REL_WHEEL:
-              case REL_HWHEEL:
-                if (num_passthrough_ || wheel_passthrough)
-                {
-                  events_.push_back(event);
-                }
-                else
-                {
-                  if (auto wheel_event =
-                          smoother().handleEvent(event.time, event.value > 0, event.code == REL_HWHEEL))
-                    events_.push_back(*wheel_event);
-                  ipc_.setSpeed(smoother().speed(), smoother().positive(), smoother().horizontal());
-                  updateAutoScrollIpc();
-                }
-                break;
-              case REL_WHEEL_HI_RES:
-              case REL_HWHEEL_HI_RES:
-                if (num_passthrough_ || wheel_passthrough)
-                  events_.push_back(event);
-                break;
-              case REL_X:
-                if (smoother().handleRelXEvent(event, mouse_frame_))
-                  events_.push_back(event);
-                break;
-              case REL_Y:
-                if (smoother().handleRelYEvent(event, mouse_frame_))
-                  events_.push_back(event);
-                break;
-              default:
-                events_.push_back(event);
-                break;
-            }
-            break;
-
-          case EV_KEY: {
-            handleObservedKey(event.code, event.value, mouse_passthrough_);
-            // Composite mice can expose keyboard or consumer keys on the same
-            // grabbed event node. Forward those keys, but do not reinterpret
-            // them as pointer buttons that can control mouse-only modes.
-            if (!isPointerButton(event.code))
-            {
-              events_.push_back(event);
-              break;
-            }
-            if (event.code == profile.auto_scroll_button)
-            {
-              const auto button_result = smoother().handleAutoScrollButton(event.time, event.code, event.value);
-              if (button_result == WheelSmoother::ButtonResult::ReplayClick)
-              {
-                input_event press_event = event;
-                press_event.value = 1;
-                events_.push_back(press_event);
-                events_.push_back({ event.time, EV_SYN, SYN_REPORT, 0 });
-                events_.push_back(event);
-              }
-              else if (button_result == WheelSmoother::ButtonResult::Passthrough)
-              {
-                events_.push_back(event);
-              }
-              ipc_.setSpeed(0, false, false);
-              updateAutoScrollIpc();
-            }
-            else if (event.code == profile.drag_view_button)
-            {
-              const auto button_result = smoother().handleDragViewButton(event.time, event.value);
-              if (button_result == WheelSmoother::ButtonResult::ReplayClick)
-              {
-                input_event press_event = event;
-                press_event.value = 1;
-                events_.push_back(press_event);
-                events_.push_back({ event.time, EV_SYN, SYN_REPORT, 0 });
-                events_.push_back(event);
-              }
-              else if (button_result == WheelSmoother::ButtonResult::Passthrough)
-              {
-                events_.push_back(event);
-              }
-              ipc_.setSpeed(0, false, false);
-              updateAutoScrollIpc();
-              ipc_.setDragView(smoother().drag_view());
-            }
-            else if (event.code == profile.free_spin_button)
-            {
-              if (!smoother().handleFreeSpinButton(event.value))
-                events_.push_back(event);
-              ipc_.setFreeSpin(smoother().free_spin());
-            }
-            else
-            {
-              const auto button_result = smoother().handleOrdinaryButton(event.code, event.value);
-              if (button_result == WheelSmoother::ButtonResult::Passthrough)
-                events_.push_back(event);
-              ipc_.setSpeed(0, false, false);
-              updateAutoScrollIpc();
-            }
-            break;
+          if (result == LIBEVDEV_READ_STATUS_SUCCESS && direct_mode_toggle_key_ != 0 &&
+              event.code == direct_mode_toggle_key_ && event.value == 1)
+          {
+            if (auto error = tryToggleMouseMode())
+              return *error;
           }
-
-          case EV_MSC:
-            break;
-
-          case EV_SYN:
-            if (event.code == SYN_REPORT)
-            {
-              switch (smoother().handleReportEvent(event.time, mouse_frame_))
-              {
-                case WheelSmoother::ReportResult::ScrollStopped:
-                  ipc_.setSpeed(0, false, false);
-                  break;
-                case WheelSmoother::ReportResult::AutoScrollOffsetChanged:
-                  ipc_.setAutoScrollOffset(smoother().auto_scroll_offset_x(),
-                                           smoother().auto_scroll_offset_y());
-                  break;
-                case WheelSmoother::ReportResult::None:
-                  break;
-              }
-              mouse_frame_ = {};
-              if (!writeEvents(event.time))
-                return RunResult::InputOutputError;
-            }
-            break;
-
-          default:
-            events_.push_back(event);
-            break;
+          handleObservedKey(event.code, event.value, keyboard.passthrough);
         }
       }
 
       if (result == -ENODEV)
       {
-        SPDLOG_WARN("Mouse device lost: {}", mouse_.info().path);
-        return RunResult::MouseLost;
+        SPDLOG_WARN("Keyboard device lost: {}", keyboard.device.info().path);
+        num_passthrough_ -= keyboard.passthrough.active_pressed;
+        num_union_pressed_ -= keyboard.passthrough.union_pressed;
+        ipc_.setKeyboardPassthrough(num_passthrough_ > 0);
+        keyboards_.erase(keyboards_.begin() + index);
+        descriptors.erase(descriptors.begin() + poll_index);
+        continue;
       }
       if (result < 0 && result != -EAGAIN)
       {
-        SPDLOG_ERROR("Failed to read mouse {}: {}", mouse_.info().path, std::strerror(-result));
+        SPDLOG_ERROR("Failed to read keyboard {}: {}", keyboard.device.info().path, std::strerror(-result));
         return RunResult::InputOutputError;
       }
+      ++index;
+    }
+
+    if (descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL))
+      return RunResult::MouseLost;
+    if (grabbed_ && (descriptors[0].revents & POLLIN))
+    {
+      if (auto error = readGrabbedMouseEvents(last_input_event_time))
+        return *error;
     }
 
     if (last_input_event_time)
@@ -567,7 +610,7 @@ Session::RunResult Session::run(const std::atomic_bool& shutdown)
       }
     }
 
-    if (restart_pending && !anyPhysicalKeyPressed() && events_.empty())
+    if (restart_pending && (!grabbed_ || (!anyPhysicalKeyPressed() && events_.empty())))
     {
       // Teardown resets motion; the next Session rebuilds device-local input state.
       return RunResult::RestartRequested;

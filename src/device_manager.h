@@ -32,9 +32,9 @@ private:
   DeviceMonitor(std::unique_ptr<UdevInputSource> source, DeviceConfig config,
                 std::vector<unsigned int> relevant_keyboard_keys);
 
-  [[nodiscard]] static std::unique_ptr<DeviceMonitor>
-  start(std::unique_ptr<UdevInputSource> source, DeviceConfig config,
-        std::vector<unsigned int> relevant_keyboard_keys);
+  [[nodiscard]] static std::unique_ptr<DeviceMonitor> start(std::unique_ptr<UdevInputSource> source,
+                                                            DeviceConfig config,
+                                                            std::vector<unsigned int> relevant_keyboard_keys);
   [[nodiscard]] bool initialize();
   void monitorLoop();
 
@@ -52,6 +52,7 @@ struct SessionResources
 {
   SessionDevices devices;
   std::unique_ptr<DeviceMonitor> monitor;
+  unsigned direct_mode_toggle_key = KEY_SCROLLLOCK;
 };
 
 enum class AcquireStatus

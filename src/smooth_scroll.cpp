@@ -62,9 +62,7 @@ void signalHandler(int signal_number)
 
 bool installSignalHandlers()
 {
-  struct sigaction action
-  {
-  };
+  struct sigaction action{};
   action.sa_handler = signalHandler;
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
@@ -144,6 +142,8 @@ int main(int argc, char* argv[])
     return -1;
 
   std::vector<unsigned int> relevant_keyboard_keys;
+  if (config.device_manager.direct_mode_toggle_key)
+    relevant_keyboard_keys.push_back(config.device_manager.direct_mode_toggle_key);
   for (const auto& profile : config.session.profiles)
   {
     relevant_keyboard_keys.insert(relevant_keyboard_keys.end(), profile.keyboard_braking_keys.begin(),

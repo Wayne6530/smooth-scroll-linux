@@ -31,6 +31,7 @@ const I18n = (() => {
       'btn.close': { en: 'Close', zh: '关闭' },
       'btn.preview-export': { en: 'Preview & export', zh: '预览与导出' },
       'toml.preview': { en: 'TOML Preview', zh: 'TOML 预览' },
+      'validation.direct-binding': { en: 'The direct mode toggle key conflicts with this profile binding', zh: '直连模式切换键与此配置中的按键绑定冲突' },
       'group.device': { en: 'Device', zh: '设备' },
       'group.scroll': { en: 'Scroll', zh: '滚动' },
       'group.braking': { en: 'Braking', zh: '制动' },

@@ -42,18 +42,16 @@ IpcSnapshot IpcClient::readSnapshot()
   snapshot.valid = true;
   snapshot.pid = pid;
   snapshot.scrollId = m_ipc->scroll_id.load(std::memory_order_relaxed);
-  snapshot.requestedProfileId =
-      m_ipc->requested_profile_id.load(std::memory_order_relaxed);
+  snapshot.requestedProfileId = m_ipc->requested_profile_id.load(std::memory_order_relaxed);
   snapshot.activeProfileId = m_ipc->active_profile_id.load(std::memory_order_relaxed);
+  snapshot.directMode = (stateBits & smooth_scroll::IPC_STATE_DIRECT_MODE) != 0;
   snapshot.connected = (stateBits & smooth_scroll::IPC_STATE_CONNECTED) != 0;
   snapshot.keyboardPassthrough = (stateBits & smooth_scroll::IPC_STATE_KEYBOARD_PASSTHROUGH) != 0;
   snapshot.dragView = (stateBits & smooth_scroll::IPC_STATE_DRAG_VIEW) != 0;
   snapshot.freeSpin = (stateBits & smooth_scroll::IPC_STATE_FREE_SPIN) != 0;
   snapshot.autoScroll = (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL) != 0;
-  snapshot.autoScrollHorizontalEnabled =
-      (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED) != 0;
-  snapshot.autoScrollVerticalEnabled =
-      (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED) != 0;
+  snapshot.autoScrollHorizontalEnabled = (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_HORIZONTAL_ENABLED) != 0;
+  snapshot.autoScrollVerticalEnabled = (stateBits & smooth_scroll::IPC_STATE_AUTO_SCROLL_VERTICAL_ENABLED) != 0;
   snapshot.autoScrollOffsetX = smooth_scroll::autoScrollHorizontalOffset(autoScrollOffset);
   snapshot.autoScrollOffsetY = smooth_scroll::autoScrollVerticalOffset(autoScrollOffset);
   snapshot.horizontal = (stateBits & smooth_scroll::IPC_STATE_HORIZONTAL) != 0;
@@ -107,7 +105,7 @@ bool IpcClient::daemonAlive(uint32_t pid)
     m_pidfd = syscall(SYS_pidfd_open, pid, 0);
   if (m_pidfd >= 0)
   {
-    pollfd descriptor{m_pidfd, POLLIN, 0};
+    pollfd descriptor{ m_pidfd, POLLIN, 0 };
     m_alive = poll(&descriptor, 1, 0) == 0;
   }
   else

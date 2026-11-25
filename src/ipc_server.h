@@ -25,6 +25,11 @@ public:
   bool initialize();
 
   void setConnected() noexcept;
+  [[nodiscard]] bool directMode() const noexcept
+  {
+    return (state_ & IPC_STATE_DIRECT_MODE) != 0;
+  }
+  void setDirectModeConnected() noexcept;
 
   void setDisconnected() noexcept;
 

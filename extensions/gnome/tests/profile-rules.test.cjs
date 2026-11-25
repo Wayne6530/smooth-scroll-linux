@@ -101,3 +101,12 @@ indicatorExtension._handlePointerState({...held, freeSpin: false, speed: 250}, 0
 assert.deepEqual(rendered, [[true, 600], [true, 600], [true, 600], [false, 500], [false, 250]]);
 assert.equal(brakes, 1);
 console.log('GNOME indicator refreshes after Free Spin release despite an earlier pointer-leave brake.');
+
+let hidden = false;
+indicatorExtension._hideDot = () => { hidden = true; };
+pointerWindow = null;
+indicatorExtension._handlePointerState({...held, directMode: true}, 0, 0);
+assert.equal(indicatorExtension._lastRequestedProfile, 1);
+assert.equal(hidden, true);
+assert.equal(brakes, 1);
+assert.equal(rendered.length, 5);

@@ -6,6 +6,7 @@
 #include <array>
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "device_manager.h"
@@ -30,6 +31,7 @@ public:
   enum class CreateResult
   {
     Success,
+    MouseBusy,
     Shutdown,
     MouseLost,
     InputOutputError,
@@ -59,7 +61,10 @@ private:
           int shutdown_fd);
 
   [[nodiscard]] CreateResult initialize(const std::atomic_bool& shutdown);
+  [[nodiscard]] CreateResult tryGrabMouse();
   [[nodiscard]] CreateResult discardPendingMouseEvents();
+  [[nodiscard]] std::optional<RunResult> readGrabbedMouseEvents(std::optional<timeval>& last_input_event_time);
+  [[nodiscard]] std::optional<RunResult> tryToggleMouseMode();
   [[nodiscard]] CreateResult waitUntilAllKeysReleased(const std::atomic_bool& shutdown);
   [[nodiscard]] bool anyPhysicalKeyPressed() const noexcept;
   [[nodiscard]] bool writeEvents(const timeval& time);
@@ -67,7 +72,10 @@ private:
   // Returns true when a brake or switch invalidates a previously scheduled tick.
   bool processIpcRequests();
   void publishProfileState();
-  WheelSmoother& smoother() noexcept { return activeProfile().smoother; }
+  WheelSmoother& smoother() noexcept
+  {
+    return activeProfile().smoother;
+  }
   void stopMotion();
   void updateAutoScrollIpc();
 
@@ -79,7 +87,10 @@ private:
   // Owned by the main loop; Session teardown resets the active smoother before reuse.
   ProfileSet& profile_set_;
   ProfileId active_profile_index_ = 0;
-  ProfileRuntime& activeProfile() noexcept { return profile_set_.profiles[active_profile_index_]; }
+  ProfileRuntime& activeProfile() noexcept
+  {
+    return profile_set_.profiles[active_profile_index_];
+  }
   KeyboardPassthroughState mouse_passthrough_;
   std::vector<int> supported_mouse_keys_;
   std::vector<input_event> events_;
@@ -88,6 +99,7 @@ private:
   int num_passthrough_ = 0;
   int shutdown_fd_ = -1;
   bool grabbed_ = false;
+  const unsigned direct_mode_toggle_key_;
 };
 
 }  // namespace smooth_scroll

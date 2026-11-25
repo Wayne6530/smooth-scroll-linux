@@ -7,10 +7,38 @@
 #undef NDEBUG
 #endif
 #include <cassert>
+#include <cerrno>
 #include <iostream>
+#include <utility>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+namespace
+{
+// The keyboard pipe supplies complete evdev frames. The mouse has no queued events.
+libevdev* keyboard_device;
+int keyboard_fd;
+int last_key_value = -1;
+std::vector<std::pair<int, libevdev_grab_mode>> grab_changes;
+}  // namespace
+
+extern "C" int libevdev_next_event(libevdev* device, unsigned int, input_event* event)
+{
+  if (device != keyboard_device)
+    return -EAGAIN;
+  if (read(keyboard_fd, event, sizeof(*event)) != sizeof(*event))
+    return -EAGAIN;
+  if (event->type == EV_KEY)
+    last_key_value = event->value;
+  return LIBEVDEV_READ_STATUS_SUCCESS;
+}
+
+extern "C" int libevdev_grab(libevdev*, libevdev_grab_mode mode)
+{
+  grab_changes.emplace_back(last_key_value, mode);
+  return 0;
+}
 
 namespace smooth_scroll
 {
@@ -18,6 +46,62 @@ namespace smooth_scroll
 // Exercise the real request handler without acquiring physical input devices.
 struct SessionIpcTestAccess
 {
+  static void testDirectModeRequests(IpcServer& server, SmoothScrollIPC& ipc)
+  {
+    SessionConfig config;
+    config.profiles.resize(2);
+    ProfileSet profiles{ config };
+    VirtualDevice output;
+    int keyboard_pipe[2];
+    int mouse_pipe[2];
+    assert(pipe2(keyboard_pipe, O_NONBLOCK) == 0);
+    assert(pipe2(mouse_pipe, O_NONBLOCK) == 0);
+    keyboard_device = libevdev_new();
+    keyboard_fd = keyboard_pipe[0];
+    DeviceInfo keyboard_info;
+    keyboard_info.capabilities.keys[KEY_SCROLLLOCK] = true;
+    SessionResources resources;
+    resources.devices.mouse = InputDeviceHandle{ mouse_pipe[0], libevdev_new(), {} };
+    resources.devices.keyboards.emplace_back(keyboard_fd, keyboard_device, std::move(keyboard_info));
+
+    const std::atomic_bool shutdown{ false };
+    Session::CreateResult result;
+    auto session = Session::create(std::move(resources), profiles, output, server, shutdown, -1, result);
+    assert(session && result == Session::CreateResult::Success);
+    assert(!server.directMode());
+    grab_changes.clear();
+
+    for (int value : { 1, 2, 0 })
+    {
+      const input_event frame[]{ { {}, EV_KEY, KEY_SCROLLLOCK, value }, { {}, EV_SYN, SYN_REPORT, 0 } };
+      assert(write(keyboard_pipe[1], frame, sizeof(frame)) == sizeof(frame));
+    }
+    // Both fds are ready. The loop drains the keyboard, then exits on mouse hangup.
+    assert(close(mouse_pipe[1]) == 0);
+    assert(session->run(shutdown) == Session::RunResult::MouseLost);
+    assert(grab_changes.size() == 1);
+    assert(grab_changes.front() == std::make_pair(1, LIBEVDEV_UNGRAB));
+    assert(ipc.state_bits.load() & IPC_STATE_DIRECT_MODE);
+
+    session.reset();
+    assert(ipc.state_bits.load() == IPC_STATE_DIRECT_MODE);
+    assert(close(keyboard_pipe[1]) == 0);
+    keyboard_device = nullptr;
+
+    SessionResources replacement;
+    replacement.devices.mouse = InputDeviceHandle{ -1, libevdev_new(), {} };
+    grab_changes.clear();
+    session = Session::create(std::move(replacement), profiles, output, server, shutdown, -1, result);
+    assert(session && result == Session::CreateResult::Success);
+    assert(grab_changes.empty());
+    assert((ipc.state_bits.load() & (IPC_STATE_CONNECTED | IPC_STATE_DIRECT_MODE)) ==
+           (IPC_STATE_CONNECTED | IPC_STATE_DIRECT_MODE));
+    ipc.requested_profile_id.store(1);
+    assert(session->processIpcRequests());
+    assert(ipc.active_profile_id.load() == 1);
+    assert(server.directMode());
+  }
+
   static void testRestartReuse(IpcServer& server, SmoothScrollIPC& ipc)
   {
     SessionConfig config;
@@ -40,8 +124,7 @@ struct SessionIpcTestAccess
         session.processIpcRequests();
         session.smoother().handleEvent(timeval{ 1, 0 }, true, false);
         MouseFrameState movement{ 20, 0 };
-        assert(session.smoother().handleReportEvent(timeval{ 1, 1000 }, movement) ==
-               WheelSmoother::ReportResult::None);
+        assert(session.smoother().handleReportEvent(timeval{ 1, 1000 }, movement) == WheelSmoother::ReportResult::None);
       }
       // Teardown stops the active profile; switching already stopped the others.
       // Keyboard state is deliberately left for Session teardown.
@@ -66,8 +149,7 @@ struct SessionIpcTestAccess
         session.processIpcRequests();
         session.smoother().handleEvent(timeval{ 1, 2000 }, true, false);
         MouseFrameState movement{ 20, 0 };
-        assert(session.smoother().handleReportEvent(timeval{ 1, 3000 }, movement) ==
-               WheelSmoother::ReportResult::None);
+        assert(session.smoother().handleReportEvent(timeval{ 1, 3000 }, movement) == WheelSmoother::ReportResult::None);
         assert(session.smoother().next_tick_time());
       }
       session.stopMotion();
@@ -208,6 +290,7 @@ int main()
   SessionIpcTestAccess::run(server, *static_cast<SmoothScrollIPC*>(address));
   SessionIpcTestAccess::testRestartReuse(server, *static_cast<SmoothScrollIPC*>(address));
   SessionIpcTestAccess::testInterruptedModes(server, *static_cast<SmoothScrollIPC*>(address));
+  SessionIpcTestAccess::testDirectModeRequests(server, *static_cast<SmoothScrollIPC*>(address));
   assert(munmap(address, sizeof(SmoothScrollIPC)) == 0);
   assert(close(fd) == 0);
   assert(shm_unlink(name.c_str()) == 0);

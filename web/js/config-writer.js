@@ -127,6 +127,12 @@ const ConfigWriter = (() => {
     const conflicting = buttons.filter(key => values[key] &&
       buttons.some(other => other !== key && values[key] === values[other]));
     if (conflicting.length) add(conflicting, 'buttons');
+    const toggle = input.direct_mode_toggle_key ?? schema.params.find(p => p.key === 'direct_mode_toggle_key').defaultValue;
+    if (toggle) {
+      const bindings = [...buttons, 'keyboard_braking_keys', 'keyboard_passthrough_keys'];
+      const conflicts = bindings.filter(key => [].concat(values[key]).includes(toggle));
+      if (conflicts.length) add(['direct_mode_toggle_key', ...conflicts], 'direct-binding');
+    }
 
     // The daemon computes this bound even when Auto Scroll is inactive.
     const effective = complete(values);
@@ -144,7 +150,8 @@ const ConfigWriter = (() => {
   }
 
   function errors(profiles) {
-    return profiles.flatMap((profile, id) => validateProfile(profile.values, id));
+    const toggle = profiles[0]?.values.direct_mode_toggle_key;
+    return profiles.flatMap((profile, id) => validateProfile({...profile.values, direct_mode_toggle_key: toggle}, id));
   }
 
   function flatten(config) {

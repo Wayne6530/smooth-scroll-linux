@@ -16,6 +16,7 @@ namespace smooth_scroll
 struct DeviceConfig
 {
   std::chrono::milliseconds debounce{ 500 };
+  unsigned direct_mode_toggle_key = KEY_SCROLLLOCK;
   std::vector<DeviceModel> ignored_devices;
 };
 

@@ -128,9 +128,8 @@ void readProfile(const toml::table& table, ProfileConfig& profile)
   readOption(table, "wheel_passthrough", profile.wheel_passthrough);
   readKeyList(table, "keyboard_braking_keys", profile.keyboard_braking_keys);
   readKeyList(table, "keyboard_passthrough_keys", profile.keyboard_passthrough_keys);
-  assert(profile.auto_scroll_button == 0 ||
-         (profile.auto_scroll_button != profile.drag_view_button &&
-          profile.auto_scroll_button != profile.free_spin_button));
+  assert(profile.auto_scroll_button == 0 || (profile.auto_scroll_button != profile.drag_view_button &&
+                                             profile.auto_scroll_button != profile.free_spin_button));
   auto& options = profile.smoother;
   readEnum(table, "smooth_mode", options.smooth_mode, 0, 2);
   readOption(table, "wheel_tick_distance", options.wheel_tick_distance);
@@ -199,6 +198,9 @@ bool loadConfig(const std::string& path, Config& config)
   if (!readIgnoredDevices(table, config.device_manager.ignored_devices))
     return false;
 
+  config.device_manager.direct_mode_toggle_key = DeviceConfig{}.direct_mode_toggle_key;
+  readEnum(table, "direct_mode_toggle_key", config.device_manager.direct_mode_toggle_key, 0, KEY_MAX);
+
   config.session.profiles.clear();
   config.session.profiles.emplace_back();
   readProfile(table, config.session.profiles.back());
@@ -213,6 +215,21 @@ bool loadConfig(const std::string& path, Config& config)
       config.session.profiles.push_back(std::move(profile));
     }
   }
+#ifndef NDEBUG
+  const int toggle_key = static_cast<int>(config.device_manager.direct_mode_toggle_key);
+  if (toggle_key != 0)
+  {
+    for (const auto& profile : config.session.profiles)
+    {
+      assert(toggle_key != profile.free_spin_button && toggle_key != profile.drag_view_button &&
+             toggle_key != profile.auto_scroll_button);
+      assert(
+          !std::binary_search(profile.keyboard_braking_keys.begin(), profile.keyboard_braking_keys.end(), toggle_key));
+      assert(!std::binary_search(profile.keyboard_passthrough_keys.begin(), profile.keyboard_passthrough_keys.end(),
+                                 toggle_key));
+    }
+  }
+#endif
   return true;
 }
 

@@ -74,3 +74,27 @@ custom.values.auto_scroll_button = 273;
 custom.values.free_spin_button = 273;
 assert.ok(ConfigWriter.validateConfig(config).some(issue => issue.profileId === 2 && issue.kind === 'buttons'));
 console.log('Compact profiles preserve semantics; global values and comments survive; invalid exports are blocked.');
+
+// A device-wide binding must be checked against every profile, including inactive ones.
+config.globals.direct_mode_toggle_key = 275;
+assert.ok(ConfigWriter.validateConfig(config).some(issue =>
+  issue.kind === 'value' && issue.keys.includes('direct_mode_toggle_key')));
+custom.values.free_spin_button = 275;
+assert.ok(ConfigWriter.validateConfig(config).some(issue =>
+  issue.profileId === 2 && issue.kind === 'direct-binding' && issue.keys.includes('free_spin_button')));
+assert.throws(() => ConfigWriter.generateConfig(config), /Invalid configuration/);
+config.globals.direct_mode_toggle_key = 70;
+for (const field of ['keyboard_braking_keys', 'keyboard_passthrough_keys']) {
+  const savedKeys = custom.values[field];
+  custom.values[field] = [70];
+  assert.ok(ConfigWriter.validateConfig(config).some(issue =>
+    issue.profileId === 2 && issue.kind === 'direct-binding' && issue.keys.includes(field)));
+  custom.values[field] = savedKeys;
+}
+for (const key of [70, 119, 0]) {
+  config.globals.direct_mode_toggle_key = key;
+  assert.match(ConfigWriter.generateConfig(config), new RegExp('^direct_mode_toggle_key = ' + key + '$', 'm'));
+}
+const directConfig = ConfigWriter.generateConfig(config).split(/^\[\[profiles\]\]$/m);
+assert.match(directConfig[0], /^direct_mode_toggle_key = 0$/m);
+for (const profile of directConfig.slice(1)) assert.doesNotMatch(profile, /^direct_mode_toggle_key =/m);

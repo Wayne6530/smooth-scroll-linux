@@ -99,14 +99,21 @@ void IpcServer::cleanup() noexcept
 
 void IpcServer::setConnected() noexcept
 {
+  state_ &= ~IPC_STATE_DIRECT_MODE;
   state_ |= IPC_STATE_CONNECTED;
+  mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
+}
+
+void IpcServer::setDirectModeConnected() noexcept
+{
+  state_ |= IPC_STATE_CONNECTED | IPC_STATE_DIRECT_MODE;
   mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
 }
 
 void IpcServer::setDisconnected() noexcept
 {
-  state_ = 0;
-  mapped_memory_->state_bits.store(0, std::memory_order_relaxed);
+  state_ &= IPC_STATE_DIRECT_MODE;
+  mapped_memory_->state_bits.store(state_, std::memory_order_relaxed);
   mapped_memory_->auto_scroll_offset.store(0, std::memory_order_relaxed);
 }
 

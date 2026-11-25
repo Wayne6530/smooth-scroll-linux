@@ -81,6 +81,17 @@ int main(int argc, char* argv[])
   assert(loadConfig(temporary_path, fallback_config));
   assert(fallback_config.session.profiles[0].smoother.auto_scroll_latch_on_release);
   assert(fallback_config.session.profiles[0].smoother.auto_scroll_speed_exponent == 1.0);
+  assert(fallback_config.device_manager.direct_mode_toggle_key == KEY_SCROLLLOCK);
+  const auto load_direct = [&](const char* options) {
+    std::ofstream(temporary_path) << options;
+    return loadConfig(temporary_path, fallback_config);
+  };
+  assert(load_direct("direct_mode_toggle_key=275"));
+  assert(fallback_config.device_manager.direct_mode_toggle_key == 275);
+  assert(load_direct("direct_mode_toggle_key=0"));
+  assert(fallback_config.device_manager.direct_mode_toggle_key == 0);
+  assert(load_direct("direct_mode_toggle_key=768"));
+  assert(fallback_config.device_manager.direct_mode_toggle_key == KEY_SCROLLLOCK);
   unlink(temporary_path);
 
   Config invalid_config;

@@ -19,6 +19,7 @@ struct IpcSnapshot
   uint32_t scrollId = 0;
   uint32_t requestedProfileId = 0;
   uint32_t activeProfileId = 0;
+  bool directMode = false;
   bool connected = false;
   bool keyboardPassthrough = false;
   bool dragView = false;
@@ -36,7 +37,9 @@ struct IpcSnapshot
 class IpcClient
 {
 public:
-  explicit IpcClient(const char* name = smooth_scroll::IPC_SHM_NAME) : m_name(name) {}
+  explicit IpcClient(const char* name = smooth_scroll::IPC_SHM_NAME) : m_name(name)
+  {
+  }
   ~IpcClient();
 
   IpcClient(const IpcClient&) = delete;
