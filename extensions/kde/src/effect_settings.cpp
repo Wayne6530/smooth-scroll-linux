@@ -58,6 +58,7 @@ const QList<Field>& settingsFields()
     { "passthrough", "color", "Color", QStringLiteral("#ff5c5c") },
     { "passthrough", "alpha", "Opacity", 0.9, 0.0, 1.0 },
     { "scroll", "stop_on_pointer_leave_window", "Stop inertia when leaving a window", true },
+    { "scroll", "notify_direct_mode", "Notify when direct mode changes", true },
     { "scroll", "poll_interval_ms", "Polling interval (ms)", 4, 1, 1000 },
   };
   return fields;

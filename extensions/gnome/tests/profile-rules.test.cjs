@@ -67,6 +67,33 @@ writable = true;
 extension._tick();
 assert.equal(extension._lastRequestedProfile, 2);
 assert.deepEqual(requests, [2, 2, 2, 0, 2]);
+const osdLabels = [];
+context.Gio = {Icon: {new_for_string: name => name}};
+context.Main = {osdWindowManager: {showAll(icon, label) { osdLabels.push(label); }}};
+config.scroll.notify_direct_mode = true;
+function pollMode(pid, connected, directMode) {
+  snapshot = {valid: pid > 0, pid, connected, directMode, speed: 0};
+  extension._tick();
+}
+pollMode(12, true, false);
+pollMode(12, true, true);
+pollMode(12, true, true);
+pollMode(12, false, true);
+pollMode(12, true, true);
+pollMode(13, true, false);
+pollMode(0, false, false);
+pollMode(13, true, true);
+config.scroll.notify_direct_mode = false;
+pollMode(13, true, false);
+pollMode(13, true, true);
+config.scroll.notify_direct_mode = true;
+pollMode(13, true, true);
+pollMode(13, true, false);
+assert.deepEqual(osdLabels, ['Direct mode on', 'Direct mode off']);
+let legacyOsdArgs;
+context.Main.osdWindowManager = {show(...args) { legacyOsdArgs = args; }};
+pollMode(13, true, true);
+assert.deepEqual(legacyOsdArgs, [-1, 'input-mouse-symbolic', 'Direct mode on', null]);
 console.log('GNOME profile rules, shell selection, pending state and daemon reconnect passed.');
 
 // Leaving during Free Spin may send a brake, then further wheel input keeps

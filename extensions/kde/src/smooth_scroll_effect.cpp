@@ -14,6 +14,8 @@
 
 #include <QDBusConnection>
 #include <QDBusError>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -497,12 +499,24 @@ void SmoothScrollEffect::tick()
     return;
   }
 
-  if (m_lastPid != snapshot.pid)
+  if (m_previousSnapshot.pid != snapshot.pid)
   {
     resetScrollAnchor();
     m_haveLastRequestedProfile = false;
-    m_lastPid = snapshot.pid;
   }
+  else if (m_config.notifyDirectMode && m_previousSnapshot.connected && snapshot.connected &&
+           m_previousSnapshot.directMode != snapshot.directMode)
+  {
+    auto message = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.Notifications"),
+                                                  QStringLiteral("/org/freedesktop/Notifications"),
+                                                  QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("Notify"));
+    const QVariantMap hints{ { QStringLiteral("transient"), true }, { QStringLiteral("suppress-sound"), true } };
+    message << QStringLiteral("Smooth Scroll") << 0u << QStringLiteral("input-mouse") << QStringLiteral("Smooth Scroll")
+            << (snapshot.directMode ? tr("Direct mode on") : tr("Direct mode off")) << QStringList{} << hints
+            << 2000;
+    QDBusConnection::sessionBus().asyncCall(message);
+  }
+  m_previousSnapshot = snapshot;
 
   const QPointF pointer = KWin::effects->cursorPos();
   const PointerTarget target = pointerTarget(pointer);
@@ -616,6 +630,7 @@ void SmoothScrollEffect::loadConfig()
 
   next.stopOnPointerLeaveWindow =
       readBool(scroll, QStringLiteral("stop_on_pointer_leave_window"), next.stopOnPointerLeaveWindow);
+  next.notifyDirectMode = readBool(scroll, QStringLiteral("notify_direct_mode"), next.notifyDirectMode);
   next.pollIntervalMs =
       readInt(scroll, QStringLiteral("poll_interval_ms"), next.pollIntervalMs, MinPollIntervalMs, MaxPollIntervalMs);
 
@@ -1406,7 +1421,7 @@ void SmoothScrollEffect::resetState()
   setRequestedProfile(0);
   hideOverlay();
   m_lastSpeed = 0;
-  m_lastPid = 0;
+  m_previousSnapshot = {};
 }
 
 void SmoothScrollEffect::applyTimerInterval()

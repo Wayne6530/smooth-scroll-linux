@@ -195,6 +195,10 @@ export const SETTINGS = [
         type: 'b', default: true,
     },
     {
+        group: 'scroll', field: 'notify_direct_mode', title: 'Show on-screen feedback when direct mode changes',
+        type: 'b', default: true,
+    },
+    {
         group: 'scroll', field: 'poll_interval_ms', title: 'IPC poll interval (ms)',
         type: 'd', default: 8, min: 8.0, max: 250.0, step: 1,
     },

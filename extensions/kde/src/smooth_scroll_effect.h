@@ -50,6 +50,7 @@ struct Config
   AutoScrollVisualConfig autoScroll;
   PassthroughVisualConfig passthrough;
   bool stopOnPointerLeaveWindow = true;
+  bool notifyDirectMode = true;
   int pollIntervalMs = 4;
   uint32_t defaultProfileId = 0;
   uint32_t shellProfileId = 1;
@@ -166,7 +167,7 @@ private:
   QString m_anchorWindowKey;
   bool m_stopRequestedForAnchor = false;
   uint32_t m_lastSpeed = 0;
-  uint32_t m_lastPid = 0;
+  IpcSnapshot m_previousSnapshot;
   uint32_t m_lastRequestedProfile = 0;
   bool m_haveLastRequestedProfile = false;
   bool m_dbusServiceRegistered = false;

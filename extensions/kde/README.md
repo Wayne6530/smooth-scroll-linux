@@ -116,7 +116,8 @@ beneath the pointer.
 ## Adjust scrolling behavior and indicators
 
 Open **Behavior** to choose whether inertia stops when the pointer leaves a
-window. Open **Indicators** to adjust the appearance of the inertia dot,
+window. To silence direct mode notifications, turn off **Notify when direct mode changes**.
+Open **Indicators** to adjust the appearance of the inertia dot,
 Free Spin ring, Drag View arrow, Auto Scroll marker or compatibility indicator.
 Click **Apply** to use your changes.
 

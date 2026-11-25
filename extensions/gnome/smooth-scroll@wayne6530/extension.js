@@ -22,6 +22,15 @@ const IPC_OFFSET_SCROLL_ID = 0x0c;
 const IPC_OFFSET_REQUESTED_PROFILE = 0x10;
 const IPC_OFFSET_AUTO_SCROLL = 0x14;
 
+function showDirectModeOsd(directMode) {
+    const icon = Gio.Icon.new_for_string('input-mouse-symbolic');
+    const label = directMode ? 'Direct mode on' : 'Direct mode off';
+    if (Main.osdWindowManager.showAll)
+        Main.osdWindowManager.showAll(icon, label, null);
+    else
+        Main.osdWindowManager.show(-1, icon, label, null);
+}
+
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -1052,6 +1061,7 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
 
     _tick() {
         const snapshot = this._ipc.readSnapshot();
+        const previous = this._lastSnapshot;
         this._lastSnapshot = snapshot;
         const [x, y] = global.get_pointer();
 
@@ -1069,6 +1079,10 @@ export default class SmoothScrollIpcCompanionExtension extends Extension {
             this._lastRequestedProfile = null;
             this._lastPid = snapshot.pid;
         }
+
+        if (this._config.scroll.notify_direct_mode && snapshot.connected && previous?.connected &&
+            previous.pid === snapshot.pid && previous.directMode !== snapshot.directMode)
+            showDirectModeOsd(snapshot.directMode);
 
         this._handlePointerState(snapshot, x, y);
 

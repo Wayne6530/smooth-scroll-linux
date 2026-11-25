@@ -38,7 +38,12 @@ int main(int argc, char** argv)
   const auto regex = titleExpression(title);
   if (!regex.match("a.b Test").hasMatch() || regex.match("A0B Test").hasMatch() || regex.match("xA.B").hasMatch())
     qFatal("Title matching must respect literal text, mode and case");
+  auto scroll = defaults["scroll"].toObject();
+  if (!scroll.value("notify_direct_mode").toBool())
+    qFatal("Direct mode notifications should default to enabled");
+  scroll["notify_direct_mode"] = false;
   auto next = defaults;
+  next["scroll"] = scroll;
   next["profile_rules"] =
       QJsonArray{ QJsonObject{ { "app", "test.desktop" }, { "profile_id", 0 }, { "titles", QJsonArray{ title } } } };
   next["shell_profile_id"] = 4294967295.;

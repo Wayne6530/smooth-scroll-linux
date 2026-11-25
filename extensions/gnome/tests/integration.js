@@ -34,6 +34,34 @@ async function run() {
     await evaluate('Main.overview.hide(); true');
     await wait(300);
     const settings = new Gio.Settings({schema_id: 'org.gnome.shell.extensions.smooth-scroll'});
+    const fullscreenWindow = new Gtk.ApplicationWindow({application: app});
+    fullscreenWindow.fullscreen();
+    fullscreenWindow.present();
+    const fullscreen = 'Main.layoutManager.primaryMonitor.inFullscreen';
+    for (let attempt = 0; attempt < 40 && !await evaluate(fullscreen); attempt++)
+        await wait(50);
+    assert(await evaluate(fullscreen), 'Test window occupies the primary monitor in fullscreen');
+    await evaluate("Main.notify('Queue fixture', 'Ordinary notification'); true");
+    const ordinaryQueued = "Main.messageTray._notificationQueue.some(n => n.title === 'Queue fixture')";
+    assert(await evaluate(ordinaryQueued), 'Ordinary notification is queued during fullscreen');
+    // Change only the mode bit in the isolated IPC fixture, preserving the inode read by Shell.
+    const ipc = Gio.File.new_for_path(GLib.build_filenamev([GLib.getenv('SMOOTH_SCROLL_TEST_DIR'), 'ipc']));
+    const stream = ipc.open_readwrite(null);
+    for (const [bits, body] of [[1 | (1 << 9), 'Direct mode on'], [1, 'Direct mode off']]) {
+        stream.seek(8, GLib.SeekType.SET, null);
+        stream.get_output_stream().write_all(new Uint8Array(new Uint32Array([bits]).buffer), null);
+        const hasOsd = `${fullscreen} && ${ordinaryQueued} &&
+            Main.osdWindowManager._osdWindows.some(osd => osd.mapped && osd.opacity > 0 &&
+                osd._label.mapped && osd._label.text === ${JSON.stringify(body)})`;
+        let seen = false;
+        for (let attempt = 0; attempt < 40 && !seen; attempt++) {
+            await wait(50);
+            seen = await evaluate(hasOsd);
+        }
+        assert(seen, `Shell shows the fullscreen OSD with an ordinary notification queued: ${body}`);
+    }
+    stream.close(null);
+    fullscreenWindow.close();
     const window = new Adw.PreferencesWindow({application: app});
     const prefs = new Preferences(window, settings);
     window.present();
@@ -187,7 +215,7 @@ async function run() {
     }
     assert(hosted, 'GNOME preferences host loads prefs.js and its schema');
     await evaluate("global.get_window_actors().filter(a => a.meta_window.get_title() === 'Smooth Scroll').forEach(a => a.meta_window.delete(global.get_current_time())); true");
-    print('GTK pages, rule editors, live GSettings, actual Shell window picking, click capture, nested editors, Escape, close, disable/re-enable and GNOME preferences hosting passed.');
+    print('Fullscreen direct mode OSD, GTK pages, rule editors, live GSettings, actual Shell window picking, click capture, nested editors, Escape, close, disable/re-enable and GNOME preferences hosting passed.');
 }
 run().catch(error => { logError(error); failure = true; }).finally(() => loop.quit());
 loop.run();

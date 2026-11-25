@@ -219,6 +219,10 @@
       <default>true</default>
       <summary>Stop inertia when leaving the window</summary>
     </key>
+    <key name="scroll-notify-direct-mode" type="b">
+      <default>true</default>
+      <summary>Show on-screen feedback when direct mode changes</summary>
+    </key>
     <key name="scroll-poll-interval-ms" type="d">
       <default>8</default>
       <summary>IPC poll interval (ms)</summary>

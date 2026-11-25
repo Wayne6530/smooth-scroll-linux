@@ -62,7 +62,8 @@ exception above a broader one. Other titles use the application's default profil
 ## Adjust scrolling behavior and indicators
 
 Open **Behavior** to control whether inertia stops when the pointer leaves a
-window. Open **Indicators** to adjust the appearance of the inertia dot, Free
+window. To hide the direct mode on-screen display, turn off **Show on-screen feedback when direct mode changes**.
+Open **Indicators** to adjust the appearance of the inertia dot, Free
 Spin ring, Drag View arrow, Auto Scroll marker or compatibility indicator.
 For example, change the Auto Scroll size to resize its marker (default **24 px**).
 Changes on these pages apply immediately. Use the reset button beside a group
