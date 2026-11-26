@@ -1,0 +1,337 @@
+# Chinese (Simplified) translation for the Smooth Scroll KWin effect.
+msgid ""
+msgstr ""
+"Project-Id-Version: smooth-scroll-kwin-effect\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2026-11-27 00:00+0800\n"
+"Last-Translator: Smooth Scroll Linux\n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Contains"
+msgstr "包含"
+
+msgid "Equals"
+msgstr "等于"
+
+msgid "Starts with"
+msgstr "开头为"
+
+msgid "Ends with"
+msgstr "结尾为"
+
+msgid "Regular expression"
+msgstr "正则表达式"
+
+msgid "Application / title exception"
+msgstr "应用程序 / 标题例外"
+
+msgid "Profile ID"
+msgstr "配置方案 ID"
+
+msgid "Select window…"
+msgstr "选择窗口…"
+
+msgid "Add title…"
+msgstr "添加标题…"
+
+msgid "Edit title…"
+msgstr "编辑标题…"
+
+msgid "Remove"
+msgstr "删除"
+
+msgid "Up"
+msgstr "上移"
+
+msgid "Down"
+msgstr "下移"
+
+msgid "Select window"
+msgstr "选择窗口"
+
+msgid "Select a regular application window."
+msgstr "请选择一个普通应用程序窗口。"
+
+msgid "Enable the Smooth Scroll desktop effect to select windows."
+msgstr "请启用 Smooth Scroll 桌面特效以选择窗口。"
+
+msgid "Window title exception"
+msgstr "窗口标题例外"
+
+msgid "Match method"
+msgstr "匹配方式"
+
+msgid "From window…"
+msgstr "从窗口获取…"
+
+msgid "Title text"
+msgstr "标题文本"
+
+msgid "Ignore case"
+msgstr "忽略大小写"
+
+msgid "Select a window of this application."
+msgstr "请选择此应用程序的一个窗口。"
+
+msgid "Save my changes"
+msgstr "保存我的更改"
+
+msgid "Retry"
+msgstr "重试"
+
+msgid "Discard my changes"
+msgstr "放弃我的更改"
+
+msgid "Saving keeps your edits and other changes to untouched settings. If you edited application rules, your rule list replaces the saved list."
+msgstr "保存会保留你的编辑，以及未修改设置上的其他更改。如果你编辑了应用程序规则，你的规则列表将替换已保存的列表。"
+
+msgid "Target"
+msgstr "目标"
+
+msgid "Override Shell profile"
+msgstr "覆盖 Shell 配置方案"
+
+msgid "Application rules"
+msgstr "应用程序规则"
+
+msgid "Use the numeric profile IDs from the Web configurator."
+msgstr "请使用 Web 配置器中的数字配置方案 ID。"
+
+msgid "Reading profile status…"
+msgstr "正在读取配置方案状态…"
+
+msgid "Default application profile"
+msgstr "默认应用程序配置方案"
+
+msgid "Saved application rules could not be read. Other settings can still be saved."
+msgstr "无法读取已保存的应用程序规则。其他设置仍可保存。"
+
+msgid "Desktop and effects"
+msgstr "桌面与特效"
+
+msgid "Shell profile ID"
+msgstr "Shell 配置方案 ID"
+
+msgid "Window type"
+msgstr "窗口类型"
+
+msgid "Active effect"
+msgstr "活动特效"
+
+msgid "Behavior"
+msgstr "行为"
+
+msgid "Indicators"
+msgstr "指示器"
+
+msgid "Drag View arrow"
+msgstr "拖动视图箭头"
+
+msgid "Inertia dot"
+msgstr "惯性圆点"
+
+msgid "Scrolling"
+msgstr "滚动"
+
+msgid "Compatibility indicator"
+msgstr "兼容性指示器"
+
+msgid "Enable the Smooth Scroll effect for window selection and live status."
+msgstr "启用 Smooth Scroll 特效以选择窗口并显示实时状态。"
+
+msgid "Daemon or input device unavailable"
+msgstr "守护进程或输入设备不可用"
+
+msgid "Requested: %1    Active: %2"
+msgstr "请求：%1    活动：%2"
+
+msgid "Not yet applied"
+msgstr "尚未应用"
+
+msgid "no regular application window under cursor"
+msgstr "光标下没有普通应用程序窗口"
+
+msgid "the window does not expose a usable app or class id"
+msgstr "该窗口未提供可用的应用或类标识"
+
+msgid "saved application rules could not be read"
+msgstr "无法读取已保存的应用程序规则"
+
+msgid "the window title is empty; use includeTitle=false"
+msgstr "窗口标题为空；请使用 includeTitle=false"
+
+msgid "Added title override"
+msgstr "已添加标题例外"
+
+msgid "Updated"
+msgstr "已更新"
+
+msgid "Added"
+msgstr "已添加"
+
+msgid "Direct mode on"
+msgstr "直接模式已开启"
+
+msgid "Direct mode off"
+msgstr "直接模式已关闭"
+
+msgid "Enabled"
+msgstr "启用"
+
+msgid "Offset x (px)"
+msgstr "X 偏移（像素）"
+
+msgid "Offset y (px)"
+msgstr "Y 偏移（像素）"
+
+msgid "Size (px)"
+msgstr "大小（像素）"
+
+msgid "Color"
+msgstr "颜色"
+
+msgid "Minimum opacity"
+msgstr "最小不透明度"
+
+msgid "Minimum opacity speed"
+msgstr "最小不透明度速度"
+
+msgid "Maximum opacity"
+msgstr "最大不透明度"
+
+msgid "Maximum opacity speed"
+msgstr "最大不透明度速度"
+
+msgid "Opacity"
+msgstr "不透明度"
+
+msgid "Ring gap (px)"
+msgstr "圆环间隙（像素）"
+
+msgid "Ring width (px)"
+msgstr "圆环宽度（像素）"
+
+msgid "Padding scale"
+msgstr "内边距比例"
+
+msgid "Min padding"
+msgstr "最小内边距"
+
+msgid "Head size scale"
+msgstr "箭头头部大小比例"
+
+msgid "Min head size"
+msgstr "最小头部大小"
+
+msgid "Line width scale"
+msgstr "线宽比例"
+
+msgid "Min line width"
+msgstr "最小线宽"
+
+msgid "Head width scale"
+msgstr "头部宽度比例"
+
+msgid "Dot color"
+msgstr "圆点颜色"
+
+msgid "Dot size (px)"
+msgstr "圆点大小（像素）"
+
+msgid "Stop inertia when leaving a window"
+msgstr "离开窗口时停止惯性"
+
+msgid "Notify when direct mode changes"
+msgstr "直接模式改变时通知"
+
+msgid "Polling interval (ms)"
+msgstr "轮询间隔（毫秒）"
+
+msgid "Another editor is saving. Try again."
+msgstr "另一个编辑器正在保存。请重试。"
+
+msgid "Settings changed in another window. Reload the settings before saving."
+msgstr "设置已在另一个窗口中更改。请在保存前重新加载设置。"
+
+msgid "Could not save the settings."
+msgstr "无法保存设置。"
+
+msgid "Desktop"
+msgstr "桌面"
+
+msgid "Dock"
+msgstr "停靠栏"
+
+msgid "Applet popup"
+msgstr "小程序弹出窗口"
+
+msgid "Menu"
+msgstr "菜单"
+
+msgid "Dropdown menu"
+msgstr "下拉菜单"
+
+msgid "Popup menu"
+msgstr "弹出菜单"
+
+msgid "Combo box"
+msgstr "组合框"
+
+msgid "Tooltip"
+msgstr "工具提示"
+
+msgid "Notification"
+msgstr "通知"
+
+msgid "Critical notification"
+msgstr "重要通知"
+
+msgid "On screen display"
+msgstr "屏幕显示"
+
+msgid "Lock screen"
+msgstr "锁屏"
+
+msgid "Input method"
+msgstr "输入法"
+
+msgid "Outline"
+msgstr "轮廓"
+
+msgid "Dnd icon"
+msgstr "拖放图标"
+
+msgid "Toolbar"
+msgstr "工具栏"
+
+msgid "Splash"
+msgstr "启动画面"
+
+msgid "Utility"
+msgstr "工具窗口"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Windowview"
+msgstr "窗口视图"
+
+msgid "Desktopgrid"
+msgstr "桌面网格"
+
+msgid "Presentwindows"
+msgstr "显示窗口"
+
+msgid "Presentwindows current"
+msgstr "显示当前窗口"
+
+msgid "Presentwindows all"
+msgstr "显示所有窗口"

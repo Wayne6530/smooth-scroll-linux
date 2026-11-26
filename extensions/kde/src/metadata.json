@@ -9,8 +9,10 @@
     ],
     "Category": "Accessibility",
     "Description": "Switch scrolling profiles by window and show indicators near the pointer. Requires the Smooth Scroll Linux daemon.",
+    "Description[zh_CN]": "按窗口切换滚动配置方案，并在指针附近显示指示器。需要 Smooth Scroll Linux 守护进程。",
     "EnabledByDefault": false,
     "License": "MIT",
-    "Name": "Smooth Scroll"
+    "Name": "Smooth Scroll",
+    "Name[zh_CN]": "Smooth Scroll"
   }
 }

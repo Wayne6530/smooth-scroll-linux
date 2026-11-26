@@ -3,6 +3,7 @@
 #include "effect_settings.h"
 #include "rules_page.h"
 
+#include <KLocalizedString>
 #include <KCModule>
 #include <KPluginFactory>
 #include <QCheckBox>
@@ -58,11 +59,10 @@ public:
       const auto latest = readSettings();
       const bool conflict = latest != expected;
       QMessageBox warning(QMessageBox::Warning, "Smooth Scroll", error, QMessageBox::NoButton, widget());
-      auto* retry = warning.addButton(conflict ? "Save my changes" : "Retry", QMessageBox::AcceptRole);
-      auto* discard = warning.addButton("Discard my changes", QMessageBox::DestructiveRole);
+      auto* retry = warning.addButton(conflict ? i18nd("kwin_smooth_scroll", "Save my changes") : i18nd("kwin_smooth_scroll", "Retry"), QMessageBox::AcceptRole);
+      auto* discard = warning.addButton(i18nd("kwin_smooth_scroll", "Discard my changes"), QMessageBox::DestructiveRole);
       if (conflict)
-        warning.setInformativeText("Saving keeps your edits and other changes to untouched settings. "
-                                   "If you edited application rules, your rule list replaces the saved list.");
+        warning.setInformativeText(i18nd("kwin_smooth_scroll", "Saving keeps your edits and other changes to untouched settings. If you edited application rules, your rule list replaces the saved list."));
       warning.setDefaultButton(retry);
       warning.exec();
       if (warning.clickedButton() == discard)
@@ -119,11 +119,11 @@ private:
     auto* list = new QComboBox;
     for (const auto& name : names)
       list->addItem(displayKey(name), name);
-    form->addRow("Target", list);
-    auto* enabled = new QCheckBox("Override Shell profile");
+    form->addRow(i18nd("kwin_smooth_scroll", "Target"), list);
+    auto* enabled = new QCheckBox(i18nd("kwin_smooth_scroll", "Override Shell profile"));
     form->addRow(enabled);
     auto* id = profileSpin(0);
-    form->addRow("Profile ID", id);
+    form->addRow(i18nd("kwin_smooth_scroll", "Profile ID"), id);
     auto refresh = [=, this] {
       const auto map = draft.value(key).toObject();
       const auto name = list->currentData().toString();
@@ -157,22 +157,22 @@ private:
     const auto index = tabs->currentIndex();
     while (tabs->count())
       delete tabs->widget(0);
-    auto* main = page("Application rules");
-    auto* help = new QLabel("Use the numeric profile IDs from the Web configurator.");
+    auto* main = page(i18nd("kwin_smooth_scroll", "Application rules"));
+    auto* help = new QLabel(i18nd("kwin_smooth_scroll", "Use the numeric profile IDs from the Web configurator."));
     help->setWordWrap(true);
     main->addWidget(help);
-    status = new QLabel("Reading profile status…");
+    status = new QLabel(i18nd("kwin_smooth_scroll", "Reading profile status…"));
     main->addWidget(status);
     auto* defaults = new QFormLayout;
     main->addLayout(defaults);
-    profile(defaults, "Default application profile", "default_profile_id");
+    profile(defaults, i18nd("kwin_smooth_scroll", "Default application profile"), "default_profile_id");
     rules = new RulesPage;
     rules->defaultProfile = [this] { return draft.value("default_profile_id").toDouble(); };
     rules->setRules(draft.value("profile_rules").toArray());
     main->addWidget(rules);
     if (!draft.value("profile_rules").isArray())
     {
-      main->addWidget(new QLabel("Saved application rules could not be read. Other settings can still be saved."));
+      main->addWidget(new QLabel(i18nd("kwin_smooth_scroll", "Saved application rules could not be read. Other settings can still be saved.")));
       rules->setEnabled(false);
     }
     connect(rules, &RulesPage::edited, this, [this] {
@@ -180,20 +180,20 @@ private:
       changed();
     });
 
-    auto* shell = page("Desktop and effects");
+    auto* shell = page(i18nd("kwin_smooth_scroll", "Desktop and effects"));
     auto* form = new QFormLayout;
     shell->addLayout(form);
-    shellId = profile(form, "Shell profile ID", "shell_profile_id");
-    mapping(shell, "Window type", "window_type_profiles",
+    shellId = profile(form, i18nd("kwin_smooth_scroll", "Shell profile ID"), "shell_profile_id");
+    mapping(shell, i18nd("kwin_smooth_scroll", "Window type"), "window_type_profiles",
             { "desktop", "dock", "applet_popup", "menu", "dropdown_menu", "popup_menu", "combo_box", "tooltip",
               "notification", "critical_notification", "on_screen_display", "lock_screen", "input_method", "outline",
               "dnd_icon", "toolbar", "splash", "utility", "unknown" });
     mapping(
-        shell, "Active effect", "effect_profiles",
+        shell, i18nd("kwin_smooth_scroll", "Active effect"), "effect_profiles",
         { "overview", "windowview", "desktopgrid", "presentwindows", "presentwindows_current", "presentwindows_all" });
     shell->addStretch();
-    auto* behavior = page("Behavior");
-    auto* indicators = page("Indicators");
+    auto* behavior = page(i18nd("kwin_smooth_scroll", "Behavior"));
+    auto* indicators = page(i18nd("kwin_smooth_scroll", "Indicators"));
     QFormLayout* fields = nullptr;
     QString current;
     for (const auto& f : settingsFields())
@@ -201,10 +201,10 @@ private:
       if (f.group != current)
       {
         current = f.group;
-        const QMap<QString, QString> titles{ { "arrow", "Drag View arrow" },
-                                             { "dot", "Inertia dot" },
-                                             { "scroll", "Scrolling" },
-                                             { "passthrough", "Compatibility indicator" } };
+        const QMap<QString, QString> titles{ { "arrow", i18nd("kwin_smooth_scroll", "Drag View arrow") },
+                                             { "dot", i18nd("kwin_smooth_scroll", "Inertia dot") },
+                                             { "scroll", i18nd("kwin_smooth_scroll", "Scrolling") },
+                                             { "passthrough", i18nd("kwin_smooth_scroll", "Compatibility indicator") } };
         auto* group = new QGroupBox(titles.value(current, displayKey(current)));
         (current == "scroll" ? behavior : indicators)->addWidget(group);
         fields = new QFormLayout(group);
@@ -269,19 +269,18 @@ private:
       done->deleteLater();
       statusPending = false;
       if (reply.isError())
-        status->setText("Enable the Smooth Scroll effect for window selection and live status.");
+        status->setText(i18nd("kwin_smooth_scroll", "Enable the Smooth Scroll effect for window selection and live status."));
       else
       {
         const auto state = reply.value();
         if (!state.value("available").toBool())
-          status->setText("Daemon or input device unavailable");
+          status->setText(i18nd("kwin_smooth_scroll", "Daemon or input device unavailable"));
         else
         {
-          auto text = QStringLiteral("Requested: %1    Active: %2")
-                          .arg(state.value("requested").toUInt())
-                          .arg(state.value("active").toUInt());
+          auto text = i18nd("kwin_smooth_scroll", "Requested: %1    Active: %2", state.value("requested").toUInt(),
+                            state.value("active").toUInt());
           if (state.value("requested") != state.value("active"))
-            text += QStringLiteral("    Not yet applied");
+            text += QStringLiteral("    ") + i18nd("kwin_smooth_scroll", "Not yet applied");
           status->setText(text);
         }
       }

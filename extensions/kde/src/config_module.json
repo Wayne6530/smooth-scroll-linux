@@ -1,6 +1,8 @@
 {
   "KPlugin": {
     "Name": "Smooth Scroll",
-    "Description": "Configure scrolling profiles, behavior and pointer indicators"
+    "Name[zh_CN]": "Smooth Scroll",
+    "Description": "Configure scrolling profiles, behavior and pointer indicators",
+    "Description[zh_CN]": "配置滚动配置方案、行为和指针指示器"
   }
 }
