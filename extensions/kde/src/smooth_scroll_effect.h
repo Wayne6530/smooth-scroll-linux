@@ -10,6 +10,17 @@
 
 #include <effect/effect.h>
 
+#include <QRegion>
+
+#if SMOOTH_SCROLL_KWIN_LEGACY_OUTPUT
+// KWin before 6.6 passes a plain QRegion and exposes the Output type directly.
+using SmoothScrollRegion = QRegion;
+using SmoothScrollOutput = KWin::Output;
+#else
+using SmoothScrollRegion = KWin::Region;
+using SmoothScrollOutput = KWin::LogicalOutput;
+#endif
+
 #include <QRegularExpression>
 #include <QTimer>
 #include <QVariantMap>
@@ -76,7 +87,7 @@ public:
 #if !SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
   void prePaintScreen(KWin::ScreenPrePaintData& data, std::chrono::milliseconds presentTime) override;
   void paintScreen(const KWin::RenderTarget& renderTarget, const KWin::RenderViewport& viewport, int mask,
-                   const KWin::Region& deviceRegion, KWin::LogicalOutput* screen) override;
+                   const SmoothScrollRegion& deviceRegion, SmoothScrollOutput* screen) override;
 #endif
   bool isActive() const override;
   void reconfigure(ReconfigureFlags flags) override;

@@ -46,9 +46,10 @@ int main(int argc, char** argv)
   view->setCurrentItem(firstTitle);
   auto* spin = qobject_cast<QDoubleSpinBox*>(view->itemWidget(firstTitle, 1));
   spin->setValue(4294967295.);
-  for (auto* b : module->widget()->findChildren<QPushButton*>())
-    if (b->text() == QStringLiteral("Down"))
-      b->click();
+  if (auto* moveDown = module->widget()->findChild<QPushButton*>(QStringLiteral("moveDown")))
+    moveDown->click();
+  else
+    qFatal("Missing move-down button");
   if (readSettings() != initial)
     qFatal("Draft leaked before Apply");
   auto concurrent = initial;
@@ -59,7 +60,7 @@ int main(int argc, char** argv)
     auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
     if (box)
       for (auto* button : box->buttons())
-        if (button->text() == "Save my changes")
+        if (box->buttonRole(button) == QMessageBox::AcceptRole)
         {
           button->click();
           return;

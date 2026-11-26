@@ -4,6 +4,8 @@
 #include "smooth_scroll_effect.h"
 #include "effect_settings.h"
 
+#include <KLocalizedString>
+
 #include <core/output.h>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
@@ -303,7 +305,7 @@ void SmoothScrollEffect::prePaintScreen(KWin::ScreenPrePaintData& data, std::chr
 }
 
 void SmoothScrollEffect::paintScreen(const KWin::RenderTarget& renderTarget, const KWin::RenderViewport& viewport,
-                                     int mask, const KWin::Region& deviceRegion, KWin::LogicalOutput* screen)
+                                     int mask, const SmoothScrollRegion& deviceRegion, SmoothScrollOutput* screen)
 {
   KWin::effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 
@@ -405,14 +407,14 @@ QString SmoothScrollEffect::suggestedProfileRuleForCurrentWindow(uint profileId,
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
   {
-    return QStringLiteral("ERROR: no regular application window under cursor");
+    return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "no regular application window under cursor");
   }
 
   const WindowInfo info = infoForWindow(window);
   const QJsonObject rule = makeRuleObject(info, profileId, includeTitle, m_config.defaultProfileId);
   if (rule.isEmpty())
   {
-    return QStringLiteral("ERROR: the window does not expose a usable app or class id");
+    return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "the window does not expose a usable app or class id");
   }
 
   return indentedJson(rule);
@@ -423,19 +425,19 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId, bool 
   KWin::EffectWindow* window = windowAt(KWin::effects->cursorPos());
   if (!isRegularApplicationWindow(window))
   {
-    return QStringLiteral("ERROR: no regular application window under cursor");
+    return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "no regular application window under cursor");
   }
 
   const WindowInfo info = infoForWindow(window);
   const RuleMatcher matcher = ruleMatcherForInfo(info);
   if (matcher.key.isEmpty())
   {
-    return QStringLiteral("ERROR: the window does not expose a usable app or class id");
+    return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "the window does not expose a usable app or class id");
   }
 
   const auto baseline = readSettings();
   if (!baseline.value("profile_rules").isArray())
-    return QStringLiteral("ERROR: saved application rules could not be read");
+    return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "saved application rules could not be read");
   auto root = baseline;
 
   QJsonArray rules = root.value(QStringLiteral("profile_rules")).toArray();
@@ -452,7 +454,7 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId, bool 
   {
     if (info.title.isEmpty())
     {
-      return QStringLiteral("ERROR: the window title is empty; use includeTitle=false");
+      return QStringLiteral("ERROR: ") + i18nd("kwin_smooth_scroll", "the window title is empty; use includeTitle=false");
     }
     if (!rule.contains(QStringLiteral("profile_id")))
     {
@@ -483,9 +485,7 @@ QString SmoothScrollEffect::setProfileRuleForCurrentWindow(uint profileId, bool 
   applyOverlayConfig();
   applyTimerInterval();
 
-  const QString action = ruleExists ? (includeTitle && !titleRuleUpdated ? QStringLiteral("Added title override") :
-                                                                           QStringLiteral("Updated")) :
-                                      QStringLiteral("Added");
+  const QString action = ruleExists ? (includeTitle && !titleRuleUpdated ? i18nd("kwin_smooth_scroll", "Added title override") : i18nd("kwin_smooth_scroll", "Updated")) : i18nd("kwin_smooth_scroll", "Added");
   return QStringLiteral("%1 %2=%3 profile_id=%4\n%5")
       .arg(action, matcher.key, matcher.value, QString::number(profileId), compactJson(rule));
 }
@@ -512,7 +512,7 @@ void SmoothScrollEffect::tick()
                                                   QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("Notify"));
     const QVariantMap hints{ { QStringLiteral("transient"), true }, { QStringLiteral("suppress-sound"), true } };
     message << QStringLiteral("Smooth Scroll") << 0u << QStringLiteral("input-mouse") << QStringLiteral("Smooth Scroll")
-            << (snapshot.directMode ? tr("Direct mode on") : tr("Direct mode off")) << QStringList{} << hints
+            << (snapshot.directMode ? i18nd("kwin_smooth_scroll", "Direct mode on") : i18nd("kwin_smooth_scroll", "Direct mode off")) << QStringList{} << hints
             << 2000;
     QDBusConnection::sessionBus().asyncCall(message);
   }
@@ -975,7 +975,7 @@ void SmoothScrollEffect::updateOverlay(const IpcSnapshot& snapshot, const QPoint
   }
 
 #if SMOOTH_SCROLL_KWIN_6_7_OR_NEWER
-  const KWin::LogicalOutput* pointerOutput = KWin::effects->screenAt(pointer.toPoint());
+  const SmoothScrollOutput* pointerOutput = KWin::effects->screenAt(pointer.toPoint());
   const qreal pointerDevicePixelRatio = pointerOutput ? pointerOutput->scale() : 1.0;
   if (m_overlayDevicePixelRatio > 0.0 && !qFuzzyCompare(m_overlayDevicePixelRatio, pointerDevicePixelRatio))
   {
@@ -1157,7 +1157,7 @@ bool SmoothScrollEffect::syncViewDevicePixelRatio(KWin::OffscreenQuickView* view
     return false;
   }
 
-  const KWin::LogicalOutput* output = KWin::effects->screenAt(geometry.center());
+  const SmoothScrollOutput* output = KWin::effects->screenAt(geometry.center());
   const qreal devicePixelRatio = output ? output->scale() : 1.0;
   if (qFuzzyCompare(currentDevicePixelRatio, devicePixelRatio))
   {

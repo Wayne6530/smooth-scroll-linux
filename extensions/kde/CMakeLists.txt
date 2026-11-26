@@ -21,8 +21,9 @@ set(KDE_INSTALL_QTPLUGINDIR "${CMAKE_INSTALL_LIBDIR}/qt6/plugins" CACHE PATH "Qt
 set(KDE_INSTALL_PLUGINDIR "${KDE_INSTALL_QTPLUGINDIR}" CACHE PATH "KDE plugin install directory" FORCE)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Quick Widgets)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons Config KCMUtils WindowSystem)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons Config I18n KCMUtils WindowSystem)
 find_package(KWin REQUIRED)
+find_package(Gettext REQUIRED)
 
 if(KWin_VERSION VERSION_GREATER_EQUAL "6.7.0")
     set(SMOOTH_SCROLL_KWIN_6_7_OR_NEWER 1)
@@ -30,11 +31,19 @@ else()
     set(SMOOTH_SCROLL_KWIN_6_7_OR_NEWER 0)
 endif()
 
+# KWin 6.4 renamed Output to LogicalOutput; KWin 6.6 replaced QRegion with
+# KWin::Region on the effect paint path. Older releases need the classic types.
+if(KWin_VERSION VERSION_LESS "6.6.0")
+    set(SMOOTH_SCROLL_KWIN_LEGACY_OUTPUT 1)
+else()
+    set(SMOOTH_SCROLL_KWIN_LEGACY_OUTPUT 0)
+endif()
+
 set(KWIN_QT_PLUGIN_DIR "${CMAKE_INSTALL_LIBDIR}/qt6/plugins")
 
 add_library(smooth_scroll_settings STATIC src/effect_settings.cpp)
 set_target_properties(smooth_scroll_settings PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(smooth_scroll_settings PUBLIC KF6::ConfigCore Qt6::Core)
+target_link_libraries(smooth_scroll_settings PUBLIC KF6::ConfigCore KF6::I18n Qt6::Core)
 
 add_library(kwin_smooth_scroll MODULE
     src/ipc_client.cpp
@@ -56,6 +65,7 @@ target_include_directories(kwin_smooth_scroll
 target_compile_definitions(kwin_smooth_scroll
     PRIVATE
         SMOOTH_SCROLL_KWIN_6_7_OR_NEWER=${SMOOTH_SCROLL_KWIN_6_7_OR_NEWER}
+        SMOOTH_SCROLL_KWIN_LEGACY_OUTPUT=${SMOOTH_SCROLL_KWIN_LEGACY_OUTPUT}
 )
 
 target_link_libraries(kwin_smooth_scroll
@@ -68,6 +78,7 @@ target_link_libraries(kwin_smooth_scroll
         Qt6::Quick
         KF6::CoreAddons
         KF6::ConfigCore
+        KF6::I18n
         KF6::WindowSystem
 )
 
@@ -84,7 +95,7 @@ install(TARGETS kwin_smooth_scroll_config
     LIBRARY DESTINATION "${KWIN_QT_PLUGIN_DIR}/kwin/effects/configs"
 )
 target_link_libraries(kwin_smooth_scroll_config PRIVATE smooth_scroll_settings
-    KF6::KCMUtils Qt6::Widgets Qt6::DBus)
+    KF6::I18n KF6::KCMUtils Qt6::Widgets Qt6::DBus)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -109,3 +120,6 @@ if(BUILD_TESTING)
     target_link_libraries(shell_profiles_test PRIVATE Qt6::Core)
     add_test(NAME kde_shell_profiles COMMAND shell_profiles_test)
 endif()
+
+include(${KF6I18n_DIR}/KF6I18nMacros.cmake)
+ki18n_install(po)

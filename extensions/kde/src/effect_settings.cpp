@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "effect_settings.h"
+#include <KLocalizedString>
 #include <KConfig>
 #include <KConfigGroup>
 #include <QLockFile>
@@ -12,54 +13,54 @@ namespace SmoothScrollKWin
 const QList<Field>& settingsFields()
 {
   static const QList<Field> fields = {
-    { "dot", "enabled", "Enabled", true },
-    { "dot", "offset_x", "Offset x (px)", 12, -10000, 10000 },
-    { "dot", "offset_y", "Offset y (px)", 0, -10000, 10000 },
-    { "dot", "size", "Size (px)", 8, 1, 512 },
-    { "dot", "color", "Color", QStringLiteral("#4ea1ff") },
-    { "dot", "min_alpha", "Minimum opacity", 0.16, 0.0, 1.0 },
-    { "dot", "min_alpha_speed", "Minimum opacity speed", 100, 0, 65535 },
-    { "dot", "max_alpha", "Maximum opacity", 0.9, 0.0, 1.0 },
-    { "dot", "max_alpha_speed", "Maximum opacity speed", 3200, 0, 65535 },
-    { "free_spin", "enabled", "Enabled", true },
-    { "free_spin", "color", "Color", QStringLiteral("#4ea1ff") },
-    { "free_spin", "alpha", "Opacity", 0.9, 0.0, 1.0 },
-    { "free_spin", "ring_gap", "Ring gap (px)", 1, 0, 32 },
-    { "free_spin", "ring_width", "Ring width (px)", 2, 1, 16 },
-    { "arrow", "enabled", "Enabled", true },
-    { "arrow", "offset_x", "Offset x (px)", 12, -10000, 10000 },
-    { "arrow", "offset_y", "Offset y (px)", 0, -10000, 10000 },
-    { "arrow", "size", "Size (px)", 22, 1, 512 },
-    { "arrow", "color", "Color", QStringLiteral("#4ea1ff") },
-    { "arrow", "alpha", "Opacity", 0.9, 0.0, 1.0 },
-    { "arrow", "padding_scale", "Padding scale", 0.12, 0.0, 1.0 },
-    { "arrow", "min_padding", "Min padding", 2, 0, 512 },
-    { "arrow", "head_size_scale", "Head size scale", 0.18, 0.0, 1.0 },
-    { "arrow", "min_head_size", "Min head size", 3, 0, 512 },
-    { "arrow", "line_width_scale", "Line width scale", 0.08, 0.0, 1.0 },
-    { "arrow", "min_line_width", "Min line width", 1, 0, 512 },
-    { "arrow", "head_width_scale", "Head width scale", 0.5, 0.0, 4.0 },
-    { "auto_scroll", "enabled", "Enabled", true },
-    { "auto_scroll", "offset_x", "Offset x (px)", 12, -256, 256 },
-    { "auto_scroll", "offset_y", "Offset y (px)", 0, -256, 256 },
-    { "auto_scroll", "size", "Size (px)", 24, 20, 256 },
-    { "auto_scroll", "color", "Color", QStringLiteral("#cbd5e1") },
-    { "auto_scroll", "dot_color", "Dot color", QStringLiteral("#4ea1ff") },
-    { "auto_scroll", "alpha", "Opacity", 0.95, 0.0, 1.0 },
-    { "auto_scroll", "dot_size", "Dot size (px)", 6, 2, 64 },
-    { "passthrough", "enabled", "Enabled", true },
-    { "passthrough", "offset_x", "Offset x (px)", 12, -10000, 10000 },
-    { "passthrough", "offset_y", "Offset y (px)", 0, -10000, 10000 },
-    { "passthrough", "size", "Size (px)", 12, 1, 512 },
-    { "passthrough", "padding_scale", "Padding scale", 0.22, 0.0, 1.0 },
-    { "passthrough", "min_padding", "Min padding", 3, 0, 512 },
-    { "passthrough", "line_width_scale", "Line width scale", 0.12, 0.0, 1.0 },
-    { "passthrough", "min_line_width", "Min line width", 2, 0, 512 },
-    { "passthrough", "color", "Color", QStringLiteral("#ff5c5c") },
-    { "passthrough", "alpha", "Opacity", 0.9, 0.0, 1.0 },
-    { "scroll", "stop_on_pointer_leave_window", "Stop inertia when leaving a window", true },
-    { "scroll", "notify_direct_mode", "Notify when direct mode changes", true },
-    { "scroll", "poll_interval_ms", "Polling interval (ms)", 4, 1, 1000 },
+    { "dot", "enabled", i18nd("kwin_smooth_scroll", "Enabled"), true },
+    { "dot", "offset_x", i18nd("kwin_smooth_scroll", "Offset x (px)"), 12, -10000, 10000 },
+    { "dot", "offset_y", i18nd("kwin_smooth_scroll", "Offset y (px)"), 0, -10000, 10000 },
+    { "dot", "size", i18nd("kwin_smooth_scroll", "Size (px)"), 8, 1, 512 },
+    { "dot", "color", i18nd("kwin_smooth_scroll", "Color"), QStringLiteral("#4ea1ff") },
+    { "dot", "min_alpha", i18nd("kwin_smooth_scroll", "Minimum opacity"), 0.16, 0.0, 1.0 },
+    { "dot", "min_alpha_speed", i18nd("kwin_smooth_scroll", "Minimum opacity speed"), 100, 0, 65535 },
+    { "dot", "max_alpha", i18nd("kwin_smooth_scroll", "Maximum opacity"), 0.9, 0.0, 1.0 },
+    { "dot", "max_alpha_speed", i18nd("kwin_smooth_scroll", "Maximum opacity speed"), 3200, 0, 65535 },
+    { "free_spin", "enabled", i18nd("kwin_smooth_scroll", "Enabled"), true },
+    { "free_spin", "color", i18nd("kwin_smooth_scroll", "Color"), QStringLiteral("#4ea1ff") },
+    { "free_spin", "alpha", i18nd("kwin_smooth_scroll", "Opacity"), 0.9, 0.0, 1.0 },
+    { "free_spin", "ring_gap", i18nd("kwin_smooth_scroll", "Ring gap (px)"), 1, 0, 32 },
+    { "free_spin", "ring_width", i18nd("kwin_smooth_scroll", "Ring width (px)"), 2, 1, 16 },
+    { "arrow", "enabled", i18nd("kwin_smooth_scroll", "Enabled"), true },
+    { "arrow", "offset_x", i18nd("kwin_smooth_scroll", "Offset x (px)"), 12, -10000, 10000 },
+    { "arrow", "offset_y", i18nd("kwin_smooth_scroll", "Offset y (px)"), 0, -10000, 10000 },
+    { "arrow", "size", i18nd("kwin_smooth_scroll", "Size (px)"), 22, 1, 512 },
+    { "arrow", "color", i18nd("kwin_smooth_scroll", "Color"), QStringLiteral("#4ea1ff") },
+    { "arrow", "alpha", i18nd("kwin_smooth_scroll", "Opacity"), 0.9, 0.0, 1.0 },
+    { "arrow", "padding_scale", i18nd("kwin_smooth_scroll", "Padding scale"), 0.12, 0.0, 1.0 },
+    { "arrow", "min_padding", i18nd("kwin_smooth_scroll", "Min padding"), 2, 0, 512 },
+    { "arrow", "head_size_scale", i18nd("kwin_smooth_scroll", "Head size scale"), 0.18, 0.0, 1.0 },
+    { "arrow", "min_head_size", i18nd("kwin_smooth_scroll", "Min head size"), 3, 0, 512 },
+    { "arrow", "line_width_scale", i18nd("kwin_smooth_scroll", "Line width scale"), 0.08, 0.0, 1.0 },
+    { "arrow", "min_line_width", i18nd("kwin_smooth_scroll", "Min line width"), 1, 0, 512 },
+    { "arrow", "head_width_scale", i18nd("kwin_smooth_scroll", "Head width scale"), 0.5, 0.0, 4.0 },
+    { "auto_scroll", "enabled", i18nd("kwin_smooth_scroll", "Enabled"), true },
+    { "auto_scroll", "offset_x", i18nd("kwin_smooth_scroll", "Offset x (px)"), 12, -256, 256 },
+    { "auto_scroll", "offset_y", i18nd("kwin_smooth_scroll", "Offset y (px)"), 0, -256, 256 },
+    { "auto_scroll", "size", i18nd("kwin_smooth_scroll", "Size (px)"), 24, 20, 256 },
+    { "auto_scroll", "color", i18nd("kwin_smooth_scroll", "Color"), QStringLiteral("#cbd5e1") },
+    { "auto_scroll", "dot_color", i18nd("kwin_smooth_scroll", "Dot color"), QStringLiteral("#4ea1ff") },
+    { "auto_scroll", "alpha", i18nd("kwin_smooth_scroll", "Opacity"), 0.95, 0.0, 1.0 },
+    { "auto_scroll", "dot_size", i18nd("kwin_smooth_scroll", "Dot size (px)"), 6, 2, 64 },
+    { "passthrough", "enabled", i18nd("kwin_smooth_scroll", "Enabled"), true },
+    { "passthrough", "offset_x", i18nd("kwin_smooth_scroll", "Offset x (px)"), 12, -10000, 10000 },
+    { "passthrough", "offset_y", i18nd("kwin_smooth_scroll", "Offset y (px)"), 0, -10000, 10000 },
+    { "passthrough", "size", i18nd("kwin_smooth_scroll", "Size (px)"), 12, 1, 512 },
+    { "passthrough", "padding_scale", i18nd("kwin_smooth_scroll", "Padding scale"), 0.22, 0.0, 1.0 },
+    { "passthrough", "min_padding", i18nd("kwin_smooth_scroll", "Min padding"), 3, 0, 512 },
+    { "passthrough", "line_width_scale", i18nd("kwin_smooth_scroll", "Line width scale"), 0.12, 0.0, 1.0 },
+    { "passthrough", "min_line_width", i18nd("kwin_smooth_scroll", "Min line width"), 2, 0, 512 },
+    { "passthrough", "color", i18nd("kwin_smooth_scroll", "Color"), QStringLiteral("#ff5c5c") },
+    { "passthrough", "alpha", i18nd("kwin_smooth_scroll", "Opacity"), 0.9, 0.0, 1.0 },
+    { "scroll", "stop_on_pointer_leave_window", i18nd("kwin_smooth_scroll", "Stop inertia when leaving a window"), true },
+    { "scroll", "notify_direct_mode", i18nd("kwin_smooth_scroll", "Notify when direct mode changes"), true },
+    { "scroll", "poll_interval_ms", i18nd("kwin_smooth_scroll", "Polling interval (ms)"), 4, 1, 1000 },
   };
   return fields;
 }
@@ -121,13 +122,13 @@ bool writeSettings(const QJsonObject& settings, const QJsonObject& baseline, QSt
   QLockFile lock(dir + "/" + settingsFile + ".edit-lock");
   if (!lock.tryLock())
   {
-    *error = QStringLiteral("Another editor is saving. Try again.");
+    *error = i18nd("kwin_smooth_scroll", "Another editor is saving. Try again.");
     return false;
   }
   KConfig config(settingsFile, KConfig::SimpleConfig);
   if (snapshot(&config) != baseline)
   {
-    *error = QStringLiteral("Settings changed in another window. Reload the settings before saving.");
+    *error = i18nd("kwin_smooth_scroll", "Settings changed in another window. Reload the settings before saving.");
     return false;
   }
   for (const auto& f : settingsFields())
@@ -149,7 +150,7 @@ bool writeSettings(const QJsonObject& settings, const QJsonObject& baseline, QSt
   }
   if (!config.sync())
   {
-    *error = QStringLiteral("Could not save the settings.");
+    *error = i18nd("kwin_smooth_scroll", "Could not save the settings.");
     return false;
   }
   return true;

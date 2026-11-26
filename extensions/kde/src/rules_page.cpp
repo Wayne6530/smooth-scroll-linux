@@ -3,6 +3,7 @@
 #include "config_ui.h"
 #include "effect_settings.h"
 
+#include <KLocalizedString>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDBusConnection>
@@ -24,10 +25,14 @@ namespace SmoothScrollKWin
 namespace
 {
 const QStringList modes{ "contains", "equals", "starts", "ends", "regex" };
-const QStringList labels{ "Contains", "Equals", "Starts with", "Ends with", "Regular expression" };
+QStringList ruleModeLabels()
+{
+  return { i18nd("kwin_smooth_scroll", "Contains"), i18nd("kwin_smooth_scroll", "Equals"), i18nd("kwin_smooth_scroll", "Starts with"), i18nd("kwin_smooth_scroll", "Ends with"), i18nd("kwin_smooth_scroll", "Regular expression") };
+}
 QString titleLabel(const QJsonObject& rule)
 {
-  return labels.value(modes.indexOf(rule.value("mode").toString("regex"))) + ": " + rule.value("title").toString();
+  return ruleModeLabels().value(modes.indexOf(rule.value("mode").toString("regex"))) + ": " +
+         rule.value("title").toString();
 }
 QJsonObject stored(QTreeWidgetItem* item)
 {
@@ -37,7 +42,7 @@ QJsonObject stored(QTreeWidgetItem* item)
 RulesPage::RulesPage(QWidget* parent) : QWidget(parent), tree(new QTreeWidget)
 {
   auto* layout = new QVBoxLayout(this);
-  tree->setHeaderLabels({ "Application / title exception", "Profile ID" });
+  tree->setHeaderLabels({ i18nd("kwin_smooth_scroll", "Application / title exception"), i18nd("kwin_smooth_scroll", "Profile ID") });
   tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
   tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
   layout->addWidget(tree);
@@ -48,12 +53,13 @@ RulesPage::RulesPage(QWidget* parent) : QWidget(parent), tree(new QTreeWidget)
     buttons->addWidget(b);
     return b;
   };
-  auto* add = button("Select window…");
-  auto* title = button("Add title…");
-  auto* edit = button("Edit title…");
-  auto* remove = button("Remove");
-  auto* up = button("Up");
-  auto* down = button("Down");
+  auto* add = button(i18nd("kwin_smooth_scroll", "Select window…"));
+  auto* title = button(i18nd("kwin_smooth_scroll", "Add title…"));
+  auto* edit = button(i18nd("kwin_smooth_scroll", "Edit title…"));
+  auto* remove = button(i18nd("kwin_smooth_scroll", "Remove"));
+  auto* up = button(i18nd("kwin_smooth_scroll", "Up"));
+  auto* down = button(i18nd("kwin_smooth_scroll", "Down"));
+  down->setObjectName(QStringLiteral("moveDown"));
   auto update = [=, this]() {
     auto* item = tree->currentItem();
     auto* parentItem = item ? item->parent() : nullptr;
@@ -193,7 +199,7 @@ void RulesPage::pick(QWidget* owner, std::function<void(QVariantMap)> selected)
     if (reply.isError())
     {
       if (!reply.error().name().contains("Cancel", Qt::CaseInsensitive))
-        QMessageBox::information(editor, "Select window", reply.error().message());
+        QMessageBox::information(editor, i18nd("kwin_smooth_scroll", "Select window"), reply.error().message());
       return;
     }
     auto call = effectCall("pickedWindow");
@@ -201,9 +207,8 @@ void RulesPage::pick(QWidget* owner, std::function<void(QVariantMap)> selected)
     QDBusReply<QVariantMap> result = QDBusConnection::sessionBus().call(call, QDBus::Block, 1500);
     if (!result.isValid() || result.value().isEmpty())
     {
-      QMessageBox::information(editor, "Select window",
-                               result.isValid() ? "Select a regular application window." :
-                                                  "Enable the Smooth Scroll desktop effect to select windows.");
+      QMessageBox::information(editor, i18nd("kwin_smooth_scroll", "Select window"),
+                               result.isValid() ? i18nd("kwin_smooth_scroll", "Select a regular application window.") : i18nd("kwin_smooth_scroll", "Enable the Smooth Scroll desktop effect to select windows."));
       return;
     }
     selected(result.value());
@@ -214,25 +219,25 @@ void RulesPage::titleDialog(QTreeWidgetItem* application, QTreeWidgetItem* excep
   const auto app = stored(application);
   const auto original = exception ? stored(exception) : QJsonObject();
   auto* dialog = new QDialog(window());
-  dialog->setWindowTitle("Window title exception");
+  dialog->setWindowTitle(i18nd("kwin_smooth_scroll", "Window title exception"));
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   auto* form = new QFormLayout(dialog);
   auto* mode = new QComboBox;
-  mode->addItems(labels);
+  mode->addItems(ruleModeLabels());
   mode->setCurrentIndex(modes.indexOf(original.value("mode").toString(exception ? "regex" : "contains")));
-  form->addRow("Match method", mode);
+  form->addRow(i18nd("kwin_smooth_scroll", "Match method"), mode);
   auto* text = new QLineEdit(original.value("title").toString());
   auto* line = new QHBoxLayout;
   line->addWidget(text);
-  auto* fromWindow = new QPushButton("From window…");
+  auto* fromWindow = new QPushButton(i18nd("kwin_smooth_scroll", "From window…"));
   line->addWidget(fromWindow);
-  form->addRow("Title text", line);
-  auto* insensitive = new QCheckBox("Ignore case");
+  form->addRow(i18nd("kwin_smooth_scroll", "Title text"), line);
+  auto* insensitive = new QCheckBox(i18nd("kwin_smooth_scroll", "Ignore case"));
   insensitive->setChecked(original.value("ignore_case").toBool());
   form->addRow(insensitive);
   auto* profile =
       profileSpin(qobject_cast<QDoubleSpinBox*>(tree->itemWidget(exception ? exception : application, 1))->value());
-  form->addRow("Profile ID", profile);
+  form->addRow(i18nd("kwin_smooth_scroll", "Profile ID"), profile);
   auto* error = new QLabel;
   error->setWordWrap(true);
   form->addRow(error);
@@ -256,7 +261,7 @@ void RulesPage::titleDialog(QTreeWidgetItem* application, QTreeWidgetItem* excep
       if (WindowIdentity::fromPick(info).matches(app.value("app").toString(), app.value("class").toString()))
         text->setText(info.value("title").toString());
       else
-        QMessageBox::information(dialog, "Select window", "Select a window of this application.");
+        QMessageBox::information(dialog, i18nd("kwin_smooth_scroll", "Select window"), i18nd("kwin_smooth_scroll", "Select a window of this application."));
     });
   });
   connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
