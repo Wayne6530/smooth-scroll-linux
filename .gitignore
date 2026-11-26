@@ -1,0 +1,34 @@
+# Build output
+/build/
+/build-*/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+Testing/
+*.o
+*.a
+*.so
+*.so.*
+*.mo
+
+# Qt / KDE generated files
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+.qmake.stash
+*.kdev4
+.cache/
+
+# Local tooling and editor state
+/.mnemon/
+/.idea/
+/.vscode/
+*.swp
+*~
+*.orig
+*.rej
