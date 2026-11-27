@@ -134,12 +134,14 @@ jobs:
     name: Deploy Web Configurator
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
     permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.retry.outputs.page_url || steps.final_retry.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -150,8 +152,36 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
+          name: ${{ env.PAGES_ARTIFACT }}
           path: web/
 
+      # Artifact discovery can lag behind upload (actions/deploy-pages#451).
       - name: Deploy to GitHub Pages
-        id: deployment
+        id: deploy
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
+
+      - name: Wait before retrying deployment
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 5
+
+      - name: Retry Pages deployment
+        id: retry
+        if: steps.deploy.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
+
+      - name: Wait before final deployment attempt
+        if: steps.retry.outcome == 'failure'
+        run: sleep 30
+
+      - name: Final Pages deployment attempt
+        id: final_retry
+        if: steps.retry.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
